@@ -170,10 +170,10 @@ The application manages settings via the `.env` file or the **In-Browser Admin P
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ADMIN_PASSWORD` | `admin1234` | Password for Admin Control Panel access |
-| `LLM_BASE_URL` | `https://9router.turkuler.tr/v1` | Base URL for OpenAI-compatible LLM provider |
-| `LLM_API_KEY` | `sk-...` | API Key for LLM provider service |
-| `LLM_MODEL` | `code_combo` | Target LLM model name |
+| `ADMIN_PASSWORD` | `change_this_to_your_secure_password` | Password for Admin Control Panel access |
+| `LLM_BASE_URL` | `https://api.your-llm-provider.com/v1` | Base URL for OpenAI-compatible LLM provider |
+| `LLM_API_KEY` | `your_api_key_here` | API Key for LLM provider service |
+| `LLM_MODEL` | `your_llm_model_name` | Target LLM model name |
 | `OUTPUT_LANGUAGE` | `TR` | Default report output language (`TR` or `EN`) |
 | `LLM_TIMEOUT` | `120` | Request timeout in seconds for LLM commentary calls |
 | `CRON_DELAY_SECONDS` | `15` | Waiting delay in seconds between sequential stock analyses in daily cron job |
