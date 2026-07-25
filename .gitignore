@@ -7,6 +7,7 @@
 # Internal Developer Notes, AI Agent Files & Test Payloads
 LLM_TEST_PAYLOAD.md
 test_llm_payload.json
+RELEASE_NOTES.md
 GEMINI.md
 SKILL.md
 references/
@@ -55,6 +56,5 @@ _workspace/
 .DS_Store
 Thumbs.db
 
-
-#others
-.agents/    
+# Workspace Skills & Subagent Rules
+.agents/

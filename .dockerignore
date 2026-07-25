@@ -16,6 +16,7 @@
 # Internal Developer Notes, AI Agent Instructions & Test Payloads
 LLM_TEST_PAYLOAD.md
 test_llm_payload.json
+RELEASE_NOTES.md
 GEMINI.md
 SKILL.md
 README.md
@@ -51,6 +52,5 @@ storage/*.sqlite
 storage/*.sqlite3
 _workspace/
 
-
-#others
-.agents/    
+# Workspace Skills & Subagent Rules
+.agents/
