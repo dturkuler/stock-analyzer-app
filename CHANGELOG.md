@@ -5,6 +5,18 @@ All notable changes to the Stock Analyzer Platform project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-07-26
+
+### 🛡️ Security
+- Sanitized environment configuration templates (`.env.example`) and public documentation to use generic placeholder URLs and credentials.
+- Embedded strict Security & Privacy directives into release skills preventing secret leaks and shielding internal `.gitignore` files.
+
+### 📖 Documentation
+- Translated UI button labels and modal descriptions in `README.md` to English i18n (`🔒 Admin Panel`, `⚡ Analyze`, `🚀 Run All`, `🗑️ Clear Logs`).
+- Added direct link to `CHANGELOG.md` in `README.md` navigation bar while keeping changelog details strictly isolated in `CHANGELOG.md`.
+
+---
+
 ## [1.2.0] - 2026-07-26
 
 ### ✨ Added

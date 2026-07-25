@@ -2,7 +2,7 @@
 
 # stock-analyzer-app
 
-[![Version](https://img.shields.io/badge/Version-1.2.0-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/Version-1.2.1-blue.svg)](VERSION)
 [![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
