@@ -14,6 +14,7 @@ import asyncio
 from typing import Optional
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Header
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -23,6 +24,14 @@ load_dotenv(APP_ENV_PATH)
 load_dotenv()
 
 app = FastAPI(title="Stock Research Platform & Password-Protected Admin Panel")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 REPORTS_DIR = os.path.join(BASE_DIR, "storage", "reports")
 LOGS_DIR = os.path.join(BASE_DIR, "storage", "logs")
@@ -1129,44 +1138,54 @@ def index():
             }
 
             async function loadTickers(targetTicker = null) {
-                const sel = document.getElementById('tickerSelect');
-                const previousTicker = targetTicker || (sel ? sel.value : null);
-                const res = await fetch('/api/tickers');
-                const tickers = await res.json();
-                sel.innerHTML = tickers.map(t => `<option value="${t}">${t}</option>`).join('');
-                if (previousTicker && tickers.includes(previousTicker)) {
-                    sel.value = previousTicker;
-                }
-                if (tickers.length > 0) {
-                    loadDates();
-                } else {
-                    document.getElementById('dateSelect').innerHTML = '';
-                    const frame = document.getElementById('contentFrame');
-                    frame.src = 'about:blank';
-                    frame.srcdoc = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                        <style>
-                            body { background:#0b0f19; color:#f3f4f6; font-family:'Inter', system-ui, -apple-system, sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0; text-align:center; padding:1.5rem; box-sizing:border-box; }
-                            .card { background:rgba(20,27,45,0.85); border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:3rem 2.5rem; max-width:540px; box-shadow:0 12px 35px rgba(0,0,0,0.6); backdrop-filter:blur(12px); }
-                            .icon { font-size:3rem; margin-bottom:1rem; }
-                            h2 { color:#06b6d4; margin-bottom:0.75rem; font-size:1.4rem; font-weight:700; }
-                            p { color:#9ca3af; line-height:1.6; margin-bottom:1.75rem; font-size:0.95rem; }
-                            .btn { background:linear-gradient(135deg, #06b6d4, #0284c7); color:#fff; border:none; padding:0.8rem 1.6rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.92rem; transition:transform 0.2s, box-shadow 0.2s; }
-                            .btn:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(6,182,212,0.4); }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="card">
-                            <div class="icon">🏛️</div>
-                            <h2>Stock Research Platform</h2>
-                            <p>Henüz oluşturulmuş bir rapor bulunmuyor. Üst sağdaki <strong>🔒 Yönetim Paneli</strong> butonuna tıklayarak <strong>'⚡ Analiz Et'</strong> veya <strong>'🚀 Tüm Aktif Hisseleri Çalıştır (Batch Run)'</strong> butonu ile ilk raporlarınızı oluşturabilirsiniz.</p>
-                            <button class="btn" onclick="window.parent.triggerAdminModal()">🔒 Yönetim Panelini Aç (Admin Panel)</button>
-                        </div>
-                    </body>
-                    </html>`;
+                try {
+                    const sel = document.getElementById('tickerSelect');
+                    if (!sel) return;
+                    const previousTicker = targetTicker || sel.value;
+                    const res = await fetch('/api/tickers');
+                    if (!res.ok) return;
+                    const tickers = await res.json();
+                    if (!Array.isArray(tickers)) return;
+                    sel.innerHTML = tickers.map(t => `<option value="${t}">${t}</option>`).join('');
+                    if (previousTicker && tickers.includes(previousTicker)) {
+                        sel.value = previousTicker;
+                    }
+                    if (tickers.length > 0) {
+                        await loadDates();
+                    } else {
+                        const dateSel = document.getElementById('dateSelect');
+                        if (dateSel) dateSel.innerHTML = '';
+                        const frame = document.getElementById('contentFrame');
+                        if (frame) {
+                            frame.src = 'about:blank';
+                            frame.srcdoc = `
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                                <meta charset="UTF-8">
+                                <style>
+                                    body { background:#0b0f19; color:#f3f4f6; font-family:'Inter', system-ui, -apple-system, sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0; text-align:center; padding:1.5rem; box-sizing:border-box; }
+                                    .card { background:rgba(20,27,45,0.85); border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:3rem 2.5rem; max-width:540px; box-shadow:0 12px 35px rgba(0,0,0,0.6); backdrop-filter:blur(12px); }
+                                    .icon { font-size:3rem; margin-bottom:1rem; }
+                                    h2 { color:#06b6d4; margin-bottom:0.75rem; font-size:1.4rem; font-weight:700; }
+                                    p { color:#9ca3af; line-height:1.6; margin-bottom:1.75rem; font-size:0.95rem; }
+                                    .btn { background:linear-gradient(135deg, #06b6d4, #0284c7); color:#fff; border:none; padding:0.8rem 1.6rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.92rem; transition:transform 0.2s, box-shadow 0.2s; }
+                                    .btn:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(6,182,212,0.4); }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="card">
+                                    <div class="icon">🏛️</div>
+                                    <h2>Stock Research Platform</h2>
+                                    <p>Henüz oluşturulmuş bir rapor bulunmuyor. Üst sağdaki <strong>🔒 Yönetim Paneli</strong> butonuna tıklayarak <strong>'⚡ Analiz Et'</strong> veya <strong>'🚀 Tüm Aktif Hisseleri Çalıştır (Batch Run)'</strong> butonu ile ilk raporlarınızı oluşturabilirsiniz.</p>
+                                    <button class="btn" onclick="window.parent.triggerAdminModal()">🔒 Yönetim Panelini Aç (Admin Panel)</button>
+                                </div>
+                            </body>
+                            </html>`;
+                        }
+                    }
+                } catch(e) {
+                    console.error('Error loading tickers:', e);
                 }
             }
 
@@ -1176,21 +1195,39 @@ def index():
             }
 
             async function loadDates() {
-                const ticker = document.getElementById('tickerSelect').value;
-                if (!ticker) return;
-                const res = await fetch(`/api/dates/${ticker}`);
-                const dates = await res.json();
-                const sel = document.getElementById('dateSelect');
-                sel.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join('');
-                if (dates.length > 0) loadReport();
+                try {
+                    const selTicker = document.getElementById('tickerSelect');
+                    if (!selTicker) return;
+                    const ticker = selTicker.value;
+                    if (!ticker) return;
+                    const res = await fetch(`/api/dates/${encodeURIComponent(ticker)}`);
+                    if (!res.ok) return;
+                    const dates = await res.json();
+                    if (!Array.isArray(dates)) return;
+                    const sel = document.getElementById('dateSelect');
+                    if (!sel) return;
+                    sel.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join('');
+                    if (dates.length > 0) loadReport();
+                } catch(e) {
+                    console.error('Error loading dates:', e);
+                }
             }
 
             function loadReport() {
-                const ticker = document.getElementById('tickerSelect').value;
-                const date = document.getElementById('dateSelect').value;
-                const mode = document.getElementById('modeSelect').value;
-                if (ticker && date) {
-                    document.getElementById('contentFrame').src = `/api/reports/${ticker}/${date}?mode=${mode}`;
+                try {
+                    const selTicker = document.getElementById('tickerSelect');
+                    const selDate = document.getElementById('dateSelect');
+                    const selMode = document.getElementById('modeSelect');
+                    if (!selTicker || !selDate || !selMode) return;
+                    const ticker = selTicker.value;
+                    const date = selDate.value;
+                    const mode = selMode.value;
+                    if (ticker && date) {
+                        const frame = document.getElementById('contentFrame');
+                        if (frame) frame.src = `/api/reports/${encodeURIComponent(ticker)}/${encodeURIComponent(date)}?mode=${encodeURIComponent(mode)}`;
+                    }
+                } catch(e) {
+                    console.error('Error loading report:', e);
                 }
             }
 
@@ -1348,37 +1385,43 @@ def index():
             }
 
             async function fetchWatchlist() {
-                const t = UI_I18N[currentUiLang] || UI_I18N.TR;
-                const res = await fetch('/api/watchlist');
-                const data = await res.json();
-                const tbody = document.getElementById('watchlistTableBody');
-                if (!tbody) return;
-                tbody.innerHTML = data.map(item => {
-                    const lastRep = item.last_report;
-                    let repBadge = `<span class="tag-badge tag-amber">${t.no_report_badge}</span>`;
-                    if (lastRep) {
-                        const pScore = lastRep.piotroski_score !== null ? `${lastRep.piotroski_score}/9` : '-';
-                        const zScore = lastRep.altman_z !== null ? lastRep.altman_z.toFixed(1) : '-';
-                        repBadge = `<span class="tag-badge tag-green" style="cursor:pointer;" onclick="selectAndLoadReport('${item.ticker}')" title="${t.view_report_title}">📅 ${lastRep.report_date} (P:${pScore} | Z:${zScore}) 🔍</span>`;
-                    }
-                    const activeChecked = item.is_active ? 'checked' : '';
-                    return `
-                        <tr>
-                            <td><strong>${item.ticker}</strong></td>
-                            <td>${item.company_name || item.ticker}</td>
-                            <td><span class="tag-badge tag-amber">${item.lang}</span></td>
-                            <td>
-                                <input type="checkbox" ${activeChecked} onchange="toggleStockActive('${item.ticker}', this.checked)">
-                            </td>
-                            <td>${repBadge}</td>
-                            <td style="text-align:right; display:flex; gap:0.4rem; justify-content:flex-end;">
-                                <button class="btn btn-primary" onclick="reprocessSingle('${item.ticker}')" title="${t.single_analyze_title}">${t.btn_analyze}</button>
-                                <button class="btn" onclick="editStockPrompt('${item.ticker}', '${item.company_name || ''}', '${item.lang}')">${t.btn_edit}</button>
-                                <button class="btn btn-danger" onclick="deleteStock('${item.ticker}')">${t.btn_delete}</button>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
+                try {
+                    const t = UI_I18N[currentUiLang] || UI_I18N.TR;
+                    const res = await fetch('/api/watchlist');
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (!Array.isArray(data)) return;
+                    const tbody = document.getElementById('watchlistTableBody');
+                    if (!tbody) return;
+                    tbody.innerHTML = data.map(item => {
+                        const lastRep = item.last_report;
+                        let repBadge = `<span class="tag-badge tag-amber">${t.no_report_badge}</span>`;
+                        if (lastRep) {
+                            const pScore = lastRep.piotroski_score !== null ? `${lastRep.piotroski_score}/9` : '-';
+                            const zScore = lastRep.altman_z !== null ? lastRep.altman_z.toFixed(1) : '-';
+                            repBadge = `<span class="tag-badge tag-green" style="cursor:pointer;" onclick="selectAndLoadReport('${item.ticker}')" title="${t.view_report_title}">📅 ${lastRep.report_date} (P:${pScore} | Z:${zScore}) 🔍</span>`;
+                        }
+                        const activeChecked = item.is_active ? 'checked' : '';
+                        return `
+                            <tr>
+                                <td><strong>${item.ticker}</strong></td>
+                                <td>${item.company_name || item.ticker}</td>
+                                <td><span class="tag-badge tag-amber">${item.lang}</span></td>
+                                <td>
+                                    <input type="checkbox" ${activeChecked} onchange="toggleStockActive('${item.ticker}', this.checked)">
+                                </td>
+                                <td>${repBadge}</td>
+                                <td style="text-align:right; display:flex; gap:0.4rem; justify-content:flex-end;">
+                                    <button class="btn btn-primary" onclick="reprocessSingle('${item.ticker}')" title="${t.single_analyze_title}">${t.btn_analyze}</button>
+                                    <button class="btn" onclick="editStockPrompt('${item.ticker}', '${item.company_name || ''}', '${item.lang}')">${t.btn_edit}</button>
+                                    <button class="btn btn-danger" onclick="deleteStock('${item.ticker}')">${t.btn_delete}</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } catch(e) {
+                    console.error('Error fetching watchlist:', e);
+                }
             }
 
             async function createStock() {
@@ -1565,9 +1608,9 @@ def index():
                 box.scrollTop = box.scrollHeight;
             }
 
-            window.onload = function() {
+            window.onload = async function() {
+                await loadTickers();
                 setUiLanguage(currentUiLang);
-                loadTickers();
             };
         </script>
     </body>
