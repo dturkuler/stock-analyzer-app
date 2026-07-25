@@ -42,11 +42,11 @@ The app features a **Password-Protected Admin Control Panel** for managing watch
   - Web UI secured via `.env` `ADMIN_PASSWORD`.
   - Watchlist CRUD management (Add, edit, delete, activate/deactivate tickers).
   - In-Browser Environment Settings Editor for Admin Password, LLM Provider Base URL, API Key, Model Name, Output Language, LLM Timeout, and Cron Delay Seconds.
-  - Reprocessing controls for single stock (`⚡ Analiz Et`) or batch execution (`🚀 Tümünü Çalıştır`).
+  - Reprocessing controls for single stock (`⚡ Analyze`) or batch execution (`🚀 Run All`).
 - 📜 **System File Logging & Controls**:
   - Fixed 15-line console log window with custom vertical scrollbar.
   - Separate log tabs for `cron.log`, `analysis.log`, and `Live Execution`.
-  - **`🗑️ Logları Temizle`** button for instant log truncation on disk and in UI.
+  - **`🗑️ Clear Logs`** button for instant log truncation on disk and in UI.
 - 🐳 **Docker Ready**:
   - 100% self-contained containerized codebase with Docker Compose orchestration.
 
@@ -119,7 +119,7 @@ pip install -r requirements.txt 2>/dev/null || pip install fastapi uvicorn reque
 ```bash
 python -m uvicorn 3_web_server.main:app --host 0.0.0.0 --port 6031
 ```
-Open `http://localhost:6031` in your browser. Click **🔒 Yönetim Paneli** and log in with your `.env` password.
+Open `http://localhost:6031` in your browser. Click **🔒 Admin Panel** and log in with your `.env` password.
 
 ### 4. Running Single Stock Report CLI
 ```bash
