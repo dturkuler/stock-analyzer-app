@@ -775,7 +775,7 @@ def index():
                 <div class="brand">🏛️ Stock Research Platform</div>
                 <div class="control-group">
                     <label for="tickerFilter">🔍</label>
-                    <input type="text" id="tickerFilter" placeholder="Hisse Ara..." oninput="filterTickers(this.value)" style="width:110px; padding:0.35rem 0.5rem; font-size:0.8rem;">
+                    <input type="text" id="tickerFilter" data-i18n-ph="ph_search_ticker" placeholder="Hisse Ara..." oninput="filterTickers(this.value)" style="width:110px; padding:0.35rem 0.5rem; font-size:0.8rem;">
                 </div>
                 <div class="control-group">
                     <label for="tickerSelect">📈</label>
@@ -837,7 +837,7 @@ def index():
                             <div class="settings-grid">
                                 <div class="form-field">
                                     <label data-i18n="lbl_admin_pass">Yönetici Şifresi (ADMIN_PASSWORD):</label>
-                                    <input type="password" id="settingAdminPassword" placeholder="Yönetici şifresi">
+                                    <input type="password" id="settingAdminPassword" data-i18n-ph="ph_setting_admin_pass" placeholder="Yönetici şifresi">
                                 </div>
                                 <div class="form-field">
                                     <label data-i18n="lbl_output_lang">Varsayılan Rapor Dili (OUTPUT_LANGUAGE):</label>
@@ -848,23 +848,23 @@ def index():
                                 </div>
                                 <div class="form-field">
                                     <label data-i18n="lbl_llm_model">LLM Model Adı (LLM_MODEL):</label>
-                                    <input type="text" id="settingLlmModel" placeholder="Örn: code_combo, gpt-4o">
+                                    <input type="text" id="settingLlmModel" data-i18n-ph="ph_setting_llm_model" placeholder="Örn: code_combo, gpt-4o">
                                 </div>
                                 <div class="form-field">
                                     <label data-i18n="lbl_llm_url">LLM Provider Base URL (LLM_BASE_URL):</label>
-                                    <input type="text" id="settingLlmBaseUrl" placeholder="http://localhost:20128/v1">
+                                    <input type="text" id="settingLlmBaseUrl" data-i18n-ph="ph_setting_llm_url" placeholder="http://localhost:20128/v1">
                                 </div>
                                 <div class="form-field">
                                     <label data-i18n="lbl_cron_delay">Cron Hisseler Arası Bekleme (Saniye) (CRON_DELAY_SECONDS):</label>
-                                    <input type="number" id="settingCronDelaySeconds" placeholder="15">
+                                    <input type="number" id="settingCronDelaySeconds" data-i18n-ph="ph_setting_cron_delay" placeholder="15">
                                 </div>
                                 <div class="form-field">
                                     <label data-i18n="lbl_llm_timeout">LLM Zaman Aşımı (Saniye) (LLM_TIMEOUT):</label>
-                                    <input type="number" id="settingLlmTimeout" placeholder="120">
+                                    <input type="number" id="settingLlmTimeout" data-i18n-ph="ph_setting_llm_timeout" placeholder="120">
                                 </div>
                                 <div class="form-field" style="grid-column: span 2;">
                                     <label data-i18n="lbl_llm_key">LLM API Key (LLM_API_KEY):</label>
-                                    <input type="password" id="settingLlmApiKey" placeholder="sk-...">
+                                    <input type="password" id="settingLlmApiKey" data-i18n-ph="ph_setting_llm_key" placeholder="sk-...">
                                 </div>
                             </div>
                         </div>
@@ -976,6 +976,15 @@ def index():
                     lbl_llm_model: "LLM Model Adı (LLM_MODEL):",
                     lbl_llm_url: "LLM Provider Base URL (LLM_BASE_URL):",
                     lbl_llm_key: "LLM API Key (LLM_API_KEY):",
+                    lbl_cron_delay: "Cron Hisseler Arası Bekleme (Saniye) (CRON_DELAY_SECONDS):",
+                    lbl_llm_timeout: "LLM Zaman Aşımı (Saniye) (LLM_TIMEOUT):",
+                    ph_search_ticker: "Hisse Ara...",
+                    ph_setting_admin_pass: "Yönetici şifresi",
+                    ph_setting_llm_model: "Örn: code_combo, gpt-4o",
+                    ph_setting_llm_url: "http://localhost:20128/v1",
+                    ph_setting_llm_key: "sk-...",
+                    ph_setting_cron_delay: "15",
+                    ph_setting_llm_timeout: "120",
                     sec2_heading: "📜 Sistem, Cron Job & Analiz Logları",
                     btn_refresh_logs: "🔄 Logları Yenile",
                     btn_clear_logs: "🗑️ Logları Temizle",
@@ -1031,6 +1040,15 @@ def index():
                     lbl_llm_model: "LLM Model Name (LLM_MODEL):",
                     lbl_llm_url: "LLM Provider Base URL (LLM_BASE_URL):",
                     lbl_llm_key: "LLM API Key (LLM_API_KEY):",
+                    lbl_cron_delay: "Cron Delay Between Stocks (Seconds) (CRON_DELAY_SECONDS):",
+                    lbl_llm_timeout: "LLM Timeout (Seconds) (LLM_TIMEOUT):",
+                    ph_search_ticker: "Search Ticker...",
+                    ph_setting_admin_pass: "Admin Password",
+                    ph_setting_llm_model: "e.g. code_combo, gpt-4o",
+                    ph_setting_llm_url: "http://localhost:20128/v1",
+                    ph_setting_llm_key: "sk-...",
+                    ph_setting_cron_delay: "15",
+                    ph_setting_llm_timeout: "120",
                     sec2_heading: "📜 System, Cron Job & Analysis Logs",
                     btn_refresh_logs: "🔄 Refresh Logs",
                     btn_clear_logs: "🗑️ Clear Logs",
