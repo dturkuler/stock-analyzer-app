@@ -27,6 +27,9 @@ app = FastAPI(title="Stock Research Platform & Password-Protected Admin Panel")
 REPORTS_DIR = os.path.join(BASE_DIR, "storage", "reports")
 LOGS_DIR = os.path.join(BASE_DIR, "storage", "logs")
 DB_PATH = os.path.join(BASE_DIR, "storage", "app.db")
+WATCHLIST_PATH = os.path.join(BASE_DIR, "2_cron_scheduler", "watchlist.json")
+BUILDER_SCRIPT = os.path.join(BASE_DIR, "1_core_builder", "generate_report.py")
+SCHEDULER_SCRIPT = os.path.join(BASE_DIR, "2_cron_scheduler", "scheduler.py")
 VERSION_PATH = os.path.join(BASE_DIR, "VERSION")
 
 def get_app_version():
