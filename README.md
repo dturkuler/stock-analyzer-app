@@ -2,6 +2,7 @@
 
 # stock-analyzer-app
 
+[![Version](https://img.shields.io/badge/Version-1.2.0-blue.svg)](VERSION)
 [![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
@@ -47,8 +48,8 @@ The app features a **Password-Protected Admin Control Panel** for managing watch
   - Fixed 15-line console log window with custom vertical scrollbar.
   - Separate log tabs for `cron.log`, `analysis.log`, and `Live Execution`.
   - **`🗑️ Logları Temizle`** button for instant log truncation on disk and in UI.
-- 🐳 **Docker & Docker Release Pipeline**:
-  - 100% self-contained codebase with automated `./release.sh` deployment script for zero-downtime container updates and image pruning.
+- 🐳 **Docker & Release Pipeline**:
+  - 100% self-contained codebase with automated 7-step `/full-release` pipeline for zero-downtime container updates and image pruning.
 
 ---
 
@@ -70,13 +71,11 @@ graph TD
 
 ```text
 stock-analyzer-app/
-├── .env                    # Application environment configuration
-├── .dockerignore           # Excludes caches, venvs, and logs from Docker context
+├── .env.example            # Environment configuration template
+├── VERSION                 # Central application version file
+├── release.config.json     # Project release pipeline configuration
 ├── Dockerfile              # Container definition (Python 3.13-slim)
 ├── docker-compose.yml      # Orchestration for Web Server and Cron Scheduler
-├── release.sh              # Automated build, release, and image cleanup script
-├── LLM_TEST_PAYLOAD.md     # LLM provider testing & curl diagnostics guide
-├── test_llm_payload.json   # Sample test JSON payload for LLM completions
 ├── 1_core_builder/         # Standalone CLI Report Builder
 │   ├── generate_report.py  # Pipeline orchestrator
 │   ├── fetch_yfinance.py   # yfinance data sourcing & quantitative models
@@ -101,16 +100,21 @@ stock-analyzer-app/
 - Python 3.10+
 - pip
 
-### 2. Installation
+### 2. Installation & Setup
 ```bash
+# Clone the repository
+git clone https://github.com/dturkuler/stock-analyzer-app.git
 cd stock-analyzer-app
+
+# Create environment file from template
+cp .env.example .env
 
 # Create and activate virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install fastapi uvicorn requests yfinance pandas numpy apscheduler python-dotenv beautifulsoup4
+pip install -r requirements.txt 2>/dev/null || pip install fastapi uvicorn requests yfinance pandas numpy apscheduler python-dotenv beautifulsoup4
 ```
 
 ### 3. Running the Web Server & Admin Panel
@@ -137,7 +141,7 @@ python 2_cron_scheduler/scheduler.py
 To build the Docker image, restart running containers, and prune superseded images, execute:
 
 ```bash
-./release.sh
+bash .agents/skills/full-release/scripts/release.sh
 ```
 
 ### 2. Manual Docker Compose Deployment
