@@ -10,7 +10,7 @@
 
 **🏛️ Universal Global Equity Research Platform, Decoupled SPA Dashboard Viewer & Password-Protected Admin Panel**
 
-[Features](#-features) · [Quick Start](#-quick-start) · [Docker Deployment](#-docker-deployment) · [Environment Variables](#%EF%B8%8F-environment-variables) · [Architecture](#-architecture)
+[Features](#-features) · [Quick Start](#-quick-start) · [Docker Deployment](#-docker-deployment) · [Environment Variables](#%EF%B8%8F-environment-variables) · [Architecture](#-architecture) · [Changelog](CHANGELOG.md)
 
 </div>
 
