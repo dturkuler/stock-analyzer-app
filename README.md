@@ -56,14 +56,14 @@ The app features a **Password-Protected Admin Control Panel** for managing watch
 
 ```mermaid
 graph TD
-    A[FastAPI Web Server / SPA Viewer :6031] -->|SQLite Queries| B[storage/app.db Watchlist & Index]
-    C[APScheduler Cron Worker 18:30 TSI] -->|Executes Daily| D[1_core_builder/generate_report.py]
+    A["FastAPI Web Server / SPA Viewer :6031"] -->|SQLite Queries| B["storage/app.db Watchlist & Index"]
+    C["APScheduler Cron Worker 18:30 TSI"] -->|Executes Daily| D["1_core_builder/generate_report.py"]
     A -->|Reprocess API| D
-    D --> E[1_core_builder/fetch_yfinance.py Sourcing]
-    D --> F[LLM API / Fallback Commentary]
-    D --> G[1_core_builder/html_compiler.py]
-    G --> H[storage/reports/TICKER/YYYYMMDD.html]
-    G --> I[storage/reports/TICKER/YYYYMMDD_printable.html]
+    D --> E["1_core_builder/fetch_yfinance.py Sourcing"]
+    D --> F["LLM API / Fallback Commentary"]
+    D --> G["1_core_builder/html_compiler.py"]
+    G --> H["storage/reports/TICKER/YYYYMMDD.html"]
+    G --> I["storage/reports/TICKER/YYYYMMDD_printable.html"]
 ```
 
 ### 📂 Directory Structure
