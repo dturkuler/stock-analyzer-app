@@ -1608,10 +1608,16 @@ def index():
                 box.scrollTop = box.scrollHeight;
             }
 
-            window.onload = async function() {
-                await loadTickers();
+            function initApp() {
+                loadTickers();
                 setUiLanguage(currentUiLang);
-            };
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initApp);
+            } else {
+                initApp();
+            }
         </script>
     </body>
     </html>
