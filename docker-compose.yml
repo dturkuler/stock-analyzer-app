@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    image: stock-analyzer-app:latest
+    container_name: stock_web
+    restart: always
+    ports:
+      - "6031:6031"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    command: python -m uvicorn 3_web_server.main:app --host 0.0.0.0 --port 6031 --reload
+
+  scheduler:
+    build: .
+    image: stock-analyzer-app:latest
+    container_name: stock_scheduler
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    command: python 2_cron_scheduler/scheduler.py

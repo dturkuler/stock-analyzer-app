@@ -1,0 +1,56 @@
+# ======================================================================
+# Stock Analyzer Platform — .gitignore
+# Only application source code, tests, Docker configs, and public documentation are tracked.
+# Internal developer notes, AI agent instructions, and test payloads are strictly ignored.
+# ======================================================================
+
+# Internal Developer Notes, AI Agent Files & Test Payloads
+LLM_TEST_PAYLOAD.md
+test_llm_payload.json
+GEMINI.md
+SKILL.md
+references/
+.gemini_security/
+
+# Secrets & Environment Files
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+*.pem
+*.key
+
+# Python Virtual Environments & Compiled Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Dynamic Runtime Storage, Databases & Logs
+storage/logs/*.log
+storage/reports/*
+!storage/reports/.gitkeep
+!storage/logs/.gitkeep
+storage/*.db
+storage/*.sqlite
+storage/*.sqlite3
+_workspace/
+
+# Operating System & IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

@@ -1,0 +1,52 @@
+# ======================================================================
+# Stock Analyzer Platform — .dockerignore
+# Excludes non-runtime files, developer notes, test artifacts, docs, git metadata, and local state.
+# ======================================================================
+
+# Version Control & IDE Settings
+.git
+.gitignore
+.dockerignore
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Internal Developer Notes, AI Agent Instructions & Test Payloads
+LLM_TEST_PAYLOAD.md
+test_llm_payload.json
+GEMINI.md
+SKILL.md
+README.md
+references/
+.gemini_security/
+
+# Python Cache & Virtual Environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Environment Secrets (Managed via Docker Compose / Environment Variables)
+.env
+.env.local
+.env.development
+.env.production
+
+# Dynamic Storage Data & Logs (Persisted via Docker host volumes at runtime)
+storage/logs/*.log
+storage/reports/*
+!storage/reports/.gitkeep
+!storage/logs/.gitkeep
+storage/*.db
+storage/*.sqlite
+storage/*.sqlite3
+_workspace/
