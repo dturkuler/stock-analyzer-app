@@ -13,8 +13,11 @@ set -e
 
 # Default Configuration
 IMAGE_NAME="${DOCKER_IMAGE:-stock-analyzer-app}"
+if [ -f "VERSION" ]; then
+    VERSION_FROM_FILE=$(cat VERSION | tr -d '\r\n')
+fi
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-TAG="${VERSION_TAG:-$TIMESTAMP}"
+TAG="${VERSION_TAG:-${VERSION_FROM_FILE:-$TIMESTAMP}}"
 PUSH=false
 NO_CACHE=""
 

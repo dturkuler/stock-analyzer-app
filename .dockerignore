@@ -50,3 +50,7 @@ storage/*.db
 storage/*.sqlite
 storage/*.sqlite3
 _workspace/
+
+
+#others
+.agents/    

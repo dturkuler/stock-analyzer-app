@@ -54,3 +54,7 @@ _workspace/
 *~
 .DS_Store
 Thumbs.db
+
+
+#others
+.agents/    
