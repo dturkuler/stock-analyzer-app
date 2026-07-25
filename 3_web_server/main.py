@@ -757,6 +757,17 @@ def index():
                 table.admin-table { white-space: nowrap; min-width: 600px; }
             }
         </style>
+        <script>
+            function notifyIframeLanguage() {
+                try {
+                    const iframe = document.getElementById('contentFrame');
+                    if (iframe && iframe.contentWindow) {
+                        const lang = typeof currentUiLang !== 'undefined' ? currentUiLang : (localStorage.getItem('UI_LANG') || 'TR');
+                        iframe.contentWindow.postMessage({ type: 'CHANGE_UI_LANG', lang: lang }, '*');
+                    }
+                } catch(e) {}
+            }
+        </script>
     </head>
     <body>
         <header>
@@ -1587,7 +1598,7 @@ def index():
                     const res = await fetch(`/api/reprocess/status/${targetKey}`);
                     const data = await res.json();
                     if (data.log && data.log.length > 0) {
-                        document.getElementById('fileConsoleBox').innerText = data.log.join('\n');
+                        document.getElementById('fileConsoleBox').innerText = data.log.join(String.fromCharCode(10));
                         const box = document.getElementById('fileConsoleBox');
                         box.scrollTop = box.scrollHeight;
                     }
@@ -1604,7 +1615,7 @@ def index():
 
             function logConsole(msg) {
                 const box = document.getElementById('fileConsoleBox');
-                box.innerText += `\n${msg}`;
+                box.innerText += String.fromCharCode(10) + msg;
                 box.scrollTop = box.scrollHeight;
             }
 
