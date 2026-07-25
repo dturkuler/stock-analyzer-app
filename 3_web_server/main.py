@@ -910,29 +910,29 @@ def index():
         <div id="editStockModal" class="modal-backdrop">
             <div class="modal" style="max-width:480px;">
                 <div class="modal-header">
-                    <div class="modal-title" id="editStockModalTitle">✏️ Hisse Düzenle</div>
+                    <div class="modal-title" id="editStockModalTitle" data-i18n="edit_modal_title">✏️ Hisse Düzenle</div>
                     <button class="close-btn" onclick="closeEditStockModal()">&times;</button>
                 </div>
                 <div class="modal-body" style="gap:1rem;">
                     <input type="hidden" id="editStockTicker">
                     <div class="form-field">
-                        <label>Hisse Sembolü (Ticker):</label>
+                        <label data-i18n="edit_lbl_ticker">Hisse Sembolü (Ticker):</label>
                         <input type="text" id="editStockTickerDisplay" disabled style="opacity:0.75; font-weight:700;">
                     </div>
                     <div class="form-field">
-                        <label>Şirket Unvanı (Company Name):</label>
-                        <input type="text" id="editStockCompanyName" placeholder="Şirket unvanı giriniz">
+                        <label data-i18n="edit_lbl_company">Şirket Unvanı (Company Name):</label>
+                        <input type="text" id="editStockCompanyName" data-i18n-ph="edit_ph_company" placeholder="Şirket unvanı giriniz">
                     </div>
                     <div class="form-field">
-                        <label>Rapor Dili (Language):</label>
+                        <label data-i18n="edit_lbl_lang">Rapor Dili (Language):</label>
                         <select id="editStockLang">
                             <option value="TR">TR (Türkçe)</option>
                             <option value="EN">EN (English)</option>
                         </select>
                     </div>
                     <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.75rem;">
-                        <button class="btn" onclick="closeEditStockModal()">İptal</button>
-                        <button class="btn btn-primary" onclick="submitEditStock()">💾 Kaydet</button>
+                        <button class="btn" onclick="closeEditStockModal()" data-i18n="btn_cancel">İptal</button>
+                        <button class="btn btn-primary" onclick="submitEditStock()" data-i18n="btn_save">💾 Kaydet</button>
                     </div>
                 </div>
             </div>
@@ -980,6 +980,13 @@ def index():
                     btn_analyze: "⚡ Analiz Et",
                     btn_edit: "✏️ Düzenle",
                     btn_delete: "🗑️ Sil",
+                    edit_modal_title: "✏️ Hisse Düzenle",
+                    edit_lbl_ticker: "Hisse Sembolü (Ticker):",
+                    edit_lbl_company: "Şirket Unvanı (Company Name):",
+                    edit_ph_company: "Şirket unvanı giriniz",
+                    edit_lbl_lang: "Rapor Dili (Language):",
+                    btn_cancel: "İptal",
+                    btn_save: "💾 Kaydet",
                     view_report_title: "Raporu Görüntüle",
                     single_analyze_title: "Yalnızca bu seçili hisseyi analiz et",
                     prompt_company_name: "Yeni şirket unvanını giriniz:",
@@ -1028,6 +1035,13 @@ def index():
                     btn_analyze: "⚡ Analyze",
                     btn_edit: "✏️ Edit",
                     btn_delete: "🗑️ Delete",
+                    edit_modal_title: "✏️ Edit Stock Settings",
+                    edit_lbl_ticker: "Ticker Symbol:",
+                    edit_lbl_company: "Company Name:",
+                    edit_ph_company: "Enter company name",
+                    edit_lbl_lang: "Report Language:",
+                    btn_cancel: "Cancel",
+                    btn_save: "💾 Save",
                     view_report_title: "View Report",
                     single_analyze_title: "Analyze only this selected stock",
                     prompt_company_name: "Enter new company name for",
