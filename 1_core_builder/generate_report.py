@@ -172,10 +172,29 @@ if __name__ == "__main__":
         pass
 
     ticker_arg = sys.argv[1] if len(sys.argv) > 1 else "ODINE.IS"
-    default_lang = os.getenv("OUTPUT_LANGUAGE", "TR").upper()
-    lang_arg = default_lang
+    lang_arg = None
+
     if "--lang" in sys.argv:
         idx = sys.argv.index("--lang")
         if idx + 1 < len(sys.argv):
             lang_arg = sys.argv[idx + 1].upper()
+
+    if not lang_arg:
+        try:
+            import sqlite3
+            db_path = os.path.join(BASE_DIR, "storage", "app.db")
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                cur = conn.cursor()
+                cur.execute("SELECT lang FROM watchlist WHERE ticker = ?", (ticker_arg,))
+                row = cur.fetchone()
+                conn.close()
+                if row and row[0]:
+                    lang_arg = row[0].strip().upper()
+        except Exception as err:
+            log_analysis(f"⚠️ Watchlist language lookup notice: {err}")
+
+    if not lang_arg:
+        lang_arg = "TR"
+
     generate_report(ticker_arg, lang=lang_arg)

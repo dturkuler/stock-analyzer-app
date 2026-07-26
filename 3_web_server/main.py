@@ -162,7 +162,6 @@ class SettingsUpdate(BaseModel):
     NINEROUTER_URL: Optional[str] = None
     NINEROUTER_KEY: Optional[str] = None
     LLM_MODEL: Optional[str] = None
-    OUTPUT_LANGUAGE: Optional[str] = "TR"
     LLM_TIMEOUT: Optional[str] = "120"
     CRON_DELAY_SECONDS: Optional[str] = "15"
 
@@ -190,7 +189,6 @@ def get_app_settings(x_admin_password: Optional[str] = Header(None)):
         "LLM_BASE_URL": base_url,
         "LLM_API_KEY": api_key,
         "LLM_MODEL": os.getenv("LLM_MODEL", "code_combo"),
-        "OUTPUT_LANGUAGE": os.getenv("OUTPUT_LANGUAGE", "TR"),
         "LLM_TIMEOUT": os.getenv("LLM_TIMEOUT", "120"),
         "CRON_DELAY_SECONDS": os.getenv("CRON_DELAY_SECONDS", "15")
     }
@@ -221,8 +219,6 @@ def update_app_settings(settings: SettingsUpdate, x_admin_password: Optional[str
         env_data["LLM_API_KEY"] = api_key_val.strip()
     if settings.LLM_MODEL is not None and settings.LLM_MODEL.strip():
         env_data["LLM_MODEL"] = settings.LLM_MODEL.strip()
-    if settings.OUTPUT_LANGUAGE is not None and settings.OUTPUT_LANGUAGE.strip():
-        env_data["OUTPUT_LANGUAGE"] = settings.OUTPUT_LANGUAGE.strip().upper()
     if settings.LLM_TIMEOUT is not None and settings.LLM_TIMEOUT.strip():
         env_data["LLM_TIMEOUT"] = settings.LLM_TIMEOUT.strip()
     if settings.CRON_DELAY_SECONDS is not None and settings.CRON_DELAY_SECONDS.strip():
@@ -467,8 +463,7 @@ def reprocess_single_stock(ticker: str, background_tasks: BackgroundTasks, x_adm
     row = cur.fetchone()
     conn.close()
     
-    default_env_lang = os.getenv("OUTPUT_LANGUAGE", "TR")
-    lang = row[0] if row and row[0] else default_env_lang
+    lang = (row[0] if row and row[0] else "TR").strip().upper()
 
     background_tasks.add_task(run_single_report_background, ticker, lang)
     return {"message": f"Report generation queued for {ticker} (Lang: {lang}).", "status": "QUEUED"}
@@ -838,13 +833,6 @@ def index():
                                 <div class="form-field">
                                     <label data-i18n="lbl_admin_pass">Yönetici Şifresi (ADMIN_PASSWORD):</label>
                                     <input type="password" id="settingAdminPassword" data-i18n-ph="ph_setting_admin_pass" placeholder="Yönetici şifresi">
-                                </div>
-                                <div class="form-field">
-                                    <label data-i18n="lbl_output_lang">Varsayılan Rapor Dili (OUTPUT_LANGUAGE):</label>
-                                    <select id="settingOutputLanguage">
-                                        <option value="TR">TR (Türkçe)</option>
-                                        <option value="EN">EN (English)</option>
-                                    </select>
                                 </div>
                                 <div class="form-field">
                                     <label data-i18n="lbl_llm_model">LLM Model Adı (LLM_MODEL):</label>
@@ -1364,7 +1352,6 @@ def index():
                     document.getElementById('settingLlmModel').value = s.LLM_MODEL || '';
                     document.getElementById('settingLlmBaseUrl').value = s.LLM_BASE_URL || s.BASE_URL || s.NINEROUTER_URL || '';
                     document.getElementById('settingLlmApiKey').value = s.LLM_API_KEY || s.API_KEY || s.NINEROUTER_KEY || '';
-                    document.getElementById('settingOutputLanguage').value = s.OUTPUT_LANGUAGE || 'TR';
                     document.getElementById('settingCronDelaySeconds').value = s.CRON_DELAY_SECONDS || '15';
                     document.getElementById('settingLlmTimeout').value = s.LLM_TIMEOUT || '120';
                 }
@@ -1377,7 +1364,6 @@ def index():
                     LLM_MODEL: document.getElementById('settingLlmModel').value.trim(),
                     LLM_BASE_URL: document.getElementById('settingLlmBaseUrl').value.trim(),
                     LLM_API_KEY: document.getElementById('settingLlmApiKey').value.trim(),
-                    OUTPUT_LANGUAGE: document.getElementById('settingOutputLanguage').value,
                     CRON_DELAY_SECONDS: document.getElementById('settingCronDelaySeconds').value.trim(),
                     LLM_TIMEOUT: document.getElementById('settingLlmTimeout').value.trim()
                 };
