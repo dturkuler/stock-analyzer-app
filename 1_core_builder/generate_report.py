@@ -81,6 +81,14 @@ def generate_report(ticker, lang="TR"):
     with open(metrics_path, "r", encoding="utf-8") as f:
         metrics = json.load(f)
 
+    # Save persistent copy in report directory for Matrix lookup
+    report_metrics_path = os.path.join(storage_dir, "quant_metrics.json")
+    try:
+        import shutil
+        shutil.copyfile(metrics_path, report_metrics_path)
+    except Exception as e:
+        log_analysis(f"⚠️ Warning: Failed to copy metrics to report directory: {e}")
+
     # Sanity check ticker
     fetched_ticker = metrics.get("ticker")
     if fetched_ticker != ticker:

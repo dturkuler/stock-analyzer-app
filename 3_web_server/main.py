@@ -555,6 +555,132 @@ def generate_module13_blog(req: Module13Request):
     }
 
 
+@app.get("/api/v1/matrix")
+def get_stock_matrix(lang: str = "TR"):
+    lang = (lang or "TR").strip().upper()
+    workspace_dir = os.path.join(BASE_DIR, "storage", "_workspace")
+    reports_dir = os.path.join(BASE_DIR, "storage", "reports")
+
+    metric_files = {}
+
+    # 1. Scan storage/_workspace/
+    if os.path.exists(workspace_dir):
+        for fname in os.listdir(workspace_dir):
+            if fname.startswith("01_quant_metrics_") and fname.endswith(".json"):
+                ticker = fname.replace("01_quant_metrics_", "").replace(".json", "")
+                metric_files[ticker] = os.path.join(workspace_dir, fname)
+
+    # 2. Scan storage/reports/ directories for stored metrics or auto-fetch
+    if os.path.exists(reports_dir):
+        for t_dir in os.listdir(reports_dir):
+            t_path = os.path.join(reports_dir, t_dir)
+            if os.path.isdir(t_path):
+                ticker = t_dir
+                if ticker not in metric_files:
+                    quant_p1 = os.path.join(t_path, "quant_metrics.json")
+                    quant_p2 = os.path.join(t_path, f"01_quant_metrics_{ticker}.json")
+                    if os.path.exists(quant_p1):
+                        metric_files[ticker] = quant_p1
+                    elif os.path.exists(quant_p2):
+                        metric_files[ticker] = quant_p2
+                    else:
+                        try:
+                            sourcing_script = os.path.join(BASE_DIR, "1_core_builder", "fetch_yfinance.py")
+                            if os.path.exists(sourcing_script):
+                                out_p = os.path.join(t_path, "quant_metrics.json")
+                                python_exec = sys.executable
+                                subprocess.run([python_exec, sourcing_script, ticker, "--output", out_p, "--language", lang], check=False, timeout=15)
+                                if os.path.exists(out_p):
+                                    metric_files[ticker] = out_p
+                        except Exception as e:
+                            print(f"⚠️ Matrix auto-fetch error for {ticker}: {e}")
+
+    matrix_items = []
+    for ticker, fpath in sorted(metric_files.items()):
+        try:
+            with open(fpath, "r", encoding="utf-8") as f:
+                metrics = json.load(f)
+        except Exception:
+            continue
+
+        mi = metrics.get("market_info", {})
+        name = metrics.get("name") or ticker
+        price = mi.get("current_price", 0)
+        mcap = mi.get("market_cap", 0)
+        sma50 = mi.get("fifty_day_avg", price)
+
+        pf = metrics.get("piotroski_f_score", {})
+        pf_score = pf.get("score", 0)
+
+        az = metrics.get("altman_z_score", {})
+        z_score = az.get("z_score", 0)
+        z_zone = az.get("zone", "Grey Zone")
+
+        bm = metrics.get("beneish_m_score", {})
+        m_score = bm.get("m_score", -2.85)
+        is_safe_m = bm.get("is_safe", True)
+
+        dp = metrics.get("dupont_analysis", {})
+        dupont_roe = dp.get("dupont_roe_pct", 0)
+
+        rdcf = metrics.get("reverse_dcf", {})
+        implied_g = rdcf.get("implied_growth_rate_raw", 0)
+
+        exp = metrics.get("expanded_metrics", {})
+        hist = metrics.get("historical_metrics", [])
+        last_rev = hist[0].get("revenue", 1) if hist else 1
+        last_ni = hist[0].get("net_income", 1) if hist else 1
+
+        ps_ratio = exp.get("ps_ratio") or (mcap / last_rev if last_rev > 0 else 0)
+        pe_ratio = exp.get("pe_ratio") or (mcap / last_ni if last_ni > 0 else 0)
+
+        rs = metrics.get("relative_strength", {})
+        rsi = rs.get("technical_indicators", {}).get("rsi_14", 50)
+
+        health_score = 10.0 if z_score > 2.99 else (6.0 if z_score >= 1.81 else 2.0)
+        cash_score = min(10.0, (pf_score / 9.0) * 10.0)
+        growth_score = min(10.0, max(0.0, (dupont_roe / 25.0) * 10.0))
+        val_score = 10.0 if (0 < ps_ratio < 3.0) else (6.0 if (0 < ps_ratio < 8.0) else 2.0)
+        mom_score = 8.0 if price >= sma50 else 4.0
+
+        composite = round(health_score * 0.30 + cash_score * 0.25 + growth_score * 0.20 + val_score * 0.15 + mom_score * 0.10, 1)
+
+        if composite >= 8.5:
+            verdict_code = "STRONG_BUY"
+            verdict_label = "🟢 Strong Buy" if lang == "EN" else "🟢 Güçlü Al"
+        elif composite >= 6.5:
+            verdict_code = "BALANCED"
+            verdict_label = "🔵 Balanced" if lang == "EN" else "🔵 Dengeli"
+        elif composite >= 4.5:
+            verdict_code = "NEUTRAL"
+            verdict_label = "🟡 Neutral" if lang == "EN" else "🟡 Nötr"
+        else:
+            verdict_code = "HIGH_RISK"
+            verdict_label = "🔴 High Risk" if lang == "EN" else "🔴 Yüksek Risk"
+
+        matrix_items.append({
+            "ticker": ticker,
+            "name": name,
+            "price": price,
+            "market_cap": mcap,
+            "piotroski_score": pf_score,
+            "altman_z_score": round(z_score, 2),
+            "altman_zone": z_zone,
+            "beneish_m_score": round(m_score, 2),
+            "beneish_safe": is_safe_m,
+            "dupont_roe_pct": round(dupont_roe, 2),
+            "implied_growth_pct": round(implied_g * 100, 2),
+            "ps_ratio": round(ps_ratio, 1),
+            "pe_ratio": round(pe_ratio, 1),
+            "rsi_14": round(rsi, 1),
+            "composite_score": composite,
+            "verdict_code": verdict_code,
+            "verdict_label": verdict_label
+        })
+
+    return matrix_items
+
+
 @app.get("/api/reprocess/stream/{ticker}")
 async def stream_reprocess_logs(ticker: str):
     ticker = ticker.strip().upper()
@@ -786,6 +912,21 @@ def index():
             .log-tab:hover { background: rgba(6, 182, 212, 0.15); color: #fff; border-color: var(--accent-cyan); }
             .log-tab.active { background: linear-gradient(135deg, var(--accent-cyan), #0284c7); color: #fff; border-color: transparent; }
 
+            /* Matrix Quick Filter Pill Styles */
+            .pill-btn {
+                background: rgba(255,255,255,0.05);
+                border: 1px solid var(--panel-border);
+                color: var(--text-muted);
+                padding: 0.4rem 0.85rem;
+                border-radius: 20px;
+                font-size: 0.8rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .pill-btn:hover { background: rgba(6, 182, 212, 0.15); color: #fff; border-color: var(--accent-cyan); }
+            .pill-btn.active { background: linear-gradient(135deg, var(--accent-cyan), #0284c7); color: #fff; border-color: transparent; }
+
             /* Admin Domain Tab Bar Styles */
             .admin-nav-bar { display: flex; gap: 0.75rem; border-bottom: 1px solid var(--panel-border); padding-bottom: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
             .admin-nav-tab {
@@ -889,6 +1030,7 @@ def index():
                     <select id="modeSelect" onchange="loadReport()">
                         <option value="dashboard" data-i18n="opt_dashboard">📊 İnteraktif</option>
                         <option value="printable" data-i18n="opt_printable">📄 PDF</option>
+                        <option value="matrix" data-i18n="opt_matrix">📊 Tüm Hisseler Matrisi</option>
                     </select>
                 </div>
             </div>
@@ -904,6 +1046,7 @@ def index():
         </header>
 
         <iframe id="contentFrame" onload="syncIframeTheme(); notifyIframeLanguage();"></iframe>
+        <div id="matrixContainer" style="display:none; flex:1; overflow-y:auto; padding:1.5rem; background:var(--body-bg);"></div>
 
         <!-- ADMIN MODAL -->
         <div id="adminModal" class="modal-backdrop">
@@ -1394,6 +1537,12 @@ def index():
                 }
             }
 
+            let matrixData = [];
+            let matrixSortKey = 'composite_score';
+            let matrixSortAsc = false;
+            let matrixFilterText = '';
+            let matrixFilterCategory = 'ALL';
+
             function loadReport() {
                 try {
                     const selTicker = document.getElementById('tickerSelect');
@@ -1403,13 +1552,168 @@ def index():
                     const ticker = selTicker.value;
                     const date = selDate.value;
                     const mode = selMode.value;
-                    if (ticker && date) {
-                        const frame = document.getElementById('contentFrame');
-                        if (frame) frame.src = `/api/reports/${encodeURIComponent(ticker)}/${encodeURIComponent(date)}?mode=${encodeURIComponent(mode)}`;
+
+                    const frame = document.getElementById('contentFrame');
+                    const matrixBox = document.getElementById('matrixContainer');
+
+                    if (mode === 'matrix') {
+                        if (frame) frame.style.display = 'none';
+                        if (matrixBox) {
+                            matrixBox.style.display = 'block';
+                            loadMatrixView();
+                        }
+                    } else {
+                        if (matrixBox) matrixBox.style.display = 'none';
+                        if (frame) {
+                            frame.style.display = 'block';
+                            if (ticker && date) {
+                                frame.src = `/api/reports/${encodeURIComponent(ticker)}/${encodeURIComponent(date)}?mode=${encodeURIComponent(mode)}`;
+                            }
+                        }
                     }
                 } catch(e) {
                     console.error('Error loading report:', e);
                 }
+            }
+
+            async function loadMatrixView() {
+                try {
+                    const res = await fetch(`/api/v1/matrix?lang=${currentUiLang}`);
+                    if (!res.ok) return;
+                    matrixData = await res.json();
+                    renderMatrixTable();
+                } catch(e) {
+                    console.error('Error loading matrix view:', e);
+                }
+            }
+
+            function setMatrixCategoryFilter(cat) {
+                matrixFilterCategory = cat;
+                renderMatrixTable();
+            }
+
+            function sortMatrixBy(key) {
+                if (matrixSortKey === key) {
+                    matrixSortAsc = !matrixSortAsc;
+                } else {
+                    matrixSortKey = key;
+                    matrixSortAsc = (key === 'ticker' || key === 'name');
+                }
+                renderMatrixTable();
+            }
+
+            async function selectMatrixStock(ticker) {
+                const modeSel = document.getElementById('modeSelect');
+                if (modeSel) modeSel.value = 'dashboard';
+                await selectAndLoadReport(ticker);
+            }
+
+            function renderMatrixTable() {
+                const box = document.getElementById('matrixContainer');
+                if (!box) return;
+                const t = UI_I18N[currentUiLang] || UI_I18N.TR;
+
+                let filtered = matrixData.filter(item => {
+                    const q = matrixFilterText.toLowerCase().trim();
+                    const matchesText = !q || item.ticker.toLowerCase().includes(q) || item.name.toLowerCase().includes(q);
+                    let matchesCat = true;
+                    if (matrixFilterCategory === 'STRONG_BUY') matchesCat = (item.verdict_code === 'STRONG_BUY');
+                    else if (matrixFilterCategory === 'SAFE_BS') matchesCat = (item.altman_z_score > 2.99);
+                    else if (matrixFilterCategory === 'HIGH_CASH') matchesCat = (item.piotroski_score >= 7);
+                    else if (matrixFilterCategory === 'BARGAIN') matchesCat = (item.ps_ratio > 0 && item.ps_ratio < 5.0);
+                    return matchesText && matchesCat;
+                });
+
+                filtered.sort((a, b) => {
+                    let valA = a[matrixSortKey];
+                    let valB = b[matrixSortKey];
+                    if (typeof valA === 'string') valA = valA.toLowerCase();
+                    if (typeof valB === 'string') valB = valB.toLowerCase();
+                    if (valA < valB) return matrixSortAsc ? -1 : 1;
+                    if (valA > valB) return matrixSortAsc ? 1 : -1;
+                    return 0;
+                });
+
+                function getSortIcon(key) {
+                    if (matrixSortKey !== key) return '↕️';
+                    return matrixSortAsc ? '▲' : '▼';
+                }
+
+                const currencySym = currentUiLang === 'EN' ? '$' : '₺';
+
+                let html = `
+                    <div style="max-width:1280px; margin:0 auto; display:flex; flex-direction:column; gap:1.25rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+                            <h2 style="font-family:'Outfit',sans-serif; font-size:1.35rem; font-weight:700; color:var(--text-main); margin:0;">
+                                ${t.matrix_title || '📊 Tüm Hisseler Değerleme & Karşılaştırma Matrisi'}
+                            </h2>
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <input type="text" id="matrixSearchInput" placeholder="${t.matrix_search_ph || '🔍 Search Ticker...'}" value="${matrixFilterText}" oninput="matrixFilterText = this.value; renderMatrixTable();" style="background:#1a202c; color:#fff; border:1px solid #374151; padding:0.45rem 0.8rem; border-radius:6px; font-size:0.85rem; width:240px; outline:none;">
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                            <button onclick="setMatrixCategoryFilter('ALL')" class="pill-btn ${matrixFilterCategory === 'ALL' ? 'active' : ''}">${t.pill_all || '🌐 Tüm Hisseler'}</button>
+                            <button onclick="setMatrixCategoryFilter('STRONG_BUY')" class="pill-btn ${matrixFilterCategory === 'STRONG_BUY' ? 'active' : ''}">${t.pill_strong_buy || '🟢 Güçlü Al (Skor ≥ 8.5)'}</button>
+                            <button onclick="setMatrixCategoryFilter('SAFE_BS')" class="pill-btn ${matrixFilterCategory === 'SAFE_BS' ? 'active' : ''}">${t.pill_safe_bs || '🛡️ Güvenli Bilanço (Altman Z > 2.99)'}</button>
+                            <button onclick="setMatrixCategoryFilter('HIGH_CASH')" class="pill-btn ${matrixFilterCategory === 'HIGH_CASH' ? 'active' : ''}">${t.pill_high_cash || '🔥 Yüksek Nakit Kalitesi (Piotroski ≥ 7)'}</button>
+                            <button onclick="setMatrixCategoryFilter('BARGAIN')" class="pill-btn ${matrixFilterCategory === 'BARGAIN' ? 'active' : ''}">${t.pill_bargain || '💎 Ucuz Değerleme (P/S < 5.0)'}</button>
+                        </div>
+
+                        <div style="background:rgba(11, 15, 25, 0.7); border:1px solid var(--panel-border); border-radius:10px; overflow-x:auto;">
+                            <table class="admin-table matrix-table" style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                                <thead>
+                                    <tr style="background:rgba(255,255,255,0.04); color:var(--text-muted);">
+                                        <th onclick="sortMatrixBy('ticker')" style="cursor:pointer;">${t.col_ticker || 'Hisse'} ${getSortIcon('ticker')}</th>
+                                        <th onclick="sortMatrixBy('price')" style="cursor:pointer; text-align:right;">${t.col_price || 'Fiyat'} ${getSortIcon('price')}</th>
+                                        <th onclick="sortMatrixBy('piotroski_score')" style="cursor:pointer; text-align:center;">${t.col_piotroski || 'Piotroski'} ${getSortIcon('piotroski_score')}</th>
+                                        <th onclick="sortMatrixBy('altman_z_score')" style="cursor:pointer; text-align:center;">${t.col_altman || 'Altman Z'} ${getSortIcon('altman_z_score')}</th>
+                                        <th onclick="sortMatrixBy('beneish_m_score')" style="cursor:pointer; text-align:center;">${t.col_beneish || 'Beneish M'} ${getSortIcon('beneish_m_score')}</th>
+                                        <th onclick="sortMatrixBy('dupont_roe_pct')" style="cursor:pointer; text-align:right;">${t.col_dupont || 'DuPont ROE'} ${getSortIcon('dupont_roe_pct')}</th>
+                                        <th onclick="sortMatrixBy('implied_growth_pct')" style="cursor:pointer; text-align:right;">${t.col_growth || 'Ters DCF %g'} ${getSortIcon('implied_growth_pct')}</th>
+                                        <th onclick="sortMatrixBy('ps_ratio')" style="cursor:pointer; text-align:right;">${t.col_ps || 'P/S'} ${getSortIcon('ps_ratio')}</th>
+                                        <th onclick="sortMatrixBy('composite_score')" style="cursor:pointer; text-align:center;">${t.col_score || '360° Skoru & Değerlendirme'} ${getSortIcon('composite_score')}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${filtered.length === 0 ? `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--text-muted);">Hisse bulunamadı / No stocks found</td></tr>` : 
+                                    filtered.map(row => {
+                                        const zBadgeClass = row.altman_z_score > 2.99 ? 'tag-green' : (row.altman_z_score >= 1.81 ? 'tag-cyan' : 'tag-red');
+                                        const scoreColor = row.composite_score >= 8.5 ? '#10b981' : (row.composite_score >= 6.5 ? '#06b6d4' : (row.composite_score >= 4.5 ? '#f59e0b' : '#f43f5e'));
+
+                                        return `
+                                            <tr onclick="selectMatrixStock('${row.ticker}')" style="cursor:pointer; transition:background 0.15s;">
+                                                <td>
+                                                    <div style="font-weight:700; color:var(--text-main); font-size:0.92rem;">${row.ticker}</div>
+                                                    <div style="font-size:0.75rem; color:var(--text-muted);">${row.name}</div>
+                                                </td>
+                                                <td style="text-align:right; font-weight:600; color:var(--text-main);">${currencySym}${row.price.toLocaleString()}</td>
+                                                <td style="text-align:center;">
+                                                    <span style="font-weight:700; color:#8b5cf6;">${row.piotroski_score} / 9</span>
+                                                </td>
+                                                <td style="text-align:center;">
+                                                    <span class="${zBadgeClass}" style="font-size:0.75rem; padding:0.2rem 0.5rem;">${row.altman_z_score}</span>
+                                                </td>
+                                                <td style="text-align:center;">
+                                                    <span class="${row.beneish_safe ? 'tag-green' : 'tag-red'}" style="font-size:0.75rem; padding:0.2rem 0.5rem;">${row.beneish_m_score}</span>
+                                                </td>
+                                                <td style="text-align:right; font-weight:600;">%${row.dupont_roe_pct}</td>
+                                                <td style="text-align:right; font-weight:600; color:var(--accent-cyan);">%${row.implied_growth_pct}</td>
+                                                <td style="text-align:right; font-weight:600; color:#f59e0b;">${row.ps_ratio}x</td>
+                                                <td style="text-align:center;">
+                                                    <div style="font-size:1.05rem; font-weight:800; color:${scoreColor};">${row.composite_score} / 10</div>
+                                                    <div style="font-size:0.75rem; margin-top:0.1rem;">${row.verdict_label}</div>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+
+                box.innerHTML = html;
             }
 
             function openAdminModal() {
