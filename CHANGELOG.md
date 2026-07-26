@@ -5,7 +5,22 @@ All notable changes to the Stock Analyzer Platform project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.0] - 2026-07-27
+## [1.5.0] - 2026-07-27
+
+### ✨ Added
+- **All-Stocks Valuation & Comparison Matrix**: Full-screen stock screener and side-by-side comparison table featuring 360° Weighted Composite Assessment Scores (0.0 – 10.0), color-coded Verdict Badges (`🟢 Strong Buy`, `🔵 Balanced`, `🟡 Neutral`, `🔴 High Risk`), sortable columns, live search box, and preset filter pills (`🌐 All Stocks`, `🟢 Strong Buy`, `🛡️ Safe Balance Sheet`, `🔥 High Cash Quality`, `💎 Bargain Valuation`).
+- **Default Landing View**: Configured the Stock Matrix comparison view as the primary default start page upon opening the web platform (`http://localhost:8000`).
+- **Header Admin Panel Icon**: Added a 34x34px Admin Panel icon button (`⚙️`) directly next to the theme toggle icon (`🌙`/`☀️`) in the top navigation header for 1-click access.
+
+### ⚡ Improved
+- **Full Light & Dark Theme Synchronization**: Implemented `[data-theme="light"]` CSS variables and smooth transitions across the main navigation header, dropdowns, inputs, modals, admin panels, stock screener matrix, and report iframe.
+- **Client-Side i18n Catalog**: Expanded client-side `UI_I18N` translation dictionary for real-time localized switching (headers, filter pills, search input placeholders, currency symbols, and verdict labels).
+
+### 🐛 Fixed & Cleaned
+- **Multi-Location Matrix Scanner**: Updated matrix endpoint (`GET /api/v1/matrix`) to scan both `storage/_workspace/` and `storage/reports/{ticker}/` folders, with auto-sourcing for any unindexed stocks.
+- **Report Sidebar Clean-Up**: Removed redundant bottom Admin Panel button from report dashboard sidebars to keep research navigation focused.
+
+---
 
 ### ✨ Added
 - **6-Section Deep-Dive Article Architecture for Module 13**: Expanded AI Stock Market Blog & Investor Briefing into a publication-grade equity research report incorporating all 12 quantitative models (Piotroski, Altman Z, Beneish M-Score, DuPont 5-Step, Reverse DCF, Peer Benchmarks).
