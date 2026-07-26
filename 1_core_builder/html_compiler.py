@@ -1211,10 +1211,27 @@ def compile_report(metrics: dict, commentary: dict) -> str:
 
     function applyReportUiLanguage(lang) {{
       if (lang) currentReportLang = lang;
-      const t = REPORT_I18N[currentReportLang] || REPORT_I18N.TR;
+      const t = (typeof REPORT_I18N !== 'undefined' && REPORT_I18N[currentReportLang]) ? REPORT_I18N[currentReportLang] : {{}};
+      const fallbacks = {{
+        EN: {{
+          btn_admin: "🔒 Admin Panel",
+          menu_title: "Modules",
+          theme_dark: "Dark Theme",
+          theme_light: "Light Theme",
+          btn_print: "Print / Download PDF"
+        }},
+        TR: {{
+          btn_admin: "🔒 Yönetim Paneli",
+          menu_title: "Modüller",
+          theme_dark: "Karanlık Tema",
+          theme_light: "Aydınlık Tema",
+          btn_print: "Yazdır / PDF İndir"
+        }}
+      }};
       document.querySelectorAll('[data-i18n]').forEach(el => {{
         const key = el.getAttribute('data-i18n');
-        if (t[key]) el.innerHTML = t[key];
+        const text = t[key] || (fallbacks[currentReportLang] && fallbacks[currentReportLang][key]);
+        if (text) el.innerHTML = text;
       }});
       const currentTheme = document.body.getAttribute('data-theme') || 'dark';
       setTheme(currentTheme);

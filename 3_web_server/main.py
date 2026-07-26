@@ -1166,6 +1166,54 @@ def index():
                 });
             }
 
+            function renderEmptyStateFrame() {
+                const frame = document.getElementById('contentFrame');
+                if (!frame) return;
+                const curLang = currentUiLang || localStorage.getItem('UI_LANG') || 'TR';
+                const emptyTxt = curLang === 'EN' ? {
+                    desc: "No reports have been generated yet. Click the <strong>🔒 Admin Panel</strong> button in the top right and click <strong>'⚡ Analyze'</strong> or <strong>'🚀 Run All Active Stocks (Batch Run)'</strong> to generate your first reports.",
+                    btn: "🔒 Open Admin Panel"
+                } : {
+                    desc: "Henüz oluşturulmuş bir rapor bulunmuyor. Üst sağdaki <strong>🔒 Yönetim Paneli</strong> butonuna tıklayarak <strong>'⚡ Analiz Et'</strong> veya <strong>'🚀 Tüm Aktif Hisseleri Çalıştır (Batch Run)'</strong> butonu ile ilk raporlarınızı oluşturabilirsiniz.",
+                    btn: "🔒 Yönetim Paneli (Admin Panel)"
+                };
+                frame.srcdoc = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { background:#0b0f19; color:#f3f4f6; font-family:'Inter', system-ui, -apple-system, sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0; text-align:center; padding:1.5rem; box-sizing:border-box; }
+                        .card { background:rgba(20,27,45,0.85); border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:3rem 2.5rem; max-width:540px; box-shadow:0 12px 35px rgba(0,0,0,0.6); backdrop-filter:blur(12px); }
+                        .icon { font-size:3rem; margin-bottom:1rem; }
+                        h2 { color:#06b6d4; margin-bottom:0.75rem; font-size:1.4rem; font-weight:700; }
+                        p { color:#9ca3af; line-height:1.6; margin-bottom:1.75rem; font-size:0.95rem; }
+                        .btn { background:linear-gradient(135deg, #06b6d4, #0284c7); color:#fff; border:none; padding:0.8rem 1.6rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.92rem; transition:transform 0.2s, box-shadow 0.2s; }
+                        .btn:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(6,182,212,0.4); }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <div class="icon">🏛️</div>
+                        <h2>Stock Research Platform</h2>
+                        <p id="emptyDesc">${emptyTxt.desc}</p>
+                        <button class="btn" id="emptyBtn" onclick="window.parent.triggerAdminModal()">${emptyTxt.btn}</button>
+                    </div>
+                    <script>
+                        window.addEventListener('message', (event) => {
+                            if (event.data && event.data.type === 'CHANGE_UI_LANG') {
+                                const isEn = event.data.lang === 'EN';
+                                const desc = document.getElementById('emptyDesc');
+                                const btn = document.getElementById('emptyBtn');
+                                if (desc) desc.innerHTML = isEn ? "No reports have been generated yet. Click the <strong>🔒 Admin Panel</strong> button in the top right and click <strong>'⚡ Analyze'</strong> or <strong>'🚀 Run All Active Stocks (Batch Run)'</strong> to generate your first reports." : "Henüz oluşturulmuş bir rapor bulunmuyor. Üst sağdaki <strong>🔒 Yönetim Paneli</strong> butonuna tıklayarak <strong>'⚡ Analiz Et'</strong> veya <strong>'🚀 Tüm Aktif Hisseleri Çalıştır (Batch Run)'</strong> butonu ile ilk raporlarınızı oluşturabilirsiniz.";
+                                if (btn) btn.innerHTML = isEn ? "🔒 Open Admin Panel" : "🔒 Yönetim Paneli (Admin Panel)";
+                            }
+                        });
+                    </script>
+                </body>
+                </html>`;
+            }
+
             async function loadTickers(targetTicker = null) {
                 try {
                     const sel = document.getElementById('tickerSelect');
@@ -1182,36 +1230,7 @@ def index():
                     if (tickers.length > 0) {
                         await loadDates();
                     } else {
-                        const dateSel = document.getElementById('dateSelect');
-                        if (dateSel) dateSel.innerHTML = '';
-                        const frame = document.getElementById('contentFrame');
-                        if (frame) {
-                            frame.src = 'about:blank';
-                            frame.srcdoc = `
-                            <!DOCTYPE html>
-                            <html>
-                            <head>
-                                <meta charset="UTF-8">
-                                <style>
-                                    body { background:#0b0f19; color:#f3f4f6; font-family:'Inter', system-ui, -apple-system, sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0; text-align:center; padding:1.5rem; box-sizing:border-box; }
-                                    .card { background:rgba(20,27,45,0.85); border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:3rem 2.5rem; max-width:540px; box-shadow:0 12px 35px rgba(0,0,0,0.6); backdrop-filter:blur(12px); }
-                                    .icon { font-size:3rem; margin-bottom:1rem; }
-                                    h2 { color:#06b6d4; margin-bottom:0.75rem; font-size:1.4rem; font-weight:700; }
-                                    p { color:#9ca3af; line-height:1.6; margin-bottom:1.75rem; font-size:0.95rem; }
-                                    .btn { background:linear-gradient(135deg, #06b6d4, #0284c7); color:#fff; border:none; padding:0.8rem 1.6rem; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.92rem; transition:transform 0.2s, box-shadow 0.2s; }
-                                    .btn:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(6,182,212,0.4); }
-                                </style>
-                            </head>
-                            <body>
-                                <div class="card">
-                                    <div class="icon">🏛️</div>
-                                    <h2>Stock Research Platform</h2>
-                                    <p>Henüz oluşturulmuş bir rapor bulunmuyor. Üst sağdaki <strong>🔒 Yönetim Paneli</strong> butonuna tıklayarak <strong>'⚡ Analiz Et'</strong> veya <strong>'🚀 Tüm Aktif Hisseleri Çalıştır (Batch Run)'</strong> butonu ile ilk raporlarınızı oluşturabilirsiniz.</p>
-                                    <button class="btn" onclick="window.parent.triggerAdminModal()">🔒 Yönetim Panelini Aç (Admin Panel)</button>
-                                </div>
-                            </body>
-                            </html>`;
-                        }
+                        renderEmptyStateFrame();
                     }
                 } catch(e) {
                     console.error('Error loading tickers:', e);
@@ -1236,7 +1255,11 @@ def index():
                     const sel = document.getElementById('dateSelect');
                     if (!sel) return;
                     sel.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join('');
-                    if (dates.length > 0) loadReport();
+                    if (dates.length > 0) {
+                        loadReport();
+                    } else {
+                        renderEmptyStateFrame();
+                    }
                 } catch(e) {
                     console.error('Error loading dates:', e);
                 }
