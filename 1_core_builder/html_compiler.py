@@ -737,11 +737,6 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <li class="nav-item" onclick="switchTab('verdict')" data-i18n="tab_verdict">{"🎯 Algorithmic Risk Model" if is_en else "🎯 Algoritmik Risk Modeli Özeti"}</li>
         <li class="nav-item" onclick="switchTab('analyst')" data-i18n="tab_analyst">🤖 AI Finansal Analiz Yorumu</li>
       </ul>
-      <div class="sidebar-bottom-admin">
-        <button class="btn-admin-panel" onclick="triggerAdminModal()" data-i18n="btn_admin">
-          {"🔒 Admin Panel" if is_en else "🔒 Yönetim Paneli"}
-        </button>
-      </div>
     </div>
   </aside>
 
