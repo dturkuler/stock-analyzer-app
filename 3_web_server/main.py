@@ -53,6 +53,20 @@ def get_app_version():
     return "1.1.0"
 
 
+def load_web_locales():
+    locales = {}
+    locales_dir = os.path.join(BASE_DIR, "3_web_server", "locales")
+    for lang in ["tr", "en"]:
+        file_path = os.path.join(locales_dir, f"{lang}.json")
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    locales[lang.upper()] = json.load(f)
+            except Exception:
+                pass
+    return locales
+
+
 PYTHON_EXEC = "py" if os.name == "nt" else sys.executable
 
 # Global task state tracking
