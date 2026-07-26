@@ -1047,9 +1047,9 @@ def index():
                 <div class="control-group">
                     <label for="modeSelect">👁️</label>
                     <select id="modeSelect" onchange="loadReport()">
+                        <option value="matrix" data-i18n="opt_matrix" selected>📊 Tüm Hisseler Matrisi</option>
                         <option value="dashboard" data-i18n="opt_dashboard">📊 İnteraktif</option>
                         <option value="printable" data-i18n="opt_printable">📄 PDF</option>
-                        <option value="matrix" data-i18n="opt_matrix">📊 Tüm Hisseler Matrisi</option>
                     </select>
                 </div>
             </div>
