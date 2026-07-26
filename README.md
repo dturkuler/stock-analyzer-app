@@ -1,16 +1,18 @@
 <div align="center">
 
-# stock-analyzer-app
+  <img src="logo.svg" alt="stock-analyzer-app" width="650"/>
 
-[![Version](https://img.shields.io/badge/Version-1.3.0-blue.svg)](VERSION)
-[![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+  <br/><br/>
 
-**🏛️ Universal Global Equity Research Platform, Decoupled SPA Dashboard Viewer & Password-Protected Admin Panel**
+  [![Version](https://img.shields.io/badge/Version-1.3.0-blue.svg)](VERSION)
+  [![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
+  [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
+  [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-[Features](#-features) · [Quick Start](#-quick-start) · [Docker Deployment](#-docker-deployment) · [Environment Variables](#%EF%B8%8F-environment-variables) · [Architecture](#-architecture) · [Changelog](CHANGELOG.md)
+  **🏛️ Universal Global Equity Research Platform, Decoupled SPA Dashboard Viewer & Password-Protected Admin Panel**
+
+  [Overview](#-overview) · [Features](#-features) · [Quick Start](#-quick-start) · [Docker Deployment](#-docker-deployment) · [Developer Docs](documentation/README.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -32,6 +34,9 @@ The app features a **Password-Protected Admin Control Panel** for managing watch
   - **Altman Z-Score** insolvency and bankruptcy risk scoring.
   - **Beneish M-Score** forensic accounting & earnings manipulation detection.
   - **WACC & 2D DCF Sensitivity Matrix** (5x5 Terminal Growth vs. Discount Rate).
+- 🌐 **Full Multi-Lingual Engine (i18n)**:
+  - 100% independent language report compilation (`EN` / `TR`) with unified JSON catalogs ([`1_core_builder/locales/`](file:///home/doggy/projects/stock-analyzer-app/1_core_builder/locales/)).
+  - Complete Web UI internationalization ([`3_web_server/locales/`](file:///home/doggy/projects/stock-analyzer-app/3_web_server/locales/)).
 - 🤖 **AI Commentary Engine**:
   - 18-point qualitative financial analysis using OpenAI-compatible LLM APIs (`/v1/chat/completions`).
   - Robust SSE stream parser with fallback to rich quantitative commentary if LLM is unreachable or times out.
@@ -70,6 +75,7 @@ graph TD
 
 ```text
 stock-analyzer-app/
+├── logo.svg                # Vector brand header logo
 ├── .env.example            # Environment configuration template
 ├── VERSION                 # Central application version file
 ├── Dockerfile              # Container definition (Python 3.13-slim)
@@ -78,12 +84,20 @@ stock-analyzer-app/
 │   ├── generate_report.py  # Pipeline orchestrator
 │   ├── fetch_yfinance.py   # yfinance data sourcing & quantitative models
 │   ├── llm_commentary.py   # LLM qualitative commentary engine
-│   └── html_compiler.py    # HTML dashboard & printable PDF generator
+│   ├── html_compiler.py    # HTML dashboard & printable PDF generator
+│   └── locales/            # Core report builder translation catalogs (EN/TR)
 ├── 2_cron_scheduler/       # Background Cron Scheduler Worker
 │   ├── scheduler.py        # APScheduler worker running daily at 18:30 TSI
 │   └── watchlist.json      # Watchlist JSON synced with SQLite DB
 ├── 3_web_server/           # FastAPI Web Application & Admin Panel
-│   └── main.py             # REST APIs, Admin Modal, Settings Editor & Log Viewers
+│   ├── main.py             # REST APIs, Admin Modal, Settings Editor & Log Viewers
+│   └── locales/            # Web UI translation catalogs (EN/TR)
+├── documentation/          # Modular Developer Documentation & Guides
+│   ├── README.md           # Documentation index & architecture
+│   ├── adding_new_language.md
+│   ├── adding_new_financial_metric.md
+│   ├── adding_new_report_tab.md
+│   └── api_and_web_server.md
 └── storage/                # Application persistent data
     ├── app.db              # SQLite database (watchlist & reports_index)
     ├── reports/            # Generated HTML reports per ticker directory
@@ -152,6 +166,17 @@ docker logs -f stock_web
 # View Cron Scheduler logs
 docker logs -f stock_scheduler
 ```
+
+---
+
+## 📚 Developer Documentation & Guides
+
+For complete extension guides and system maintenance docs, visit the [`documentation/`](documentation/README.md) directory:
+
+- [🌐 **Adding a New Language (i18n)**](documentation/adding_new_language.md): How to add new translation catalogs (e.g. German, French, Spanish).
+- [🧮 **Adding a New Financial Metric**](documentation/adding_new_financial_metric.md): How to compute custom quantitative formulas and display them in reports.
+- [📊 **Adding a New Report Tab/Module**](documentation/adding_new_report_tab.md): Step-by-step guide for creating new report modules.
+- [🌐 **Web Server & API Architecture**](documentation/api_and_web_server.md): REST API endpoints, SQLite database schema, and security details.
 
 ---
 

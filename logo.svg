@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#141b2d"/>
+    </linearGradient>
+    <linearGradient id="accent-cyan" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="accent-purple" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background Card -->
+  <rect width="800" height="200" rx="16" fill="url(#bg-grad)" stroke="rgba(255, 255, 255, 0.1)" stroke-width="2"/>
+
+  <!-- Logo Icon Group -->
+  <g transform="translate(45, 35)">
+    <!-- Outer Hex Shield -->
+    <polygon points="65,10 115,35 115,95 65,120 15,95 15,35" fill="none" stroke="url(#accent-cyan)" stroke-width="4" filter="url(#glow)"/>
+    
+    <!-- Inner Financial Bars -->
+    <rect x="35" y="65" width="12" height="35" rx="3" fill="#10b981"/>
+    <rect x="52" y="50" width="12" height="50" rx="3" fill="#06b6d4"/>
+    <rect x="69" y="38" width="12" height="62" rx="3" fill="#3b82f6"/>
+    <rect x="86" y="25" width="12" height="75" rx="3" fill="url(#accent-purple)"/>
+    
+    <!-- AI Sparkle Icon -->
+    <path d="M 65 15 L 68 25 L 78 28 L 68 31 L 65 41 L 62 31 L 52 28 L 62 25 Z" fill="#f59e0b"/>
+  </g>
+
+  <!-- Brand Typography -->
+  <text x="185" y="95" font-family="'Outfit', 'Inter', system-ui, sans-serif" font-weight="800" font-size="52" fill="#ffffff" letter-spacing="-1">
+    stock-analyzer<tspan fill="url(#accent-cyan)">-app</tspan>
+  </text>
+  
+  <!-- Subtitle Tagline -->
+  <text x="188" y="132" font-family="'Inter', system-ui, sans-serif" font-weight="500" font-size="18" fill="#9ca3af" letter-spacing="0.5">
+    Institutional Equity Research &amp; Autonomous AI Financial Intelligence
+  </text>
+</svg>
