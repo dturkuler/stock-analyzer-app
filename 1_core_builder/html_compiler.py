@@ -639,30 +639,6 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     .sidebar-top-bar {{ display: flex; align-items: center; justify-content: space-between; width: 100%; }}
     .mobile-menu-toggle {{ display: none; background: rgba(6, 182, 212, 0.15); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; }}
 
-    .sidebar-bottom-admin {{
-      margin-top: 1.5rem;
-      padding-top: 1rem;
-      border-top: 1px solid var(--panel-border);
-      width: 100%;
-    }}
-    .btn-admin-panel {{
-      width: 100%;
-      background: linear-gradient(135deg, var(--accent-cyan), #0284c7);
-      border: none;
-      color: #fff;
-      padding: 0.6rem 0.8rem;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      transition: all 0.25s ease;
-    }}
-    .btn-admin-panel:hover {{ opacity: 0.9; }}
-
     /* Mobile Responsive Dashboard Layout */
     @media (max-width: 992px) {{
       body {{ flex-direction: column; min-height: auto; }}
