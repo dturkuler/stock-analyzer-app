@@ -101,10 +101,10 @@ def generate_report(ticker, lang="TR"):
     # ══════════════════════════════════════════════════════════
     # STEP 3: HTML Dashboard & Printable File Compilation
     # ══════════════════════════════════════════════════════════
-    log_analysis(f"3. Compiling HTML dashboard and printable PDF report for {ticker}...")
+    log_analysis(f"3. Compiling HTML dashboard and printable PDF report for {ticker} (Lang: {lang})...")
     from html_compiler import compile_report, compile_printable_report
-    html_content = compile_report(metrics, commentary)
-    printable_content = compile_printable_report(metrics, commentary)
+    html_content = compile_report(metrics, commentary, lang=lang)
+    printable_content = compile_printable_report(metrics, commentary, lang=lang)
 
     with open(report_file, "w", encoding="utf-8") as f:
         f.write(html_content)

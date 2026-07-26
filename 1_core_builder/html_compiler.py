@@ -20,55 +20,82 @@ import math
 import datetime
 
 
-def _fmt_try(val, decimals=2):
-    """Format number as Turkish Lira string."""
+def _fmt_curr(val, is_en=False, decimals=2):
+    """Format number as currency string ($ for EN, ₺ for TR)."""
     if val is None or (isinstance(val, float) and math.isnan(val)):
         return "N/A"
-    if abs(val) >= 1e9:
-        return f"₺{val/1e9:,.2f} Mr".replace(",", "X").replace(".", ",").replace("X", ".")
-    elif abs(val) >= 1e6:
-        return f"₺{val/1e6:,.2f} M".replace(",", "X").replace(".", ",").replace("X", ".")
+    sym = "$" if is_en else "₺"
+    if is_en:
+        if abs(val) >= 1e9:
+            return f"{sym}{val/1e9:,.2f}B"
+        elif abs(val) >= 1e6:
+            return f"{sym}{val/1e6:,.2f}M"
+        else:
+            return f"{sym}{val:,.{decimals}f}"
     else:
-        return f"₺{val:,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        if abs(val) >= 1e9:
+            return f"₺{val/1e9:,.2f} Mr".replace(",", "X").replace(".", ",").replace("X", ".")
+        elif abs(val) >= 1e6:
+            return f"₺{val/1e6:,.2f} M".replace(",", "X").replace(".", ",").replace("X", ".")
+        else:
+            return f"₺{val:,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _fmt_pct(val, decimals=2):
-    """Format number as Turkish percentage string."""
+def _fmt_try(val, decimals=2, is_en=False):
+    return _fmt_curr(val, is_en=is_en, decimals=decimals)
+
+
+def _fmt_pct(val, is_en=False, decimals=2):
+    """Format number as percentage string."""
     if val is None or (isinstance(val, float) and math.isnan(val)):
         return "N/A"
+    if is_en:
+        return f"{val*100:,.{decimals}f}%"
     return f"%{val*100:,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _fmt_num(val, decimals=2):
-    """Format number in Turkish locale."""
+def _fmt_num(val, is_en=False, decimals=2):
+    """Format number in appropriate locale."""
     if val is None or (isinstance(val, float) and math.isnan(val)):
         return "N/A"
+    if is_en:
+        return f"{val:,.{decimals}f}"
     return f"{val:,.{decimals}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _piotroski_row(label, value):
+def _piotroski_row(label, value, is_en=False):
     """Generate a Piotroski test result table row."""
     if value == 1:
-        return f'<tr><td>{label}</td><td><span class="tag-green">🟢 Başarılı (+1)</span></td></tr>'
+        pass_txt = "🟢 Passed (+1)" if is_en else "🟢 Başarılı (+1)"
+        return f'<tr><td>{label}</td><td><span class="tag-green">{pass_txt}</span></td></tr>'
     else:
-        return f'<tr><td>{label}</td><td><span class="tag-amber">🟡 Nötr (0)</span></td></tr>'
+        neut_txt = "🟡 Neutral (0)" if is_en else "🟡 Nötr (0)"
+        return f'<tr><td>{label}</td><td><span class="tag-amber">{neut_txt}</span></td></tr>'
 
 
-def _peer_row(peer, is_target=False):
+def _peer_row(peer, is_target=False, is_en=False):
     """Generate peer comparison table row."""
     style = ' style="background: rgba(6, 182, 212, 0.15); font-weight: 700;"' if is_target else ''
     tag_class = "tag-red" if is_target else "tag-green"
-    tag_text = "🔴 Hedef Hisse (Primli)" if is_target else "🟢 Rakip"
-    mcap = _fmt_try(peer.get("market_cap", 0))
-    ps = _fmt_num(peer.get("ps_ratio", 0), 1) + "x"
-    pe = _fmt_num(peer.get("pe_ratio", 0), 1) + "x"
-    margin = f'%{peer.get("profit_margins", 0):.1f}'.replace(".", ",")
-    growth = f'%{peer.get("revenue_growth", 0):.1f}'.replace(".", ",")
+    if is_en:
+        tag_text = "🔴 Target Stock (Premium)" if is_target else "🟢 Peer"
+    else:
+        tag_text = "🔴 Hedef Hisse (Primli)" if is_target else "🟢 Rakip"
+    mcap = _fmt_curr(peer.get("market_cap", 0), is_en=is_en)
+    ps = _fmt_num(peer.get("ps_ratio", 0), is_en=is_en, decimals=1) + "x"
+    pe = _fmt_num(peer.get("pe_ratio", 0), is_en=is_en, decimals=1) + "x"
+    margin = _fmt_pct(peer.get("profit_margins", 0), is_en=is_en, decimals=1)
+    growth = _fmt_pct(peer.get("revenue_growth", 0), is_en=is_en, decimals=1)
     return f'<tr{style}><td>{peer.get("ticker", "")}</td><td>{mcap}</td><td>{ps}</td><td>{pe}</td><td>{margin}</td><td>{growth}</td><td><span class="{tag_class}">{tag_text}</span></td></tr>'
 
 
-def compile_report(metrics: dict, commentary: dict) -> str:
+def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     """Compile a 100% master parity 13-tab HTML dashboard with modern web layout."""
+
+    if not lang:
+        lang = metrics.get("lang") or commentary.get("lang") or "TR"
+    lang = lang.upper()
+    is_en = (lang == "EN")
 
     ticker = metrics.get("ticker", "UNKNOWN")
     company_name = metrics.get("name") or commentary.get("company_name") or ticker
@@ -151,32 +178,45 @@ def compile_report(metrics: dict, commentary: dict) -> str:
 
     # Build peer rows
     target_peer = {
-        "ticker": f"{ticker} (Hedef)",
+        "ticker": f"{ticker} (Hedef)" if not is_en else f"{ticker} (Target)",
         "market_cap": mcap,
         "ps_ratio": round(ps_ratio, 1),
         "pe_ratio": round(pe_ratio, 1),
         "profit_margins": round(hist[0].get("net_margin", 0) * 100, 2) if hist else 0,
         "revenue_growth": round(((hist[0]["revenue"] / hist[1]["revenue"]) - 1) * 100, 1) if len(hist) >= 2 and hist[1].get("revenue", 0) > 0 else 0,
     }
-    peer_rows_html = _peer_row(target_peer, is_target=True)
+    peer_rows_html = _peer_row(target_peer, is_target=True, is_en=is_en)
     for p in peers:
-        peer_rows_html += _peer_row(p)
+        peer_rows_html += _peer_row(p, is_en=is_en)
 
     # Build piotroski rows
-    piotroski_labels = {
-        "positive_net_income": "1. Pozitif Net Kâr (Net Income > 0)",
-        "positive_cfo": "2. Pozitif Faaliyet Nakit Akışı (CFO > 0)",
-        "higher_roa_yoy": "3. Yıllık ROA Artışı (Higher ROA YoY)",
-        "accruals_cfo_gt_ni": "4. Kâr Kalitesi / Tahakkuk (CFO > Net Income)",
-        "lower_leverage_yoy": "5. Kaldıraç Azalışı (Lower Debt/Equity YoY)",
-        "higher_current_ratio_yoy": "6. Cari Oran İyileşmesi (Higher Current Ratio)",
-        "no_heavy_dilution": "7. Bedelli Sulandırma Olmaması (No Dilution)",
-        "higher_gross_margin_yoy": "8. Brüt Kâr Marjı Artışı (Higher Gross Margin)",
-        "higher_operating_margin_yoy": "9. Varlık Devir Hızı Artışı (Higher Asset Turnover)",
-    }
+    if is_en:
+        piotroski_labels = {
+            "positive_net_income": "1. Positive Net Income (Net Income > 0)",
+            "positive_cfo": "2. Positive Operating Cash Flow (CFO > 0)",
+            "higher_roa_yoy": "3. Higher ROA YoY",
+            "accruals_cfo_gt_ni": "4. Accruals / Cash Flow Quality (CFO > Net Income)",
+            "lower_leverage_yoy": "5. Lower Debt/Equity YoY",
+            "higher_current_ratio_yoy": "6. Higher Current Ratio YoY",
+            "no_heavy_dilution": "7. No Heavy Share Dilution",
+            "higher_gross_margin_yoy": "8. Higher Gross Margin YoY",
+            "higher_operating_margin_yoy": "9. Higher Asset Turnover YoY",
+        }
+    else:
+        piotroski_labels = {
+            "positive_net_income": "1. Pozitif Net Kâr (Net Income > 0)",
+            "positive_cfo": "2. Pozitif Faaliyet Nakit Akışı (CFO > 0)",
+            "higher_roa_yoy": "3. Yıllık ROA Artışı (Higher ROA YoY)",
+            "accruals_cfo_gt_ni": "4. Kâr Kalitesi / Tahakkuk (CFO > Net Income)",
+            "lower_leverage_yoy": "5. Kaldıraç Azalışı (Lower Debt/Equity YoY)",
+            "higher_current_ratio_yoy": "6. Cari Oran İyileşmesi (Higher Current Ratio)",
+            "no_heavy_dilution": "7. Bedelli Sulandırma Olmaması (No Dilution)",
+            "higher_gross_margin_yoy": "8. Brüt Kâr Marjı Artışı (Higher Gross Margin)",
+            "higher_operating_margin_yoy": "9. Varlık Devir Hızı Artışı (Higher Asset Turnover)",
+        }
     piotroski_rows_html = ""
     for key, label in piotroski_labels.items():
-        piotroski_rows_html += _piotroski_row(label, pf_bd.get(key, 0))
+        piotroski_rows_html += _piotroski_row(label, pf_bd.get(key, 0), is_en=is_en)
 
     # Build 2D DCF matrix
     dcf_wacc_h = dcf_2d.get("wacc_headers", [])
@@ -184,7 +224,8 @@ def compile_report(metrics: dict, commentary: dict) -> str:
     dcf_matrix = dcf_2d.get("matrix", [])
     dcf_matrix_html = ""
     if dcf_wacc_h and dcf_growth_h and dcf_matrix:
-        dcf_matrix_html += '<thead><tr><th>WACC \\ Terminal Büyüme ($g$)</th>'
+        wacc_title = "WACC \\ Terminal Growth ($g$)" if is_en else "WACC \\ Terminal Büyüme ($g$)"
+        dcf_matrix_html += f'<thead><tr><th>{wacc_title}</th>'
         for gh in dcf_growth_h:
             dcf_matrix_html += f'<th>{gh}</th>'
         dcf_matrix_html += '</tr></thead><tbody>'
@@ -193,7 +234,7 @@ def compile_report(metrics: dict, commentary: dict) -> str:
                 row_style = ' style="background:rgba(6,182,212,0.15); font-weight:700;"' if i == 2 else ''
                 dcf_matrix_html += f'<tr{row_style}><th>{wh}</th>'
                 for val in dcf_matrix[i]:
-                    dcf_matrix_html += f'<td>{_fmt_try(val)}</td>'
+                    dcf_matrix_html += f'<td>{_fmt_try(val, is_en=is_en)}</td>'
                 dcf_matrix_html += '</tr>'
         dcf_matrix_html += '</tbody>'
 
@@ -203,47 +244,62 @@ def compile_report(metrics: dict, commentary: dict) -> str:
         year = h.get("year", "")[:4]
         hist_table_html += f'''<tr>
             <td>{year}</td>
-            <td>{_fmt_try(h.get("revenue", 0))}</td>
-            <td>{_fmt_try(h.get("operating_income", 0))}</td>
-            <td>{_fmt_try(h.get("net_income", 0))}</td>
-            <td>{_fmt_try(h.get("fcf", 0))}</td>
-            <td>{_fmt_pct(h.get("gross_margin", 0))}</td>
-            <td>{_fmt_pct(h.get("net_margin", 0))}</td>
+            <td>{_fmt_try(h.get("revenue", 0), is_en=is_en)}</td>
+            <td>{_fmt_try(h.get("operating_income", 0), is_en=is_en)}</td>
+            <td>{_fmt_try(h.get("net_income", 0), is_en=is_en)}</td>
+            <td>{_fmt_try(h.get("fcf", 0), is_en=is_en)}</td>
+            <td>{_fmt_pct(h.get("gross_margin", 0), is_en=is_en)}</td>
+            <td>{_fmt_pct(h.get("net_margin", 0), is_en=is_en)}</td>
         </tr>'''
 
-    # Balance Sheet summary table (Tab 5)
-    bs_table_html = f'''
-    <tr><td><strong>Dönen Varlıklar (Current Assets)</strong></td><td>{_fmt_try(hist[1].get("revenue", 0)*0.75) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("revenue", 0)*0.75)}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*0.66)}</strong></td><td>Likit nakit ve alacak stoku</td></tr>
-    <tr><td><strong>Duran Varlıklar (Non-Current)</strong></td><td>{_fmt_try(hist[1].get("revenue", 0)*0.25) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("revenue", 0)*0.28)}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*0.22)}</strong></td><td>Altyapı ve Ar-Ge lisans yatırımları</td></tr>
-    <tr><td><strong>Kısa Vadeli Borçlar</strong></td><td>{_fmt_try(debt*0.6)}</td><td>{_fmt_try(debt*0.8)}</td><td><strong>{_fmt_try(debt)}</strong></td><td>Cari Oran {_fmt_num(hist[0].get("current_ratio", 1.8), 2)}x (Emniyetli)</td></tr>
-    <tr><td><strong>Uzun Vadeli Borçlar</strong></td><td>{_fmt_try(debt*0.2)}</td><td>{_fmt_try(debt*0.25)}</td><td><strong>{_fmt_try(debt*0.3)}</strong></td><td>Uzun vadeli borç yükü düşük</td></tr>
-    <tr><td><strong>Özkaynaklar (Equity)</strong></td><td>{_fmt_try(mcap*0.003)}</td><td>{_fmt_try(mcap*0.004)}</td><td><strong>{_fmt_try(mcap*0.005)}</strong></td><td>Güçlü sermaye tavanı</td></tr>
-    <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>Net Borç / (Net Nakit)</strong></td><td>-</td><td>-</td><td><strong>{_fmt_try(net_debt)}</strong></td><td><span class="{"tag-green" if net_debt < 0 else "tag-red"}">{"🟢 Mükemmel Net Nakit" if net_debt < 0 else "🔴 Net Borçlu"}</span></td></tr>
-    '''
-
-    # Income Statement summary table (Tab 5)
-    is_table_html = f'''
-    <tr><td><strong>Hasılat (Ciro)</strong></td><td>{_fmt_try(hist[2].get("revenue", 0)) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("revenue", 0)) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0))}</strong></td><td>Yıllık Ciro Gelişimi</td></tr>
-    <tr><td><strong>Brüt Kâr</strong></td><td>{_fmt_try(hist[2].get("gross_profit", 0)) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("gross_profit", 0)) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("gross_profit", 0))}</strong></td><td>Brüt Marj {_fmt_pct(hist[0].get("gross_margin", 0))}</td></tr>
-    <tr><td><strong>FAVÖK (EBITDA)</strong></td><td>{_fmt_try(hist[2].get("operating_income", 0)*1.15) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("operating_income", 0)*1.15) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ebit*1.15)}</strong></td><td>Faaliyet Gücü</td></tr>
-    <tr><td><strong>Faaliyet Kârı (EBIT)</strong></td><td>{_fmt_try(hist[2].get("operating_income", 0)) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("operating_income", 0)) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ebit)}</strong></td><td><span class="{"tag-green" if last_ebit > 0 else "tag-red"}">{"🟢 Faaliyet Kârı Pozitif" if last_ebit > 0 else "🔴 Esas Faaliyet Zararı"}</span></td></tr>
-    <tr><td><strong>Net Dönem Kârı</strong></td><td>{_fmt_try(hist[2].get("net_income", 0)) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("net_income", 0)) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ni)}</strong></td><td>Net Dönem Sonucu</td></tr>
-    '''
+    # Balance Sheet & Income Statement summary tables (Tab 5)
+    if is_en:
+        bs_table_html = f'''
+        <tr><td><strong>Current Assets</strong></td><td>{_fmt_try(hist[1].get("revenue", 0)*0.75, is_en=is_en) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("revenue", 0)*0.75, is_en=is_en)}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*0.66, is_en=is_en)}</strong></td><td>Liquid cash & receivables</td></tr>
+        <tr><td><strong>Non-Current Assets</strong></td><td>{_fmt_try(hist[1].get("revenue", 0)*0.25, is_en=is_en) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("revenue", 0)*0.28, is_en=is_en)}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*0.22, is_en=is_en)}</strong></td><td>Infrastructure & R&D investments</td></tr>
+        <tr><td><strong>Short-Term Liabilities</strong></td><td>{_fmt_try(debt*0.6, is_en=is_en)}</td><td>{_fmt_try(debt*0.8, is_en=is_en)}</td><td><strong>{_fmt_try(debt, is_en=is_en)}</strong></td><td>Current Ratio {_fmt_num(hist[0].get("current_ratio", 1.8), is_en=is_en, decimals=2)}x (Safe)</td></tr>
+        <tr><td><strong>Long-Term Liabilities</strong></td><td>{_fmt_try(debt*0.2, is_en=is_en)}</td><td>{_fmt_try(debt*0.25, is_en=is_en)}</td><td><strong>{_fmt_try(debt*0.3, is_en=is_en)}</strong></td><td>Low long-term debt burden</td></tr>
+        <tr><td><strong>Total Equity</strong></td><td>{_fmt_try(mcap*0.003, is_en=is_en)}</td><td>{_fmt_try(mcap*0.004, is_en=is_en)}</td><td><strong>{_fmt_try(mcap*0.005, is_en=is_en)}</strong></td><td>Strong equity buffer</td></tr>
+        <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>Net Debt / (Net Cash)</strong></td><td>-</td><td>-</td><td><strong>{_fmt_try(net_debt, is_en=is_en)}</strong></td><td><span class="{"tag-green" if net_debt < 0 else "tag-red"}">{"🟢 Excellent Net Cash" if net_debt < 0 else "🔴 Net Debt Position"}</span></td></tr>
+        '''
+        is_table_html = f'''
+        <tr><td><strong>Revenue</strong></td><td>{_fmt_try(hist[2].get("revenue", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("revenue", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0), is_en=is_en)}</strong></td><td>Annual Revenue Growth</td></tr>
+        <tr><td><strong>Gross Profit</strong></td><td>{_fmt_try(hist[2].get("gross_profit", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("gross_profit", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("gross_profit", 0), is_en=is_en)}</strong></td><td>Gross Margin {_fmt_pct(hist[0].get("gross_margin", 0), is_en=is_en)}</td></tr>
+        <tr><td><strong>EBITDA</strong></td><td>{_fmt_try(hist[2].get("operating_income", 0)*1.15, is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("operating_income", 0)*1.15, is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ebit*1.15, is_en=is_en)}</strong></td><td>Operating Strength</td></tr>
+        <tr><td><strong>Operating Income (EBIT)</strong></td><td>{_fmt_try(hist[2].get("operating_income", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("operating_income", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ebit, is_en=is_en)}</strong></td><td><span class="{"tag-green" if last_ebit > 0 else "tag-red"}">{"🟢 Positive Operating Profit" if last_ebit > 0 else "🔴 Operating Loss"}</span></td></tr>
+        <tr><td><strong>Net Income</strong></td><td>{_fmt_try(hist[2].get("net_income", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("net_income", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ni, is_en=is_en)}</strong></td><td>Net Income Result</td></tr>
+        '''
+    else:
+        bs_table_html = f'''
+        <tr><td><strong>Dönen Varlıklar (Current Assets)</strong></td><td>{_fmt_try(hist[1].get("revenue", 0)*0.75) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("revenue", 0)*0.75) if hist else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*0.66) if hist else "N/A"}</strong></td><td>Likit nakit ve alacak stoku</td></tr>
+        <tr><td><strong>Duran Varlıklar (Non-Current)</strong></td><td>{_fmt_try(hist[1].get("revenue", 0)*0.25) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("revenue", 0)*0.28) if hist else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*0.22) if hist else "N/A"}</strong></td><td>Altyapı ve Ar-Ge lisans yatırımları</td></tr>
+        <tr><td><strong>Kısa Vadeli Borçlar</strong></td><td>{_fmt_try(debt*0.6)}</td><td>{_fmt_try(debt*0.8)}</td><td><strong>{_fmt_try(debt)}</strong></td><td>Cari Oran {_fmt_num(hist[0].get("current_ratio", 1.8), 2) if hist else "N/A"}x (Emniyetli)</td></tr>
+        <tr><td><strong>Uzun Vadeli Borçlar</strong></td><td>{_fmt_try(debt*0.2)}</td><td>{_fmt_try(debt*0.25)}</td><td><strong>{_fmt_try(debt*0.3)}</strong></td><td>Uzun vadeli borç yükü düşük</td></tr>
+        <tr><td><strong>Özkaynaklar (Equity)</strong></td><td>{_fmt_try(mcap*0.003)}</td><td>{_fmt_try(mcap*0.004)}</td><td><strong>{_fmt_try(mcap*0.005)}</strong></td><td>Güçlü sermaye tavanı</td></tr>
+        <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>Net Borç / (Net Nakit)</strong></td><td>-</td><td>-</td><td><strong>{_fmt_try(net_debt)}</strong></td><td><span class="{"tag-green" if net_debt < 0 else "tag-red"}">{"🟢 Mükemmel Net Nakit" if net_debt < 0 else "🔴 Net Borçlu"}</span></td></tr>
+        '''
+        is_table_html = f'''
+        <tr><td><strong>Hasılat (Ciro)</strong></td><td>{_fmt_try(hist[2].get("revenue", 0)) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("revenue", 0)) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)) if hist else "N/A"}</strong></td><td>Yıllık Ciro Gelişimi</td></tr>
+        <tr><td><strong>Brüt Kâr</strong></td><td>{_fmt_try(hist[2].get("gross_profit", 0)) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("gross_profit", 0)) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("gross_profit", 0)) if hist else "N/A"}</strong></td><td>Brüt Marj {_fmt_pct(hist[0].get("gross_margin", 0)) if hist else "N/A"}</td></tr>
+        <tr><td><strong>FAVÖK (EBITDA)</strong></td><td>{_fmt_try(hist[2].get("operating_income", 0)*1.15) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("operating_income", 0)*1.15) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ebit*1.15)}</strong></td><td>Faaliyet Gücü</td></tr>
+        <tr><td><strong>Faaliyet Kârı (EBIT)</strong></td><td>{_fmt_try(hist[2].get("operating_income", 0)) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("operating_income", 0)) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ebit)}</strong></td><td><span class="{"tag-green" if last_ebit > 0 else "tag-red"}">{"🟢 Faaliyet Kârı Pozitif" if last_ebit > 0 else "🔴 Esas Faaliyet Zararı"}</span></td></tr>
+        <tr><td><strong>Net Dönem Kârı</strong></td><td>{_fmt_try(hist[2].get("net_income", 0)) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("net_income", 0)) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ni)}</strong></td><td>Net Dönem Sonucu</td></tr>
+        '''
 
     # Determine Piotroski pill text & style
     if pf_score >= 7:
-        pf_desc = "Mükemmel Sağlık"
+        pf_desc = "Excellent Health" if is_en else "Mükemmel Sağlık"
         pf_pill_class = "pill-emerald"
     elif pf_score >= 5:
-        pf_desc = "Orta Finansal Sağlık"
+        pf_desc = "Moderate Health" if is_en else "Orta Finansal Sağlık"
         pf_pill_class = "pill-cyan"
     else:
-        pf_desc = "Zayıf / Riskli"
+        pf_desc = "Weak / Risk" if is_en else "Zayıf / Riskli"
         pf_pill_class = "pill-rose"
 
     # Build full HTML with 13 TABS & MODERN EXECUTIVE HEADER CARD
     html = f'''<!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -471,7 +527,7 @@ def compile_report(metrics: dict, commentary: dict) -> str:
         <li class="nav-item" onclick="switchTab('peer')" data-i18n="tab_peer">👥 4. Sektör & Rakip Karşılaştırma</li>
         <li class="nav-item" onclick="switchTab('statements')" data-i18n="tab_statements">📊 5. Bilanço & DuPont Analizi</li>
         <li class="nav-item" onclick="switchTab('forward')" data-i18n="tab_forward">🔮 6. İleri Tahminler (2026E/27E)</li>
-        <li class="nav-item" onclick="switchTab('quant')" data-i18n="tab_quant">🧮 7. Nicel Değerleme & 2D Duyarlılık</li>
+        <li class="nav-item" onclick="switchTab('quant')" data-i18n="tab_quant">{"🧮 7. Valuation & 2D Sensitivity" if is_en else "🧮 7. Nicel Değerleme & 2D Duyarlılık"}</li>
         <li class="nav-item" onclick="switchTab('forensic')" data-i18n="tab_forensic">🔍 8. Adli Denetim & Balon</li>
         <li class="nav-item" onclick="switchTab('ratios')" data-i18n="tab_ratios">📈 9. Tarihsel Finansallar & Likidite</li>
         <li class="nav-item" onclick="switchTab('calc')" data-i18n="tab_calc">⚡ 10. Ters DCF Hesaplayıcı</li>
@@ -541,7 +597,7 @@ def compile_report(metrics: dict, commentary: dict) -> str:
         </h2>
         <div class="exec-summary-grid">
           <div class="exec-summary-box"><h4>🟢 Güçlü Yanlar & Bilanço</h4><p>{commentary.get("strong_points", "N/A")}</p></div>
-          <div class="exec-summary-box"><h4>🔴 Değerleme & Zayıf Yanlar</h4><p>{commentary.get("weak_points", "N/A")}</p></div>
+          <div class="exec-summary-box"><h4>{"🔴 Valuation & Weaknesses" if is_en else "🔴 Değerleme & Zayıf Yanlar"}</h4><p>{commentary.get("weak_points", "N/A")}</p></div>
           <div class="exec-summary-box"><h4>🎯 Model & Risk Disiplini</h4><p>{commentary.get("risk_discipline", "N/A")}</p></div>
         </div>
       </div>
@@ -549,21 +605,21 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       <div class="card">
         <h3 class="card-title">📌 Hızlı Gösterge Tablosu (Executive Key Metrics)</h3>
         <table>
-          <thead><tr><th>Metrik</th><th>Değer</th><th>Sektör Normu</th><th>Değerlendirme & Yorum</th></tr></thead>
+          <thead><tr><th>{"Metric" if is_en else "Metrik"}</th><th>{"Value" if is_en else "Değer"}</th><th>{"Industry Norm" if is_en else "Sektör Normu"}</th><th>{"Assessment & Notes" if is_en else "Değerlendirme & Yorum"}</th></tr></thead>
           <tbody>
-            <tr><td><strong>Mevcut Hisse Fiyatı</strong></td><td><strong>{_fmt_try(price)}</strong></td><td>-</td><td>Güncel Kapanış Fiyatı</td></tr>
-            <tr><td><strong>Piyasa Değeri (Market Cap)</strong></td><td><strong>{_fmt_try(mcap)}</strong></td><td>-</td><td>Halka Açık Piyasa Değeri</td></tr>
-            <tr><td><strong>Firma Değeri (EV)</strong></td><td><strong>{_fmt_try(ev)}</strong></td><td>-</td><td>Firma Varlık Değeri</td></tr>
-            <tr><td><strong>Net Borç (Net Debt)</strong></td><td><strong>{_fmt_try(net_debt)}</strong></td><td>> 0</td><td><span class="{"tag-green" if net_debt < 0 else "tag-red"}">{"🟢 Mükemmel Likidite & Nakit Tamponu" if net_debt < 0 else "🔴 Net Borçlu"}</span></td></tr>
-            <tr><td><strong>Hesaplanan WACC</strong></td><td><strong>{_fmt_pct(wacc)}</strong></td><td>%18,0 - %22,0</td><td><span class="tag-green">🟢 Düşük Sermaye Maliyeti Avantajı</span></td></tr>
-            <tr><td><strong>Fiyat / Satışlar (P/S)</strong></td><td><strong>{_fmt_num(ps_ratio, 1)}x</strong></td><td>2,5x</td><td><span class="{"tag-red" if ps_ratio > 10 else "tag-green"}">{"🔴 AŞIRI ISINMA / BALON UYARISI" if ps_ratio > 10 else "🟢 Makul Çarpan"}</span></td></tr>
-            <tr><td><strong>EV / EBITDA (Firma Değeri / FAVÖK)</strong></td><td><strong>{_fmt_num(ev_ebitda, 1)}x</strong></td><td>8,0x - 12,0x</td><td><span class="{"tag-green" if 0 < ev_ebitda < 15 else "tag-amber"}">{"🟢 Makul FAVÖK Çarpanı" if 0 < ev_ebitda < 15 else "🟡 Yüksek FAVÖK Çarpanı"}</span></td></tr>
-            <tr><td><strong>Net Borç / EBITDA</strong></td><td><strong>{_fmt_num(net_debt_ebitda, 1)}x</strong></td><td>< 2,5x</td><td><span class="{"tag-green" if net_debt_ebitda <= 2.5 else "tag-red"}">{"🟢 Sağlıklı Borçluluk Oranı" if net_debt_ebitda <= 2.5 else "🔴 Yüksek Kaldıraç Riski"}</span></td></tr>
-            <tr><td><strong>Graham Değeri (Graham Number)</strong></td><td><strong>{_fmt_try(graham_num)}</strong></td><td>> Fiyat</td><td><span class="{"tag-green" if graham_num > price else "tag-amber"}">{"🟢 Muhafazakar Değerin Altında" if graham_num > price else "🟡 Primli Fiyatlama"}</span></td></tr>
-            <tr><td><strong>FCF Marjı (% FCF Margin)</strong></td><td><strong>%{_fmt_num(fcf_margin_pct, 1)}</strong></td><td>> %10,0</td><td><span class="{"tag-green" if fcf_margin_pct >= 10 else "tag-amber"}">{"🟢 Yüksek Serbest Nakit Üretimi" if fcf_margin_pct >= 10 else "🟡 Sınırlı Nakit Üretimi"}</span></td></tr>
-            <tr><td><strong>Beneish M-Score (Hile Skoru)</strong></td><td><strong>-2,85</strong></td><td>< -1,78</td><td><span class="tag-green">🟢 Güvenli Bölge (Manipülasyon Yok)</span></td></tr>
-            <tr><td><strong>Serbest Nakit Akışı (FCF)</strong></td><td><strong>{_fmt_try(recent_fcf)}</strong></td><td>> 0</td><td><span class="{"tag-green" if recent_fcf > 0 else "tag-red"}">{"🟢 Pozitif Nakit Akışı" if recent_fcf > 0 else "🔴 Negatif Nakit Akışı"}</span></td></tr>
-            <tr><td><strong>Tahta Sığlığı & Likidite Riski</strong></td><td><strong>78 / 100</strong></td><td>< 40</td><td><span class="tag-red">🔴 Yüksek Likidite & Sığ Tahta Sıkışması</span></td></tr>
+            <tr><td><strong>{"Current Stock Price" if is_en else "Mevcut Hisse Fiyatı"}</strong></td><td><strong>{_fmt_try(price, is_en=is_en)}</strong></td><td>-</td><td>{"Current Closing Price" if is_en else "Güncel Kapanış Fiyatı"}</td></tr>
+            <tr><td><strong>{"Market Cap" if is_en else "Piyasa Değeri (Market Cap)"}</strong></td><td><strong>{_fmt_try(mcap, is_en=is_en)}</strong></td><td>-</td><td>{"Public Market Capitalization" if is_en else "Halka Açık Piyasa Değeri"}</td></tr>
+            <tr><td><strong>{"Enterprise Value (EV)" if is_en else "Firma Değeri (EV)"}</strong></td><td><strong>{_fmt_try(ev, is_en=is_en)}</strong></td><td>-</td><td>{"Enterprise Asset Value" if is_en else "Firma Varlık Değeri"}</td></tr>
+            <tr><td><strong>{"Net Debt" if is_en else "Net Borç (Net Debt)"}</strong></td><td><strong>{_fmt_try(net_debt, is_en=is_en)}</strong></td><td>> 0</td><td><span class="{"tag-green" if net_debt < 0 else "tag-red"}">{("🟢 Excellent Liquidity & Cash Reserve" if net_debt < 0 else "🔴 Net Debt Position") if is_en else ("🟢 Mükemmel Likidite & Nakit Tamponu" if net_debt < 0 else "🔴 Net Borçlu")}</span></td></tr>
+            <tr><td><strong>{"Calculated WACC" if is_en else "Hesaplanan WACC"}</strong></td><td><strong>{_fmt_pct(wacc, is_en=is_en)}</strong></td><td>18.0% - 22.0%</td><td><span class="tag-green">{"🟢 Low Cost of Capital Advantage" if is_en else "🟢 Düşük Sermaye Maliyeti Avantajı"}</span></td></tr>
+            <tr><td><strong>{"Price / Sales (P/S)" if is_en else "Fiyat / Satışlar (P/S)"}</strong></td><td><strong>{_fmt_num(ps_ratio, is_en=is_en, decimals=1)}x</strong></td><td>2.5x</td><td><span class="{"tag-red" if ps_ratio > 10 else "tag-green"}">{("🔴 OVERHEATING / BUBBLE WARNING" if ps_ratio > 10 else "🟢 Fair Multiple") if is_en else ("🔴 AŞIRI ISINMA / BALON UYARISI" if ps_ratio > 10 else "🟢 Makul Çarpan")}</span></td></tr>
+            <tr><td><strong>{"EV / EBITDA" if is_en else "EV / EBITDA (Firma Değeri / FAVÖK)"}</strong></td><td><strong>{_fmt_num(ev_ebitda, is_en=is_en, decimals=1)}x</strong></td><td>8.0x - 12.0x</td><td><span class="{"tag-green" if 0 < ev_ebitda < 15 else "tag-amber"}">{("🟢 Reasonable EBITDA Multiple" if 0 < ev_ebitda < 15 else "🟡 Elevated EBITDA Multiple") if is_en else ("🟢 Makul FAVÖK Çarpanı" if 0 < ev_ebitda < 15 else "🟡 Yüksek FAVÖK Çarpanı")}</span></td></tr>
+            <tr><td><strong>{"Net Debt / EBITDA" if is_en else "Net Borç / EBITDA"}</strong></td><td><strong>{_fmt_num(net_debt_ebitda, is_en=is_en, decimals=1)}x</strong></td><td>< 2.5x</td><td><span class="{"tag-green" if net_debt_ebitda <= 2.5 else "tag-red"}">{("🟢 Healthy Leverage Ratio" if net_debt_ebitda <= 2.5 else "🔴 High Leverage Risk") if is_en else ("🟢 Sağlıklı Borçluluk Oranı" if net_debt_ebitda <= 2.5 else "🔴 Yüksek Kaldıraç Riski")}</span></td></tr>
+            <tr><td><strong>{"Graham Number" if is_en else "Graham Değeri (Graham Number)"}</strong></td><td><strong>{_fmt_try(graham_num, is_en=is_en)}</strong></td><td>> Price</td><td><span class="{"tag-green" if graham_num > price else "tag-amber"}">{("🟢 Below Conservative Fair Value" if graham_num > price else "🟡 Premium Valuation") if is_en else ("🟢 Muhafazakar Değerin Altında" if graham_num > price else "🟡 Primli Fiyatlama")}</span></td></tr>
+            <tr><td><strong>{"FCF Margin (%)" if is_en else "FCF Marjı (% FCF Margin)"}</strong></td><td><strong>{_fmt_pct(fcf_margin_pct/100, is_en=is_en, decimals=1)}</strong></td><td>> 10.0%</td><td><span class="{"tag-green" if fcf_margin_pct >= 10 else "tag-amber"}">{("🟢 High FCF Generation" if fcf_margin_pct >= 10 else "🟡 Limited Cash Generation") if is_en else ("🟢 Yüksek Serbest Nakit Üretimi" if fcf_margin_pct >= 10 else "🟡 Sınırlı Nakit Üretimi")}</span></td></tr>
+            <tr><td><strong>{"Beneish M-Score" if is_en else "Beneish M-Score (Hile Skoru)"}</strong></td><td><strong>-2.85</strong></td><td>< -1.78</td><td><span class="tag-green">{"🟢 Safe Zone (No Manipulation Detected)" if is_en else "🟢 Güvenli Bölge (Manipülasyon Yok)"}</span></td></tr>
+            <tr><td><strong>{"Free Cash Flow (FCF)" if is_en else "Serbest Nakit Akışı (FCF)"}</strong></td><td><strong>{_fmt_try(recent_fcf, is_en=is_en)}</strong></td><td>> 0</td><td><span class="{"tag-green" if recent_fcf > 0 else "tag-red"}">{("🟢 Positive Cash Flow" if recent_fcf > 0 else "🔴 Negative Cash Flow") if is_en else ("🟢 Pozitif Nakit Akışı" if recent_fcf > 0 else "🔴 Negatif Nakit Akışı")}</span></td></tr>
+            <tr><td><strong>{"Liquidity Risk & Order Book" if is_en else "Tahta Sığlığı & Likidite Riski"}</strong></td><td><strong>78 / 100</strong></td><td>< 40</td><td><span class="tag-red">{"🔴 High Liquidity & Tight Order Book" if is_en else "🔴 Yüksek Likidite & Sığ Tahta Sıkışması"}</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -578,22 +634,22 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       <div class="investor-guide-box">
         <div class="guide-title">💡 360° ŞİRKET KARNESİ, PIOTROSKI F-SCORE VE ALTMAN Z-SCORE NASIL OKUNUR?</div>
         <div class="guide-text">
-          • <strong>360° Bileşik Karne Skoru (7,0 / 10):</strong> Şirketin tüm finansal organlarını 1-10 arası puanlar. {company_name}'in Finansal Sağlığı 9.0 (Mükemmel), Nakit Üretimi 8.5 (Çok Güçlü) ancak Değerleme Skoru 1.0 (Aşırı Pahalı).<br>
-          • <strong>Piotroski F-Score ({pf_score} / 9 Puan):</strong> Joseph Piotroski'nin 9 maddelik kârlılık ve bilanço denetimidir. {company_name} {pf_score}/9 puan ile finansal sağlık durumunu gösterir.<br>
-          • <strong>Altman Z-Score (Z = {_fmt_num(z_score)}):</strong> Şirketlerin iflas ve mali çöküş riskini ölçer. $Z > 2,99$ Güvenli Bölgedir. {company_name} borçsuzluk tamponu sayesinde ({z_zone}) bölgesindedir.
+          {"• <strong>360° Composite Scorecard (7.0 / 10):</strong> Rates company fundamentals on a scale of 1-10. Financial Health 9.0 (Excellent), Cash Generation 8.5 (Very Strong), Valuation Score 1.0 (Overvalued)." if is_en else f"• <strong>360° Bileşik Karne Skoru (7,0 / 10):</strong> Şirketin tüm finansal organlarını 1-10 arası puanlar. {company_name}'in Finansal Sağlığı 9.0 (Mükemmel), Nakit Üretimi 8.5 (Çok Güçlü) ancak Değerleme Skoru 1.0 (Aşırı Pahalı)."}
+          • <strong>Piotroski F-Score ({pf_score} / 9 {('Points' if is_en else 'Puan')}):</strong> {('Joseph Piotroski 9-point financial health audit.' if is_en else "Joseph Piotroski'nin 9 maddelik kârlılık ve bilanço denetimidir.")}<br>
+          • <strong>Altman Z-Score (Z = {_fmt_num(z_score, is_en=is_en)}):</strong> {('Measures insolvency risk. Z > 2.99 is Safe Zone.' if is_en else 'Şirketlerin iflas ve mali çöküş riskini ölçer. $Z > 2,99$ Güvenli Bölgedir.')} {company_name} ({z_zone}).
         </div>
       </div>
 
       <div class="card">
         <h3 class="card-title">⭐ 360° Şirket Karnesi & Derecelendirme Özeti</h3>
         <table>
-          <thead><tr><th>Değerlendirme Boyutu</th><th>Skor (1-10)</th><th>Derece</th><th>Açıklama</th></tr></thead>
+          <thead><tr><th>{"Evaluation Dimension" if is_en else "Değerlendirme Boyutu"}</th><th>{"Score (1-10)" if is_en else "Skor (1-10)"}</th><th>{"Rating" if is_en else "Derece"}</th><th>{"Description" if is_en else "Açıklama"}</th></tr></thead>
           <tbody>
             <tr><td>1. Finansal Sağlık & Likidite</td><td><strong>9,0 / 10</strong></td><td><span class="tag-green">🟢 Mükemmel</span></td><td>Net borçsuz yapı, likidite tamponu.</td></tr>
             <tr><td>2. Büyüme & Kâr Kalitesi</td><td><strong>8,5 / 10</strong></td><td><span class="tag-green">🟢 Çok Güçlü</span></td><td>Nakit akışı dönüşüm kalitesi.</td></tr>
             <tr><td>3. Rekabet Gücü (Moat)</td><td><strong>8,0 / 10</strong></td><td><span class="tag-green">🟢 Güçlü</span></td><td>Yüksek geçiş maliyetli pazar konumu.</td></tr>
             <tr><td>4. Adli Muhasebe & AML Güvenliği</td><td><strong>8,5 / 10</strong></td><td><span class="tag-green">🟢 Güvenli</span></td><td>Beneish M-Score güvenli bölgede.</td></tr>
-            <tr><td>5. Değerleme & Fiyat Ucuzluğu</td><td><strong>1,0 / 10</strong></td><td><span class="tag-red">🔴 Aşırı Pahalı</span></td><td>Çarpanlar sektör ortalamasının üzerinde.</td></tr>
+            <tr><td>{"5. Valuation & Pricing" if is_en else "5. Değerleme & Fiyat Ucuzluğu"}</td><td><strong>1.0 / 10</strong></td><td><span class="tag-red">{"🔴 Overvalued" if is_en else "🔴 Aşırı Pahalı"}</span></td><td>{"Multiples above industry average." if is_en else "Çarpanlar sektör ortalamasının üzerinde."}</td></tr>
             <tr style="background:rgba(255,255,255,0.03);"><td><strong>BİLEŞİK ŞİRKET KARNESİ SKORU</strong></td><td><strong>7,0 / 10</strong></td><td><span class="tag-amber">🟡 YÜKSEK POTANSİYEL - PAHALI</span></td><td>Finansal yapı sağlam, fiyatlama çarpanı yüksek.</td></tr>
           </tbody>
         </table>
@@ -638,7 +694,7 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       <div class="card">
         <h3 class="card-title">🚀 Katalizör Zaman Çizelgesi (Önümüzdeki 12 Ay)</h3>
         <table>
-          <thead><tr><th>Zaman Dilimi</th><th>Olay / Milat</th><th>Tahmini Olasılık</th><th>Fiyat Etki Yönü</th></tr></thead>
+          <thead><tr><th>{"Time Frame" if is_en else "Zaman Dilimi"}</th><th>{"Event / Catalyst" if is_en else "Olay / Milat"}</th><th>{"Estimated Probability" if is_en else "Tahmini Olasılık"}</th><th>{"Price Impact" if is_en else "Fiyat Etki Yönü"}</th></tr></thead>
           <tbody>
             <tr><td><strong>0–3 Ay</strong></td><td>SPK Bedelsiz Sermaye Artırımı / Finansal Raporlama</td><td>Yüksek (%80-90)</td><td><span class="tag-green">`+` Pozitif</span></td></tr>
             <tr><td><strong>3–6 Ay</strong></td><td>Sektörel İhale ve Yeni Ürün Entegrasyonları</td><td>Yüksek (%75)</td><td><span class="tag-green">`++` Güçlü Pozitif</span></td></tr>
@@ -665,7 +721,7 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       <div class="card">
         <h3 class="card-title">👥 Ortaklık Yapısı & Lock-Up Tablosu</h3>
         <table>
-          <thead><tr><th>Ortak / Yapı</th><th>Pay Oranı (%)</th><th>Hisse Tipi</th><th>Satan / Kilitli Durumu</th><th>Risk Seviyesi</th></tr></thead>
+          <thead><tr><th>{"Shareholder / Structure" if is_en else "Ortak / Yapı"}</th><th>{"Ownership (%)" if is_en else "Pay Oranı (%)"}</th><th>{"Share Class" if is_en else "Hisse Tipi"}</th><th>{"Lock-Up / Sale Status" if is_en else "Satan / Kilitli Durumu"}</th><th>{"Risk Level" if is_en else "Risk Seviyesi"}</th></tr></thead>
           <tbody>
             <tr><td>Kurucu / Hakim Ortaklar</td><td><strong>%55,0</strong></td><td>A Grubu (İmtiyazlı)</td><td>Taahhütlü Kilitli (Lock-Up Var)</td><td><span class="tag-green">🟢 Düşük Risk</span></td></tr>
             <tr><td>Halka Açık Paylar (Free Float)</td><td><strong>%45,0</strong></td><td>B Grubu (Dolaşım)</td><td>Dolaşımdaki Pay Yapısı</td><td><span class="tag-amber">🟡 Normal Likidite</span></td></tr>
@@ -695,7 +751,7 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       <div class="card">
         <h3 class="card-title">👥 Sektör Rakipleri Karşılaştırma Matrisi (Peer Benchmark)</h3>
         <table>
-          <thead><tr><th>Hisse / Şirket</th><th>Piyasa Değeri</th><th>P/S</th><th>P/E</th><th>Net Kâr Marjı</th><th>Satış Büyümesi</th><th>Değerleme</th></tr></thead>
+          <thead><tr><th>{"Stock / Company" if is_en else "Hisse / Şirket"}</th><th>{"Market Cap" if is_en else "Piyasa Değeri"}</th><th>P/S</th><th>P/E</th><th>{"Net Margin" if is_en else "Net Kâr Marjı"}</th><th>{"Revenue Growth" if is_en else "Satış Büyümesi"}</th><th>{"Valuation" if is_en else "Değerleme"}</th></tr></thead>
           <tbody>{peer_rows_html}</tbody>
         </table>
         <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary.get("peer_comparison", "")}</div></div>
@@ -710,25 +766,25 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       <div class="investor-guide-box">
         <div class="guide-title">💡 BİLANÇO, GELİR TABLOSU VE DUPONT ANALİZİ NASIL OKUNUR & NASIL YORUMLANIR?</div>
         <div class="guide-text">
-          <p style="margin-bottom:0.5rem;"><strong>1. Bilanço Nedir? (Şirketin Fotoğrafı):</strong><br>
-          Bilanço, şirketin o günkü mal varlığını ve borçlarını gösterir. {company_name}'in bilançosunda en dikkat çekici unsur <strong>{_fmt_try(net_debt)} Net Borç / Nakit</strong> yapısıdır. Cari Oran {_fmt_num(hist[0].get("current_ratio", 2.0), 2)}x ile borç ödeme riski düşüktür.</p>
+          <p style="margin-bottom:0.5rem;"><strong>{("1. Balance Sheet Overview (Snapshot):" if is_en else "1. Bilanço Nedir? (Şirketin Fotoğrafı):")}</strong><br>
+          {f"The balance sheet reflects assets and liabilities. The key feature of {company_name}'s balance sheet is its {_fmt_try(net_debt, is_en=is_en)} net debt/cash structure. Current ratio of {_fmt_num(hist[0].get('current_ratio', 2.0), is_en=is_en, decimals=2)}x indicates low insolvency risk." if is_en else f"Bilanço, şirketin o günkü mal varlığını ve borçlarını gösterir. {company_name}'in bilançosunda en dikkat çekici unsur <strong>{_fmt_try(net_debt)} Net Borç / Nakit</strong> yapısıdır. Cari Oran {_fmt_num(hist[0].get('current_ratio', 2.0), 2)}x ile borç ödeme riski düşüktür."}</p>
 
-          <p style="margin-bottom:0.5rem;"><strong>2. Gelir Tablosundaki Kritik Detay (Faaliyet Kârı vs Net Kâr):</strong><br>
-          {company_name} dönem içerisinde <strong>{_fmt_try(last_ebit)} Faaliyet Kârı/Zararı (EBIT)</strong> yazmasına karşın, finansman ve net kambiyo kârları sayesinde <strong>{_fmt_try(last_ni)} Net Dönem Kârı</strong> açıklamıştır.</p>
+          <p style="margin-bottom:0.5rem;"><strong>{("2. Income Statement Breakdown (Operating vs Net Income):" if is_en else "2. Gelir Tablosundaki Kritik Detay (Faaliyet Kârı vs Net Kâr):")}</strong><br>
+          {f"{company_name} generated {_fmt_try(last_ebit, is_en=is_en)} Operating Income (EBIT) and {_fmt_try(last_ni, is_en=is_en)} Net Income." if is_en else f"{company_name} dönem içerisinde <strong>{_fmt_try(last_ebit)} Faaliyet Kârı/Zararı (EBIT)</strong> yazmasına karşın, finansman ve net kambiyo kârları sayesinde <strong>{_fmt_try(last_ni)} Net Dönem Kârı</strong> açıklamıştır."}</p>
 
-          <p><strong>3. DuPont 5-Adım ROE Ayrıştırması (Özsermaye Kârlılığı Denetimi):</strong><br>
-          DuPont analizi, özsermaye kârlılığını <code>(ROE = Vergi Yükü × Faiz Yükü × EBIT Marjı × Varlık Devir Hızı × Kaldıraç)</code> 5 vitale böler:<br>
-          • <em>Vergi Yükü ({_fmt_num(dp.get("tax_burden", 0), 4)}):</em> Net Kâr / EBIT oranıdır.<br>
-          • <em>Faiz Yükü ({_fmt_num(dp.get("interest_burden", 0), 4)}):</em> Borçsuzluk sayesinde faiz yükü düşüktür.<br>
-          • <em>Faaliyet Marjı ({_fmt_pct(dp.get("ebit_margin", 0)/100)}):</em> Operasyonel kârlılık marjını gösterir.<br>
-          • <em>Varlık Devir Hızı ({_fmt_num(dp.get("asset_turnover", 0))}x) & Kaldıraç ({_fmt_num(dp.get("financial_leverage", 0))}x):</em> Sermaye ve borç kullanım etkinliğini kanıtlar.</p>
+          <p><strong>{("3. DuPont 5-Step ROE Breakdown (Return on Equity Audit):" if is_en else "3. DuPont 5-Adım ROE Ayrıştırması (Özsermaye Kârlılığı Denetimi):")}</strong><br>
+          {("DuPont analysis breaks ROE into Tax Burden × Interest Burden × EBIT Margin × Asset Turnover × Leverage." if is_en else "DuPont analizi, özsermaye kârlılığını <code>(ROE = Vergi Yükü × Faiz Yükü × EBIT Marjı × Varlık Devir Hızı × Kaldıraç)</code> 5 vitale böler:")}<br>
+          • <em>{("Tax Burden" if is_en else "Vergi Yükü")} ({_fmt_num(dp.get("tax_burden", 0), is_en=is_en, decimals=4)}):</em> {("Net Income / EBIT ratio." if is_en else "Net Kâr / EBIT oranıdır.")}<br>
+          • <em>{("Interest Burden" if is_en else "Faiz Yükü")} ({_fmt_num(dp.get("interest_burden", 0), is_en=is_en, decimals=4)}):</em> {("EBIT / EBT ratio." if is_en else "Borçsuzluk sayesinde faiz yükü düşüktür.")}<br>
+          • <em>{("Operating Margin" if is_en else "Faaliyet Marjı")} ({_fmt_pct(dp.get("ebit_margin", 0)/100, is_en=is_en)}):</em> {("Operational profitability margin." if is_en else "Operasyonel kârlılık marjını gösterir.")}<br>
+          • <em>{("Asset Turnover" if is_en else "Varlık Devir Hızı")} ({_fmt_num(dp.get("asset_turnover", 0), is_en=is_en)}x) & {("Leverage" if is_en else "Kaldıraç")} ({_fmt_num(dp.get("financial_leverage", 0), is_en=is_en)}x):</em> {("Asset and capital efficiency." if is_en else "Sermaye ve borç kullanım etkinliğini kanıtlar.")}</p>
         </div>
       </div>
 
       <div class="card">
         <h3 class="card-title">📋 Bilanço Özet Tablosu (TRY)</h3>
         <table>
-          <thead><tr><th>Bilanço Kalemi</th><th>2023</th><th>2024</th><th>2025 (Fiili)</th><th>Temel Analiz Yorumu</th></tr></thead>
+          <thead><tr><th>{"Balance Sheet Item" if is_en else "Bilanço Kalemi"}</th><th>2023</th><th>2024</th><th>2025 (Actual)</th><th>{"Fundamental Note" if is_en else "Temel Analiz Yorumu"}</th></tr></thead>
           <tbody>{bs_table_html}</tbody>
         </table>
       </div>
@@ -736,7 +792,7 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       <div class="card">
         <h3 class="card-title">📈 Gelir Tablosu Özet Tablosu (TRY)</h3>
         <table>
-          <thead><tr><th>Gelir Tablosu Kalemi</th><th>2023</th><th>2024</th><th>2025 (Fiili)</th><th>Değişim / Analiz</th></tr></thead>
+          <thead><tr><th>{"Income Statement Item" if is_en else "Gelir Tablosu Kalemi"}</th><th>2023</th><th>2024</th><th>2025 (Actual)</th><th>{"Trend / Analysis" if is_en else "Değişim / Analiz"}</th></tr></thead>
           <tbody>{is_table_html}</tbody>
         </table>
       </div>
@@ -778,12 +834,12 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       <div class="card">
         <h3 class="card-title">🔮 Gelecek Dönem Finansal Tahminleri (2026E & 2027E)</h3>
         <table>
-          <thead><tr><th>Metrik (TRY)</th><th>2024 (Fiili)</th><th>2025 (Fiili)</th><th>2026E (Tahmin)</th><th>2027E (Tahmin)</th></tr></thead>
+          <thead><tr><th>{"Metric" if is_en else "Metrik (TRY)"}</th><th>2024 (Actual)</th><th>2025 (Actual)</th><th>2026E (Est)</th><th>2027E (Est)</th></tr></thead>
           <tbody>
             <tr><td>Hasılat (Revenue)</td><td>{_fmt_try(hist[1].get("revenue", 0)) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("revenue", 0)) if hist else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*1.5)}</strong></td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*2.25)}</strong></td></tr>
             <tr><td>Faaliyet Kârı (EBIT)</td><td>{_fmt_try(hist[1].get("operating_income", 0)) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("operating_income", 0)) if hist else "N/A"}</td><td><strong>{_fmt_try(abs(hist[0].get("operating_income", 0))*1.2)}</strong></td><td><strong>{_fmt_try(abs(hist[0].get("operating_income", 0))*2.0)}</strong></td></tr>
             <tr><td>Net Kâr</td><td>{_fmt_try(hist[1].get("net_income", 0)) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("net_income", 0)) if hist else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("net_income", 0)*3.0)}</strong></td><td><strong>{_fmt_try(hist[0].get("net_income", 0)*6.0)}</strong></td></tr>
-            <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>İleri Fiyat / Satışlar (Forward P/S)</strong></td><td><strong>{_fmt_num(ps_ratio*1.5, 1)}x</strong></td><td><strong>{_fmt_num(ps_ratio, 1)}x</strong></td><td><strong>{_fmt_num(ps_ratio/1.5, 1)}x</strong></td><td><strong>{_fmt_num(ps_ratio/2.25, 1)}x</strong></td></tr>
+            <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>{"Forward Price / Sales (Forward P/S)" if is_en else "İleri Fiyat / Satışlar (Forward P/S)"}</strong></td><td><strong>{_fmt_num(ps_ratio*1.5, 1)}x</strong></td><td><strong>{_fmt_num(ps_ratio, 1)}x</strong></td><td><strong>{_fmt_num(ps_ratio/1.5, 1)}x</strong></td><td><strong>{_fmt_num(ps_ratio/2.25, 1)}x</strong></td></tr>
           </tbody>
         </table>
       </div>
@@ -812,9 +868,9 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       </div>
 
       <div class="card">
-        <h3 class="card-title">📉 Makro Şok Hassasiyet Tablosu (WACC vs Adil Değer)</h3>
+        <h3 class="card-title">{"📉 Macro Shock Sensitivity Table (WACC vs Fair Value)" if is_en else "📉 Makro Şok Hassasiyet Tablosu (WACC vs Adil Değer)"}</h3>
         <table>
-          <thead><tr><th>Senaryo / WACC Seviyesi</th><th>İskonto Oranı</th><th>Tahmini Adil Hisse Değeri (TRY)</th><th>Mevcut Fiyata Göre Fark</th><th>Risk Derecesi</th></tr></thead>
+          <thead><tr><th>{"Scenario / WACC Level" if is_en else "Senaryo / WACC Seviyesi"}</th><th>{"Discount Rate" if is_en else "İskonto Oranı"}</th><th>{"Estimated Fair Value" if is_en else "Tahmini Adil Hisse Değeri (TRY)"}</th><th>{"Upside / Downside" if is_en else "Mevcut Fiyata Göre Fark"}</th><th>{"Risk Degree" if is_en else "Risk Derecesi"}</th></tr></thead>
           <tbody>
             <tr><td><strong>Baz Senaryo (Fiili WACC)</strong></td><td><strong>{_fmt_pct(wacc)}</strong></td><td><strong>{_fmt_try(fair_base)}</strong></td><td>+%10,0</td><td><span class="tag-green">🟢 Düşük Risk</span></td></tr>
             <tr><td><strong>Makro Şok 1 (Piyasa Ortalama)</strong></td><td><strong>%10,00</strong></td><td><strong>{_fmt_try(fair_shock1)}</strong></td><td>-%63,7</td><td><span class="tag-amber">🟡 Orta Risk</span></td></tr>
@@ -843,7 +899,7 @@ def compile_report(metrics: dict, commentary: dict) -> str:
           • <em>Nedir?:</em> Şirketlerin borsa değerini yüksek tutmak için kâğıt üzerinde suni kâr yazıp yazmadığını denetleyen adli hile testidir.<br>
           • <em>Nasıl Yorumlanır?:</em> Skor <strong>-1,78'in altında</strong> ise bilanço temizdir. {company_name}'in Beneish M-Score skoru <strong>-2,85</strong> ile güvenli bölgededir.</p>
 
-          <p style="margin-bottom:0.5rem;"><strong>2. Spekülasyon & Değerleme Balonu (P/S - Fiyat/Satışlar Çarpanı):</strong><br>
+          <p style="margin-bottom:0.5rem;"><strong>{"2. Speculation & Valuation Bubble (P/S Multiple):" if is_en else "2. Spekülasyon & Değerleme Balonu (P/S - Fiyat/Satışlar Çarpanı):"}</strong><br>
           • <em>Nedir?:</em> Hisse fiyatının şirketin ürettiği gerçek ciroya oranını ölçer.<br>
           • <em>Nasıl Yorumlanır?:</em> Ortalama P/S çarpanı <strong>2,5x</strong> iken, {company_name}'in çarpanı <strong>{_fmt_num(ps_ratio, 1)}x</strong> seviyesindedir. Fiyatın ciroya göre primli seyrettiğini gösterir.</p>
 
@@ -854,9 +910,9 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       </div>
 
       <div class="card">
-        <h3 class="card-title">🔍 Adli Muhasebe & Değerleme Balonu Analizi</h3>
+        <h3 class="card-title">{"🔍 Forensic Accounting & Bubble Analysis" if is_en else "🔍 Adli Muhasebe & Değerleme Balonu Analizi"}</h3>
         <table>
-          <thead><tr><th>Denetim Boyutu</th><th>Değer</th><th>Sektör / Güvenli Eşik</th><th>Risk & Seviye</th></tr></thead>
+          <thead><tr><th>{"Audit Dimension" if is_en else "Denetim Boyutu"}</th><th>{"Value" if is_en else "Değer"}</th><th>{"Benchmark / Safe Threshold" if is_en else "Sektör / Güvenli Eşik"}</th><th>{"Risk & Level" if is_en else "Risk & Seviye"}</th></tr></thead>
           <tbody>
             <tr><td><strong>Beneish M-Score (Hile Testi)</strong></td><td><strong>-2,85</strong></td><td>< -1,78</td><td><span class="tag-green">🟢 GÜVENLİ (Muhasebe Manipülasyonu Yok)</span></td></tr>
             <tr><td><strong>Altman Z-Score (İflas Riski)</strong></td><td><strong>{_fmt_num(z_score)}</strong></td><td>> 2,99</td><td><span class="tag-green">🟢 GÜVENLİ ({z_zone})</span></td></tr>
@@ -891,9 +947,9 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       </div>
 
       <div class="card">
-        <h3 class="card-title">🌊 Tahta Sığlığı & Likidite Göstergeleri</h3>
+        <h3 class="card-title">{"🌊 Order Book Tightness & Liquidity Indicators" if is_en else "🌊 Tahta Sığlığı & Likidite Göstergeleri"}</h3>
         <table>
-          <thead><tr><th>Likidite Göstergesi</th><th>Değer</th><th>Sektör Standardı</th><th>Değerlendirme</th></tr></thead>
+          <thead><tr><th>{"Liquidity Metric" if is_en else "Likidite Göstergesi"}</th><th>{"Value" if is_en else "Değer"}</th><th>{"Industry Standard" if is_en else "Sektör Standardı"}</th><th>{"Assessment" if is_en else "Değerlendirme"}</th></tr></thead>
           <tbody>
             <tr><td>Hacim Sapma Oranı (Volume Divergence)</td><td><strong>0,59</strong></td><td>1,00</td><td>Konsolidasyon / Hacim Daralması</td></tr>
             <tr style="background:rgba(244,63,94,0.1); font-weight:700;"><td><strong>BİLEŞİK SIKISMA & LİKİDİTE RİSK SKORU</strong></td><td><strong>78 / 100</strong></td><td>< 40</td><td><span class="tag-red">🔴 YÜKSEK LİKİDİTE RİSKİ</span></td></tr>
@@ -911,17 +967,17 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       <div class="investor-guide-box">
         <div class="guide-title">💡 İNTERAKTİF HESAPLAYICI NE ANLAMA GELİR & NASIL YORUMLANIR?</div>
         <div class="guide-text">
-          <p style="margin-bottom:0.5rem;"><strong>1. Bu Sayfa Ne Gösteriyor?:</strong><br>
-          Bu hesap makinesi: <em>"Mevcut <strong>{_fmt_try(price)} hisse fiyatını</strong> ve <strong>{_fmt_try(ev)} firma değerini</strong> matematiksel olarak haklı çıkarmak için şirketin kasasına giren nakdi her yıl % kaç artırması gerektiğini"</em> modeller.</p>
+          <p style="margin-bottom:0.5rem;"><strong>{("1. What Does This Page Show?:" if is_en else "1. Bu Sayfa Ne Gösteriyor?:")}</strong><br>
+          {f"This calculator models: <em>'The annual cash flow growth rate (%) required to mathematically justify the current stock price of {_fmt_try(price, is_en=is_en)} and Enterprise Value of {_fmt_try(ev, is_en=is_en)}.'</em>" if is_en else f"Bu hesap makinesi: <em>'Mevcut <strong>{_fmt_try(price)} hisse fiyatını</strong> ve <strong>{_fmt_try(ev)} firma değerini</strong> matematiksel olarak haklı çıkarmak için şirketin kasasına giren nakdi her yıl % kaç artırması gerektiğini'</em> modeller."}</p>
 
-          <p style="margin-bottom:0.5rem;"><strong>2. Rakamların Analizi (Örnek Simülasyon):</strong><br>
-          • <strong>Baz Durum ({_fmt_pct(implied_g)} İmplike Büyüme):</strong> Firma Değeri <code>{_fmt_try(ev)}</code> ve Yıllık FCF <code>{_fmt_try(recent_fcf)}</code> iken imilike büyüme <strong>{_fmt_pct(implied_g)}</strong> hesaplanır.<br>
-          • <strong>Düşük Nakit Durumu:</strong> Kasaya giren nakit gerilerse, gerekli büyüme oranı yükselmektedir.</p>
+          <p style="margin-bottom:0.5rem;"><strong>{("2. Simulation Analysis:" if is_en else "2. Rakamların Analizi (Örnek Simülasyon):")}</strong><br>
+          {f"• <strong>Base Case ({_fmt_pct(implied_g, is_en=is_en)} Implied Growth):</strong> Given Enterprise Value {_fmt_try(ev, is_en=is_en)} and FCF {_fmt_try(recent_fcf, is_en=is_en)}, implied growth is calculated at {_fmt_pct(implied_g, is_en=is_en)}." if is_en else f"• <strong>Baz Durum ({_fmt_pct(implied_g)} İmplike Büyüme):</strong> Firma Değeri <code>{_fmt_try(ev)}</code> ve Yıllık FCF <code>{_fmt_try(recent_fcf)}</code> iken imilike büyüme <strong>{_fmt_pct(implied_g)}</strong> hesaplanır."}<br>
+          • <strong>{("Lower Cash Flow Scenario:" if is_en else "Düşük Nakit Durumu:")}</strong> {("If free cash flow declines, the required growth rate increases." if is_en else "Kasaya giren nakit gerilerse, gerekli büyüme oranı yükselmektedir.")}</p>
 
-          <p><strong>3. Analiz Özeti:</strong><br>
-          • <strong>Bilanço Durumu:</strong> {company_name} net borç/nakit durumu: {_fmt_try(net_debt)}.<br>
-          • <strong>Risk Faktörü:</strong> Risk nakit akışının sürdürülebilirliğinde ve {_fmt_num(ps_ratio, 1)}x P/S seviyesindeki çarpan değerlemesindedir.<br>
-          • <strong>Teknik Seviye:</strong> {_fmt_try(sma50)} (50 günlük ortalama) ana teknik destek noktasıdır.</p>
+          <p><strong>{("3. Executive Summary:" if is_en else "3. Analiz Özeti:")}</strong><br>
+          • <strong>{("Balance Sheet Position:" if is_en else "Bilanço Durumu:")}</strong> {company_name} {("net debt/cash:" if is_en else "net borç/nakit durumu:")} {_fmt_try(net_debt, is_en=is_en)}.<br>
+          • <strong>{("Risk Factor:" if is_en else "Risk Faktörü:")}</strong> {f"Sustaining cash flow growth vs {_fmt_num(ps_ratio, is_en=is_en, decimals=1)}x P/S multiple valuation." if is_en else f"Risk nakit akışının sürdürülebilirliğinde ve {_fmt_num(ps_ratio, 1)}x P/S seviyesindeki çarpan değerlemesindedir."}<br>
+          • <strong>{("Technical Support:" if is_en else "Teknik Seviye:")}</strong> {_fmt_try(sma50, is_en=is_en)} {("(50-day SMA) is key support." if is_en else "(50 günlük ortalama) ana teknik destek noktasıdır.")}</p>
         </div>
       </div>
 
@@ -929,17 +985,17 @@ def compile_report(metrics: dict, commentary: dict) -> str:
         <h3 class="card-title">⚡ İnteraktif Ters DCF Hesaplayıcı</h3>
         <div class="grid-3" style="margin-bottom:1rem;">
           <div class="form-group">
-            <label>Firma Değeri (EV - ₺ Milyon)</label>
+            <label>{"Enterprise Value (EV - $ Million)" if is_en else "Firma Değeri (EV - ₺ Milyon)"}</label>
             <input type="number" id="evMilyon" value="{round(ev/1e6)}" step="100" oninput="syncEvSlider(this.value); calculateReverseDCF();">
             <input type="range" id="evSlider" min="1000" max="500000" value="{round(ev/1e6)}" step="500" style="margin-top:0.4rem; accent-color:var(--accent-cyan);" oninput="syncEvInput(this.value); calculateReverseDCF();">
           </div>
           <div class="form-group">
-            <label>Serbest Nakit Akışı (FCF - ₺ Milyon)</label>
+            <label>{"Free Cash Flow (FCF - $ Million)" if is_en else "Serbest Nakit Akışı (FCF - ₺ Milyon)"}</label>
             <input type="number" id="fcfMilyon" value="{round(recent_fcf/1e6, 2)}" step="5" oninput="syncFcfSlider(this.value); calculateReverseDCF();">
             <input type="range" id="fcfSlider" min="-1000" max="2000" value="{round(recent_fcf/1e6, 2)}" step="10" style="margin-top:0.4rem; accent-color:var(--accent-cyan);" oninput="syncFcfInput(this.value); calculateReverseDCF();">
           </div>
           <div class="form-group">
-            <label>WACC (% Sermaye Maliyeti)</label>
+            <label>{"WACC (% Cost of Capital)" if is_en else "WACC (% Sermaye Maliyeti)"}</label>
             <input type="number" id="waccPct" value="{round(wacc*100, 2)}" step="0.1" oninput="syncWaccSlider(this.value); calculateReverseDCF();">
             <input type="range" id="waccSlider" min="0.5" max="30.0" value="{round(wacc*100, 2)}" step="0.1" style="margin-top:0.4rem; accent-color:var(--accent-cyan);" oninput="syncWaccInput(this.value); calculateReverseDCF();">
           </div>
@@ -976,7 +1032,7 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       <div class="card">
         <h3 class="card-title">📉 Teknik Analiz & Grafik Momentum Göstergeleri</h3>
         <table>
-          <thead><tr><th>Teknik İndikatör</th><th>Değer</th><th>Sinyal / Yorum</th></tr></thead>
+          <thead><tr><th>{"Technical Indicator" if is_en else "Teknik İndikatör"}</th><th>{"Value" if is_en else "Değer"}</th><th>{"Signal / Commentary" if is_en else "Sinyal / Yorum"}</th></tr></thead>
           <tbody>
             <tr><td>RSI (14 Günlük Göreceli Güç)</td><td>{_fmt_num(ti.get("rsi_14", 0))}</td><td><span class="{"tag-amber" if ti.get("rsi_14", 0) > 60 else "tag-green"}">{"Aşırı Alım Yakın" if ti.get("rsi_14", 0) > 60 else "Normal"}</span></td></tr>
             <tr><td>MACD Çizgisi vs Sinyal</td><td>{_fmt_num(ti.get("macd_line", 0))} / {_fmt_num(ti.get("macd_signal", 0))}</td><td><span class="tag-green">Pozitif Kesişim</span></td></tr>
@@ -992,15 +1048,15 @@ def compile_report(metrics: dict, commentary: dict) -> str:
       <div class="card">
         <h3 class="card-title">🎯 Algoritmik Risk Modeli & Fiyat Seviyeleri Özeti</h3>
         <table>
-          <thead><tr><th>Risk Parametresi / Eşik</th><th>Değer / Seviye</th><th>Mevcut Fiyata Göre Fark</th><th>Algoritmik Model Değerlendirmesi</th></tr></thead>
+          <thead><tr><th>{"Risk Parameter / Threshold" if is_en else "Risk Parametresi / Eşik"}</th><th>{"Value / Level" if is_en else "Değer / Seviye"}</th><th>{"Upside / Downside" if is_en else "Mevcut Fiyata Göre Fark"}</th><th>{"Algorithmic Assessment" if is_en else "Algoritmik Model Değerlendirmesi"}</th></tr></thead>
           <tbody>
-            <tr><td><strong>Mevcut Hisse Fiyatı (Current Price)</strong></td><td><strong>{_fmt_try(price)}</strong></td><td>-</td><td>Güncel Piyasa Kapanış Fiyatı</td></tr>
+            <tr><td><strong>{"Current Stock Price" if is_en else "Mevcut Hisse Fiyatı (Current Price)"}</strong></td><td><strong>{_fmt_try(price)}</strong></td><td>-</td><td>{"Current Market Closing Price" if is_en else "Güncel Piyasa Kapanış Fiyatı"}</td></tr>
             <tr><td><strong>50 Günlük Ortalama (SMA 50 Desteği)</strong></td><td><strong>{_fmt_try(sma50)}</strong></td><td>`{sma50_diff:+.1f}%`</td><td>Ana Trend Kırılım ve Teknik Destek Alanı</td></tr>
             <tr><td><strong>200 Günlük Ortalama (SMA 200)</strong></td><td><strong>{_fmt_try(sma200)}</strong></td><td>`{sma200_diff:+.1f}%`</td><td>Uzun Vadeli Taban / Temel Denge Seviyesi</td></tr>
             <tr><td><strong>60 Günlük Ana Direnç (Resistance)</strong></td><td><strong>{_fmt_try(res_60d)}</strong></td><td>`{res_diff:+.1f}%`</td><td>Kısa Vadeli Psikolojik Satış Bölgesi</td></tr>
             <tr><td><strong>RSI (14) Momentum Sinyali</strong></td><td><strong>{_fmt_num(ti.get("rsi_14", 0))}</strong></td><td>-</td><td>Boğa Trendi Momentum Göstergesi</td></tr>
             <tr><td><strong>Teorik Kelly Simülasyon Limiti</strong></td><td><strong>%2,5 - %5,0</strong></td><td>-</td><td>Portföy Riskini Sınırlama Üst Barajı</td></tr>
-            <tr><td><strong>Değerleme Çarpanı Balon Uyarısı</strong></td><td><strong>{_fmt_num(ps_ratio, 1)}x P/S</strong></td><td>-</td><td><span class="{"tag-red" if ps_ratio > 10 else "tag-green"}">{"🔴 Aşırı Isınma (Teknik Destek Şart)" if ps_ratio > 10 else "🟢 Makul Değerleme"}</span></td></tr>
+            <tr><td><strong>{"Valuation Multiple Bubble Warning" if is_en else "Değerleme Çarpanı Balon Uyarısı"}</strong></td><td><strong>{_fmt_num(ps_ratio, 1)}x P/S</strong></td><td>-</td><td><span class="{"tag-red" if ps_ratio > 10 else "tag-green"}">{"🔴 Aşırı Isınma (Teknik Destek Şart)" if ps_ratio > 10 else "🟢 Makul Değerleme"}</span></td></tr>
             <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>Bileşik Model Görüşü</strong></td><td><strong>{verdict[:25]}</strong></td><td>-</td><td><strong>Mükemmel Bilanço / Yüksek Çarpan Dengesi</strong></td></tr>
           </tbody>
         </table>
@@ -1047,7 +1103,7 @@ def compile_report(metrics: dict, commentary: dict) -> str:
         <div class="analyst-text">{commentary.get("forensic_audit", "")}</div>
       </div>
       <div class="analyst-block">
-        <div class="analyst-block-title">🔴 3. Spekülatif Çarpan Isınması & Değerleme Balonu (Valuation Risk)</div>
+        <div class="analyst-block-title">{"🔴 3. Speculative Multiple Overheating & Valuation Risk" if is_en else "🔴 3. Spekülatif Çarpan Isınması & Değerleme Balonu (Valuation Risk)"}</div>
         <div class="analyst-text">{commentary.get("weak_points", "")}</div>
       </div>
       <div class="analyst-block">
@@ -1294,13 +1350,13 @@ def compile_report(metrics: dict, commentary: dict) -> str:
     return html
 
 
-def compile_printable_report(metrics: dict, commentary: dict) -> str:
+def compile_printable_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     """
     Compile a continuous, linear HTML report (YYYYMMDD_printable.html) without
     tabs or sidebar navigation — all 13 modules displayed sequentially for printing,
     PDF export, or copying text.
     """
-    raw_html = compile_report(metrics, commentary)
+    raw_html = compile_report(metrics, commentary, lang=lang)
 
     # Modify CSS to force all tabs visible and remove sidebar for printable file
     printable_css_override = """
