@@ -1055,6 +1055,7 @@ def index():
             </div>
             <div class="icon-tools-group">
                 <button id="headerThemeBtn" class="icon-btn" onclick="toggleMainTheme()" title="Tema / Theme">🌙</button>
+                <button class="icon-btn" onclick="openAdminModal()" title="🔒 Admin Paneli / Admin Panel" data-i18n-title="btn_admin">⚙️</button>
                 <button class="icon-btn" onclick="printReportPage()" title="Yazdır / Print">🖨️</button>
                 <select id="uiLangSelect" class="icon-select" onchange="setUiLanguage(this.value)" title="Dil / Language">
                     <option value="TR">🇹🇷</option>
