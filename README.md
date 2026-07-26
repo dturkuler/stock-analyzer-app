@@ -4,7 +4,7 @@
 
   <br/><br/>
 
-  [![Version](https://img.shields.io/badge/Version-1.5.1-blue.svg)](VERSION)
+  [![Version](https://img.shields.io/badge/Version-1.6.0-blue.svg)](VERSION)
   [![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
   [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
@@ -77,18 +77,56 @@ The app features a **Password-Protected Admin Control Panel** for managing watch
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Architecture & Data Model
+
+### 🧩 System Architecture
 
 ```mermaid
 graph TD
-    A["FastAPI Web Server / SPA Viewer :6031"] -->|SQLite Queries| B["storage/app.db Watchlist & Index"]
-    C["APScheduler Cron Worker 18:30 TSI"] -->|Executes Daily| D["1_core_builder/generate_report.py"]
-    A -->|Reprocess API| D
-    D --> E["1_core_builder/fetch_yfinance.py Sourcing"]
-    D --> F["LLM API / Fallback Commentary"]
+    Client["Browser / Client Dashboard :6031"] -->|FastAPI REST APIs & SPA| A["3_web_server/main.py"]
+    A -->|Read/Write Watchlist & Index| B[("storage/app.db SQLite")]
+    C["2_cron_scheduler/scheduler.py Daily 18:30 TSI"] -->|Automated Trigger| D["1_core_builder/generate_report.py"]
+    A -->|On-Demand Reprocess API| D
+    D --> E["1_core_builder/fetch_yfinance.py Sourcing & Quant Engine"]
+    D --> F["OpenAI-Compatible LLM API / Quantitative Fallback"]
     D --> G["1_core_builder/html_compiler.py"]
     G --> H["storage/reports/TICKER/YYYYMMDD.html"]
     G --> I["storage/reports/TICKER/YYYYMMDD_printable.html"]
+```
+
+### 🗄️ Database ERD & Storage Schema
+
+```mermaid
+erDiagram
+    WATCHLIST ||--o{ REPORTS_INDEX : "generates multi-year reports"
+    WATCHLIST {
+        string ticker PK "Stock symbol e.g. THYAO.IS, AAPL"
+        string company_name "Company display name"
+        string market "Exchange code e.g. BIST, NASDAQ"
+        integer is_active "1 = Active cron target, 0 = Disabled"
+        datetime created_at "Timestamp of creation"
+        datetime updated_at "Timestamp of last modification"
+    }
+    REPORTS_INDEX {
+        integer id PK "Auto-incrementing primary key"
+        string ticker FK "Foreign key to Watchlist ticker"
+        string report_date "Report date code YYYYMMDD"
+        string html_path "Relative path to interactive HTML dashboard"
+        string printable_path "Relative path to printable PDF/HTML report"
+        string lang "Language code EN or TR"
+        datetime generated_at "Generation timestamp"
+    }
+    STORAGE_FS ||--o{ HTML_REPORTS : "stores compiled reports"
+    STORAGE_FS ||--o{ APP_LOGS : "stores system event streams"
+    STORAGE_FS {
+        string path PK "storage/ directory root"
+    }
+    HTML_REPORTS {
+        string file_path PK "storage/reports/{TICKER}/{YYYYMMDD}.html"
+    }
+    APP_LOGS {
+        string log_path PK "storage/logs/cron.log and analysis.log"
+    }
 ```
 
 ### 📂 Directory Structure
@@ -100,6 +138,12 @@ stock-analyzer-app/
 ├── VERSION                 # Central application version file
 ├── Dockerfile              # Container definition (Python 3.13-slim)
 ├── docker-compose.yml      # Orchestration for Web Server and Cron Scheduler
+├── startdev.sh             # 1-Command local development boot script (proxy)
+├── startprd.sh             # 1-Command Docker production boot script (proxy)
+├── scripts/                # Boot scripts and rollback infrastructure
+│   ├── startdev.sh         # Development server runner
+│   ├── startprd.sh         # Production container runner
+│   └── __bkp/rollback.sh   # Auto-generated 1-command rollback mechanism
 ├── 1_core_builder/         # Standalone CLI Report Builder
 │   ├── generate_report.py  # Pipeline orchestrator
 │   ├── fetch_yfinance.py   # yfinance data sourcing & quantitative models
@@ -128,11 +172,13 @@ stock-analyzer-app/
 
 ## ⚡ Quick Start (Local Setup)
 
-### 1. Prerequisites
-- Python 3.10+
-- pip
+### 1-Command Boot (Recommended)
+```bash
+./startdev.sh
+```
+*Boots the FastAPI web application with live reload at `http://localhost:6031`.*
 
-### 2. Installation & Setup
+### Manual Installation & Setup
 ```bash
 # Clone the repository
 git clone https://github.com/dturkuler/stock-analyzer-app.git
@@ -141,12 +187,8 @@ cd stock-analyzer-app
 # Create environment file from template
 cp .env.example .env
 
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt 2>/dev/null || pip install fastapi uvicorn requests yfinance pandas numpy apscheduler python-dotenv beautifulsoup4
+# Run local dev script
+./startdev.sh
 ```
 
 ### 3. Running the Web Server & Admin Panel
@@ -209,6 +251,7 @@ The application manages settings via the `.env` file or the **In-Browser Admin P
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ADMIN_PASSWORD` | `change_this_to_your_secure_password` | Password for Admin Control Panel access |
+| `ALLOWED_ORIGINS` | `http://localhost:6031` | Allowed CORS origins (comma-separated domain list) |
 | `LLM_BASE_URL` | `https://api.your-llm-provider.com/v1` | Base URL for OpenAI-compatible LLM provider |
 | `LLM_API_KEY` | `your_api_key_here` | API Key for LLM provider service |
 | `LLM_MODEL` | `your_llm_model_name` | Target LLM model name |

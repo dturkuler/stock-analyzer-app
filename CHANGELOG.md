@@ -5,6 +5,23 @@ All notable changes to the Stock Analyzer Platform project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-07-27
+
+### 🛡️ Security & Hardening
+- **CORS Hardening (VULN-001)**: Restricted CORS middleware origins from wildcard (`*`) to configurable `ALLOWED_ORIGINS` (defaults to `http://localhost:6031`).
+- **Credential Masking in API (VULN-002)**: Masked sensitive values (`ADMIN_PASSWORD: "••••••••"` and `LLM_API_KEY: "••••1619"`) in `/api/settings` response, added status booleans, and protected settings update from overwriting `.env` values with masked strings.
+- **Log Cleaning (VULN-003)**: Removed ephemeral admin password printing to stdout on server startup.
+- **Brute-Force Rate Limiting (VULN-004)**: Added IP sliding-window rate limiting on `/api/admin/verify` (max 5 failed attempts per 60 seconds -> HTTP 429 Too Many Requests).
+- **XSS Protection (VULN-005)**: Implemented frontend `escapeHtml()` utility and sanitized innerHTML template interpolations for ticker symbols, company names, and report language fields.
+- **LLM Prompt Injection Mitigation (VULN-007)**: Added `_sanitize_prompt_field()` in prompt generator to strip control characters while maintaining full support for Turkish characters (`İıÖöÜüŞşÇçĞğ`).
+
+### 🛠️ Code Health & Refactoring
+- **Scripts Directory Reorganization**: Consolidated startup shell scripts into a clean `scripts/` directory with root-level proxies.
+- **Module Import Fix**: Resolved BeautifulSoup4 (`bs4`) module name checking in `fetch_yfinance.py` auto-installer.
+- **100% Automated Test Suite Verification**: Added security test cases for rate limiting and credential masking, achieving 28/28 passing tests.
+
+---
+
 ## [1.5.1] - 2026-07-27
 
 ### 📖 Documentation & Operations

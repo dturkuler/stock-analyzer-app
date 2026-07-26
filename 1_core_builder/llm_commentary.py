@@ -198,6 +198,15 @@ def _robust_parse_json(raw_content: str, ticker: str, metrics: dict, lang: str) 
     print("   ⚠️ Could not parse LLM JSON output. Using rich quantitative fallback commentary.")
     return fallback
 
+def _sanitize_prompt_field(value: str) -> str:
+    """Sanitize a user-controlled string before embedding in LLM prompts.
+    Allows alphanumeric, Turkish characters, common punctuation, and whitespace.
+    Strips anything that could be used for prompt injection."""
+    if not value or not isinstance(value, str):
+        return ""
+    # Allow: letters (including Turkish İıÖöÜüŞşÇçĞğ), digits, spaces, dots, hyphens, ampersands, parentheses, commas
+    return re.sub(r'[^\w\s.\-&()/,;:\'\"#%+₺€$£¥]', '', value, flags=re.UNICODE).strip()
+
 
 def generate_commentary(metrics: dict, lang: str = "TR") -> dict:
     """Generate qualitative commentary JSON using LLM API or professional fallback."""
@@ -208,8 +217,15 @@ def generate_commentary(metrics: dict, lang: str = "TR") -> dict:
     llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("API_KEY") or os.getenv("NINEROUTER_KEY", "")
     llm_model = os.getenv("LLM_MODEL", "code_combo")
 
-    ticker = metrics.get("ticker", "UNKNOWN")
+    ticker = _sanitize_prompt_field(metrics.get("ticker", "UNKNOWN"))
     url = f"{llm_base_url.rstrip('/')}/chat/completions"
+
+    # Sanitize user-controlled fields in metrics before embedding in prompt (VULN-007)
+    sanitized_metrics = dict(metrics)
+    if "name" in sanitized_metrics:
+        sanitized_metrics["name"] = _sanitize_prompt_field(sanitized_metrics["name"])
+    if "ticker" in sanitized_metrics:
+        sanitized_metrics["ticker"] = _sanitize_prompt_field(sanitized_metrics["ticker"])
 
     lang_upper = (lang or "TR").upper()
     system_prompt = SYSTEM_PROMPT_EN if lang_upper == "EN" else SYSTEM_PROMPT_TR
@@ -220,7 +236,7 @@ def generate_commentary(metrics: dict, lang: str = "TR") -> dict:
     if lang_upper == "TR":
         lang_note = "\nCRITICAL: KESİNLİKLE TÜM JSON DEĞERLERİ VE ANALİZ YORUMLARI %100 TÜRKÇE OLMALIDIR. TEK BİR İNGİLİZCE KELİME VEYA CÜMLE KULLANMA.\n"
 
-    prompt_content = f"{user_label}: {ticker}\n{metrics_label}:\n{json.dumps(metrics, indent=2, ensure_ascii=False)}{lang_note}"
+    prompt_content = f"{user_label}: {ticker}\n{metrics_label}:\n{json.dumps(sanitized_metrics, indent=2, ensure_ascii=False)}{lang_note}"
 
     payload = {
         "model": llm_model,

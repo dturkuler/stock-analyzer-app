@@ -7,6 +7,7 @@ import os
 import sys
 import glob
 import json
+import time
 import sqlite3
 import secrets
 import subprocess
@@ -25,9 +26,11 @@ load_dotenv()
 
 app = FastAPI(title="Stock Research Platform & Password-Protected Admin Panel")
 
+_allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:6031").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,6 +76,30 @@ PYTHON_EXEC = "py" if os.name == "nt" else sys.executable
 PROCESS_STATUS = {}
 _EPHEMERAL_ADMIN_PASSWORD = None
 
+# Brute-force rate limiter state (VULN-004)
+_LOGIN_ATTEMPTS = {}  # {ip: [(timestamp, ...)]}
+_MAX_LOGIN_ATTEMPTS = 5
+_LOGIN_WINDOW_SECONDS = 60
+
+
+def _check_rate_limit(client_ip: str):
+    """Rate limit login attempts: max 5 per 60 seconds per IP."""
+    now = time.time()
+    attempts = _LOGIN_ATTEMPTS.get(client_ip, [])
+    # Prune expired entries
+    attempts = [t for t in attempts if now - t < _LOGIN_WINDOW_SECONDS]
+    _LOGIN_ATTEMPTS[client_ip] = attempts
+    if len(attempts) >= _MAX_LOGIN_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Çok fazla başarısız giriş denemesi. Lütfen 60 saniye bekleyiniz. / Too many failed login attempts. Please wait 60 seconds.")
+
+
+def _record_failed_attempt(client_ip: str):
+    """Record a failed login attempt for rate limiting."""
+    now = time.time()
+    if client_ip not in _LOGIN_ATTEMPTS:
+        _LOGIN_ATTEMPTS[client_ip] = []
+    _LOGIN_ATTEMPTS[client_ip].append(now)
+
 
 def get_admin_password():
     global _EPHEMERAL_ADMIN_PASSWORD
@@ -82,7 +109,7 @@ def get_admin_password():
         return env_pass.strip()
     if not _EPHEMERAL_ADMIN_PASSWORD:
         _EPHEMERAL_ADMIN_PASSWORD = secrets.token_hex(16)
-        print(f"⚠️ ADMIN_PASSWORD is not set in .env! Generated ephemeral admin password: {_EPHEMERAL_ADMIN_PASSWORD}")
+        print("⚠️ ADMIN_PASSWORD is not set in .env! An ephemeral admin password has been generated. Set ADMIN_PASSWORD in .env for persistent access.")
     return _EPHEMERAL_ADMIN_PASSWORD
 
 
@@ -203,11 +230,24 @@ class SettingsUpdate(BaseModel):
 # ══════════════════════════════════════════════════════════════
 
 @app.post("/api/admin/verify")
-def verify_admin(req: AdminVerifyRequest):
+def verify_admin(req: AdminVerifyRequest, x_forwarded_for: Optional[str] = Header(None)):
+    ip_str = x_forwarded_for if isinstance(x_forwarded_for, str) else "unknown"
+    client_ip = ip_str.split(",")[0].strip() if ip_str else "unknown"
+    _check_rate_limit(client_ip)
     current_pass = get_admin_password()
     if req.password and secrets.compare_digest(req.password, current_pass):
+        # Clear failed attempts on successful login
+        _LOGIN_ATTEMPTS.pop(client_ip, None)
         return {"status": "ok", "message": "Şifre doğrulandı."}
+    _record_failed_attempt(client_ip)
     raise HTTPException(status_code=401, detail="Hatalı Şifre. Lütfen tekrar deneyiniz.")
+
+
+def _mask_api_key(key: str) -> str:
+    """Mask an API key, showing only the last 4 characters."""
+    if not key or len(key) <= 4:
+        return "••••"
+    return "••••" + key[-4:]
 
 
 @app.get("/api/settings")
@@ -217,9 +257,11 @@ def get_app_settings(x_admin_password: Optional[str] = Header(None)):
     base_url = os.getenv("LLM_BASE_URL") or os.getenv("BASE_URL") or os.getenv("NINEROUTER_URL", "http://localhost:20128/v1")
     api_key = os.getenv("LLM_API_KEY") or os.getenv("API_KEY") or os.getenv("NINEROUTER_KEY", "")
     return {
-        "ADMIN_PASSWORD": get_admin_password(),
+        "ADMIN_PASSWORD": "••••••••",
+        "ADMIN_PASSWORD_IS_SET": bool(os.getenv("ADMIN_PASSWORD", "").strip()),
         "LLM_BASE_URL": base_url,
-        "LLM_API_KEY": api_key,
+        "LLM_API_KEY": _mask_api_key(api_key),
+        "LLM_API_KEY_IS_SET": bool(api_key.strip()),
         "LLM_MODEL": os.getenv("LLM_MODEL", "code_combo"),
         "LLM_TIMEOUT": os.getenv("LLM_TIMEOUT", "120"),
         "CRON_DELAY_SECONDS": os.getenv("CRON_DELAY_SECONDS", "15")
@@ -239,7 +281,7 @@ def update_app_settings(settings: SettingsUpdate, x_admin_password: Optional[str
                     key, val = line_str.split("=", 1)
                     env_data[key.strip()] = val.strip()
 
-    if settings.ADMIN_PASSWORD is not None and settings.ADMIN_PASSWORD.strip():
+    if settings.ADMIN_PASSWORD is not None and settings.ADMIN_PASSWORD.strip() and not settings.ADMIN_PASSWORD.strip().startswith("••••"):
         env_data["ADMIN_PASSWORD"] = settings.ADMIN_PASSWORD.strip()
     
     base_url_val = settings.LLM_BASE_URL or settings.BASE_URL or settings.NINEROUTER_URL
@@ -247,7 +289,7 @@ def update_app_settings(settings: SettingsUpdate, x_admin_password: Optional[str
         env_data["LLM_BASE_URL"] = base_url_val.strip()
 
     api_key_val = settings.LLM_API_KEY or settings.API_KEY or settings.NINEROUTER_KEY
-    if api_key_val is not None:
+    if api_key_val is not None and api_key_val.strip() and not api_key_val.strip().startswith("••••"):
         env_data["LLM_API_KEY"] = api_key_val.strip()
     if settings.LLM_MODEL is not None and settings.LLM_MODEL.strip():
         env_data["LLM_MODEL"] = settings.LLM_MODEL.strip()
@@ -1233,6 +1275,15 @@ def index():
         </div>
 
         <script>
+            // XSS protection: escape HTML entities in user-controlled strings (VULN-005)
+            function escapeHtml(str) {
+                if (str === null || str === undefined) return '';
+                const s = String(str);
+                const div = document.createElement('div');
+                div.textContent = s;
+                return div.innerHTML;
+            }
+
             const UI_I18N = {
                 TR: {
                     admin_tab_stocks: "📈 Hisse Yönetimi",
@@ -1554,7 +1605,7 @@ def index():
                     if (!res.ok) return;
                     const tickers = await res.json();
                     if (!Array.isArray(tickers)) return;
-                    sel.innerHTML = tickers.map(t => `<option value="${t}">${t}</option>`).join('');
+                    sel.innerHTML = tickers.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
                     if (previousTicker && tickers.includes(previousTicker)) {
                         sel.value = previousTicker;
                     }
@@ -1585,7 +1636,7 @@ def index():
                     if (!Array.isArray(dates)) return;
                     const sel = document.getElementById('dateSelect');
                     if (!sel) return;
-                    sel.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join('');
+                    sel.innerHTML = dates.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
                     if (dates.length > 0) {
                         loadReport();
                     } else {
@@ -1741,10 +1792,10 @@ def index():
                                         const scoreColor = row.composite_score >= 8.5 ? '#10b981' : (row.composite_score >= 6.5 ? '#06b6d4' : (row.composite_score >= 4.5 ? '#f59e0b' : '#f43f5e'));
 
                                         return `
-                                            <tr onclick="selectMatrixStock('${row.ticker}')" style="cursor:pointer; transition:background 0.15s;">
+                                            <tr onclick="selectMatrixStock('${escapeHtml(row.ticker)}')" style="cursor:pointer; transition:background 0.15s;">
                                                 <td>
-                                                    <div style="font-weight:700; color:var(--text-main); font-size:0.92rem;">${row.ticker}</div>
-                                                    <div style="font-size:0.75rem; color:var(--text-muted);">${row.name}</div>
+                                                    <div style="font-weight:700; color:var(--text-main); font-size:0.92rem;">${escapeHtml(row.ticker)}</div>
+                                                    <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(row.name)}</div>
                                                 </td>
                                                 <td style="text-align:right; font-weight:600; color:var(--text-main);">${currencySym}${row.price.toLocaleString()}</td>
                                                 <td style="text-align:center;">
@@ -1873,10 +1924,18 @@ def index():
                 const res = await fetch('/api/settings', { headers: getAdminHeaders() });
                 if (res.ok) {
                     const s = await res.json();
-                    document.getElementById('settingAdminPassword').value = s.ADMIN_PASSWORD || '';
+                    const adminPassEl = document.getElementById('settingAdminPassword');
+                    if (adminPassEl) {
+                        adminPassEl.value = '';
+                        adminPassEl.placeholder = s.ADMIN_PASSWORD_IS_SET ? "•••••••• (Kayıtlı / Set)" : "Yönetici şifresi";
+                    }
                     document.getElementById('settingLlmModel').value = s.LLM_MODEL || '';
                     document.getElementById('settingLlmBaseUrl').value = s.LLM_BASE_URL || s.BASE_URL || s.NINEROUTER_URL || '';
-                    document.getElementById('settingLlmApiKey').value = s.LLM_API_KEY || s.API_KEY || s.NINEROUTER_KEY || '';
+                    const apiKeyEl = document.getElementById('settingLlmApiKey');
+                    if (apiKeyEl) {
+                        apiKeyEl.value = '';
+                        apiKeyEl.placeholder = s.LLM_API_KEY_IS_SET ? `${s.LLM_API_KEY} (Kayıtlı / Set)` : "sk-...";
+                    }
                     document.getElementById('settingCronDelaySeconds').value = s.CRON_DELAY_SECONDS || '15';
                     document.getElementById('settingLlmTimeout').value = s.LLM_TIMEOUT || '120';
                 }
@@ -1968,17 +2027,20 @@ def index():
                     const tbody = document.getElementById('watchlistTableBody');
                     if (!tbody) return;
                     tbody.innerHTML = data.map(item => {
+                        const eTicker = escapeHtml(item.ticker);
+                        const eCompany = escapeHtml(item.company_name || item.ticker);
+                        const eLang = escapeHtml(item.lang);
                         const lastRep = item.last_report;
                         let repBadge = `<span class="tag-badge tag-amber">${t.no_report_badge}</span>`;
                         if (lastRep) {
                             const pScore = lastRep.piotroski_score !== null ? `${lastRep.piotroski_score}/9` : '-';
                             const zScore = lastRep.altman_z !== null ? lastRep.altman_z.toFixed(1) : '-';
-                            repBadge = `<span class="tag-badge tag-green" style="cursor:pointer;" onclick="selectAndLoadReport('${item.ticker}')" title="${t.view_report_title}">📅 ${lastRep.report_date} (P:${pScore} | Z:${zScore}) 🔍</span>`;
+                            repBadge = `<span class="tag-badge tag-green" style="cursor:pointer;" onclick="selectAndLoadReport('${eTicker}')" title="${t.view_report_title}">📅 ${escapeHtml(lastRep.report_date)} (P:${pScore} | Z:${zScore}) 🔍</span>`;
                         }
 
                         const execStatus = executionStates[item.ticker];
                         let statusBadge = repBadge;
-                        let analyzeBtn = `<button class="btn btn-primary" onclick="reprocessSingle('${item.ticker}')" title="${t.single_analyze_title}">${t.btn_analyze}</button>`;
+                        let analyzeBtn = `<button class="btn btn-primary" onclick="reprocessSingle('${eTicker}')" title="${t.single_analyze_title}">${t.btn_analyze}</button>`;
 
                         if (execStatus === 'RUNNING') {
                             statusBadge = `<span class="tag-badge tag-amber pulse-badge">${t.status_analyzing || '🟡 Analyzing...'}</span>`;
@@ -1989,23 +2051,23 @@ def index():
                         } else if (execStatus === 'SUCCESS') {
                             statusBadge = `${repBadge} <span class="tag-badge tag-green">${t.status_success || '🟢 Updated'}</span>`;
                         } else if (execStatus === 'FAILED') {
-                            statusBadge = `${repBadge} <span class="tag-badge tag-rose">${t.status_failed || '🔴 Failed'} <a style="color:var(--accent-cyan); text-decoration:underline; font-size:0.75rem; cursor:pointer;" onclick="jumpToLog('${item.ticker}')">${t.btn_view_log || '📜 View Log'}</a></span>`;
+                            statusBadge = `${repBadge} <span class="tag-badge tag-rose">${t.status_failed || '🔴 Failed'} <a style="color:var(--accent-cyan); text-decoration:underline; font-size:0.75rem; cursor:pointer;" onclick="jumpToLog('${eTicker}')">${t.btn_view_log || '📜 View Log'}</a></span>`;
                         }
 
                         const activeChecked = item.is_active ? 'checked' : '';
                         return `
                             <tr>
-                                <td><strong>${item.ticker}</strong></td>
-                                <td>${item.company_name || item.ticker}</td>
-                                <td><span class="tag-badge tag-amber">${item.lang}</span></td>
+                                <td><strong>${eTicker}</strong></td>
+                                <td>${eCompany}</td>
+                                <td><span class="tag-badge tag-amber">${eLang}</span></td>
                                 <td>
-                                    <input type="checkbox" ${activeChecked} onchange="toggleStockActive('${item.ticker}', this.checked)">
+                                    <input type="checkbox" ${activeChecked} onchange="toggleStockActive('${eTicker}', this.checked)">
                                 </td>
                                 <td>${statusBadge}</td>
                                 <td style="text-align:right; display:flex; gap:0.4rem; justify-content:flex-end;">
                                     ${analyzeBtn}
-                                    <button class="btn" onclick="editStockPrompt('${item.ticker}', '${item.company_name || ''}', '${item.lang}')">${t.btn_edit}</button>
-                                    <button class="btn btn-danger" onclick="deleteStock('${item.ticker}')">${t.btn_delete}</button>
+                                    <button class="btn" onclick="editStockPrompt('${eTicker}', '${eCompany}', '${eLang}')">${t.btn_edit}</button>
+                                    <button class="btn btn-danger" onclick="deleteStock('${eTicker}')">${t.btn_delete}</button>
                                 </td>
                             </tr>
                         `;

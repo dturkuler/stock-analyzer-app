@@ -4,17 +4,24 @@ import os
 import subprocess
 
 def auto_install_dependencies():
-    required_packages = ["yfinance", "pandas", "numpy", "requests", "curl_cffi", "beautifulsoup4"]
-    missing = []
-    for pkg in required_packages:
+    package_map = {
+        "yfinance": "yfinance",
+        "pandas": "pandas",
+        "numpy": "numpy",
+        "requests": "requests",
+        "curl_cffi": "curl_cffi",
+        "bs4": "beautifulsoup4"
+    }
+    missing_pip = []
+    for mod_name, pip_name in package_map.items():
         try:
-            __import__(pkg)
+            __import__(mod_name)
         except ImportError:
-            missing.append(pkg)
-    if missing:
-        print(f"[*] Missing dependencies detected: {missing}. Installing automatically...", file=sys.stderr)
+            missing_pip.append(pip_name)
+    if missing_pip:
+        print(f"[*] Missing dependencies detected: {missing_pip}. Installing automatically...", file=sys.stderr)
         try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install"] + missing)
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "--break-system-packages"] + missing_pip)
             print("[*] Dependencies installed successfully!", file=sys.stderr)
         except Exception as e:
             print(f"[!] Warning: Failed to auto-install packages: {e}", file=sys.stderr)

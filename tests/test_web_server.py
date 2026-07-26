@@ -109,7 +109,23 @@ class TestWebServerHandlers(unittest.TestCase):
     def test_get_app_settings(self):
         settings = get_app_settings(x_admin_password=self.admin_password)
         self.assertIn("ADMIN_PASSWORD", settings)
-        self.assertIn("LLM_MODEL", settings)
+        self.assertEqual(settings["ADMIN_PASSWORD"], "••••••••")
+        self.assertIn("ADMIN_PASSWORD_IS_SET", settings)
+        self.assertIn("LLM_API_KEY_IS_SET", settings)
+        self.assertTrue(settings["LLM_API_KEY"].startswith("••••"))
+
+    def test_verify_admin_rate_limiter(self):
+        req = AdminVerifyRequest(password="WRONG_PASSWORD_123")
+        ip = "10.99.99.99"
+        # 5 failed attempts raise 401
+        for _ in range(5):
+            with self.assertRaises(HTTPException) as ctx:
+                verify_admin(req, x_forwarded_for=ip)
+            self.assertEqual(ctx.exception.status_code, 401)
+        # 6th failed attempt raises 429 Too Many Requests
+        with self.assertRaises(HTTPException) as ctx:
+            verify_admin(req, x_forwarded_for=ip)
+        self.assertEqual(ctx.exception.status_code, 429)
 
     def test_get_cron_logs(self):
         logs = get_cron_logs(x_admin_password=self.admin_password)
