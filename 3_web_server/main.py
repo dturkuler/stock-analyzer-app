@@ -1297,13 +1297,49 @@ def index():
                     confirm_delete: "izleme listesinden çıkarılsın mı?",
                     msg_settings_saved: "✅ Ayarlar ve Rapor Dili .env dosyasına başarıyla kaydedildi.",
                     msg_enter_ticker: "Lütfen hisse sembolü giriniz.",
-                    msg_batch_started: "⚡ Tüm aktif hisseler için toplu analiz başlatıldı..."
+                    msg_batch_started: "⚡ Tüm aktif hisseler için toplu analiz başlatıldı...",
+                    opt_matrix: "📊 Tüm Hisseler Matrisi",
+                    matrix_title: "📊 Tüm Hisseler Değerleme & Karşılaştırma Matrisi",
+                    matrix_search_ph: "🔍 Hisse Kodu veya Şirket Adı Ara...",
+                    pill_all: "🌐 Tüm Hisseler",
+                    pill_strong_buy: "🟢 Güçlü Al (Skor ≥ 8.5)",
+                    pill_safe_bs: "🛡️ Güvenli Bilanço (Altman Z > 2.99)",
+                    pill_high_cash: "🔥 Yüksek Nakit Kalitesi (Piotroski ≥ 7)",
+                    pill_bargain: "💎 Ucuz Değerleme (P/S < 5.0)",
+                    col_ticker: "Hisse",
+                    col_price: "Fiyat",
+                    col_mcap: "Piyasa Değeri",
+                    col_piotroski: "Piotroski F-Skoru",
+                    col_altman: "Altman Z-Score",
+                    col_beneish: "Beneish M-Score",
+                    col_dupont: "DuPont ROE %",
+                    col_growth: "Ters DCF Büyüme (%g)",
+                    col_ps: "P/S Çarpanı",
+                    col_score: "360° Skoru & Değerlendirme"
                 },
                 EN: {
                     admin_tab_stocks: "📈 Stock Management",
                     admin_tab_settings: "⚙️ System & LLM Settings",
                     opt_dashboard: "📊 Interactive",
                     opt_printable: "📄 PDF",
+                    opt_matrix: "📊 All Stocks Matrix",
+                    matrix_title: "📊 All Stocks Valuation & Comparison Matrix",
+                    matrix_search_ph: "🔍 Search Ticker or Company Name...",
+                    pill_all: "🌐 All Stocks",
+                    pill_strong_buy: "🟢 Strong Buy (Score ≥ 8.5)",
+                    pill_safe_bs: "🛡️ Safe Balance Sheet (Altman Z > 2.99)",
+                    pill_high_cash: "🔥 High Cash Quality (Piotroski ≥ 7)",
+                    pill_bargain: "💎 Bargain Valuation (P/S < 5.0)",
+                    col_ticker: "Ticker",
+                    col_price: "Price",
+                    col_mcap: "Market Cap",
+                    col_piotroski: "Piotroski F-Score",
+                    col_altman: "Altman Z-Score",
+                    col_beneish: "Beneish M-Score",
+                    col_dupont: "DuPont ROE %",
+                    col_growth: "Reverse DCF Growth (%g)",
+                    col_ps: "P/S Ratio",
+                    col_score: "360° Score & Verdict",
                     btn_admin: "🔒 Admin Panel",
                     modal_title: "⚙️ Stock Management, LLM & System Logs Panel",
                     auth_title: "🔒 Admin Login (.env Password)",
@@ -1380,6 +1416,9 @@ def index():
                 applyUiLanguage();
                 fetchWatchlist();
                 notifyIframeLanguage();
+                if (document.getElementById('matrixContainer') && document.getElementById('matrixContainer').style.display !== 'none') {
+                    loadMatrixView();
+                }
             }
 
             function toggleMainTheme() {
