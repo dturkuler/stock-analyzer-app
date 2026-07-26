@@ -5,6 +5,22 @@ All notable changes to the Stock Analyzer Platform project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-07-26
+
+### ✨ Added
+- Unified JSON localization catalogs (`1_core_builder/locales/{en,tr}.json` & `3_web_server/locales/{en,tr}.json`) for decoupled report compilation and Web UI rendering.
+- Public `documentation/` folder with modular guides covering i18n extensions, financial metrics, new report tab creation, and Web Server REST API architecture.
+
+### ⚡ Improved
+- 100% full English HTML report compilation across all 13 core modules.
+- Enriched English investor guide texts with dynamic quantitative metrics, net debt/cash figures, and technical support levels.
+
+### 🛡️ Security
+- Untracked local development notes (`docs/`) in `.gitignore`.
+- Sanitized locale placeholder strings with generic public API endpoints and model names.
+
+---
+
 ## [1.2.1] - 2026-07-26
 
 ### 🛡️ Security
