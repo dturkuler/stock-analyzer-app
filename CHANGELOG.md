@@ -5,7 +5,13 @@ All notable changes to the Stock Analyzer Platform project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.0] - 2026-07-27
+## [1.5.1] - 2026-07-27
+
+### 📖 Documentation & Operations
+- **VPS Production Deployment Guide**: Created comprehensive step-by-step production deployment guide (`documentation/vps_deployment_guide.md`) covering Docker Compose host volume mounting (`./storage`), `.env` environment security, Cloudflare Tunnel (`cloudflared`) systemd setup, firewall lockdown (`ufw`), and VPS disk snapshot recovery.
+- **Documentation Index Update**: Linked VPS deployment guide in `documentation/README.md` and root `README.md` Docker deployment section.
+
+---
 
 ### ✨ Added
 - **All-Stocks Valuation & Comparison Matrix**: Full-screen stock screener and side-by-side comparison table featuring 360° Weighted Composite Assessment Scores (0.0 – 10.0), color-coded Verdict Badges (`🟢 Strong Buy`, `🔵 Balanced`, `🟡 Neutral`, `🔴 High Risk`), sortable columns, live search box, and preset filter pills (`🌐 All Stocks`, `🟢 Strong Buy`, `🛡️ Safe Balance Sheet`, `🔥 High Cash Quality`, `💎 Bargain Valuation`).
