@@ -12,7 +12,7 @@
 
   **🏛️ Universal Global Equity Research Platform, Decoupled SPA Dashboard Viewer & Password-Protected Admin Panel**
 
-  [Overview](#-overview) · [Features](#-features) · [Quick Start](#-quick-start) · [Docker Deployment](#-docker-deployment) · [Developer Docs](documentation/README.md) · [Changelog](CHANGELOG.md)
+  [Overview](#-overview) · [Interface Showcase](#-interface-showcase) · [Features](#-features) · [Quick Start](#-quick-start) · [Docker Deployment](#-docker-deployment) · [Developer Docs](documentation/README.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -23,6 +23,26 @@
 **stock-analyzer-app** is a universal, decoupled stock research and equity analysis platform designed for global stock exchanges (US, BİST, European, Asian, and international markets). It automatically sources multi-year financial statements, computes quantitative models (DuPont 5-Step, Piotroski F-Score, Altman Z-Score, Beneish M-Score, WACC, and 2D DCF Sensitivity), generates AI qualitative commentaries via OpenAI-compatible LLM provider APIs, and compiles responsive interactive HTML dashboards and printable PDF reports.
 
 The app features a **Password-Protected Admin Control Panel** for managing watchlists, editing environment parameters in the browser, monitoring live log streams, and triggering single-stock or batch report executions.
+
+---
+
+## 📸 Interface Showcase
+
+### 📊 Interactive SPA Dashboard Viewer
+<div align="center">
+  <a href="assets/main-app.png">
+    <img src="assets/main-app.png" alt="Interactive SPA HTML Dashboard" width="100%"/>
+  </a>
+</div>
+
+<br/>
+
+### 🔒 Password-Protected Admin Control Panel
+
+| 🔒 Watchlist Management & Reprocessing | ⚙️ In-Browser Environment Settings Editor |
+| :---: | :---: |
+| <a href="assets/admin-1.png"><img src="assets/admin-1.png" alt="Admin Control Panel Watchlist Management" width="100%"/></a> | <a href="assets/admin-2.png"><img src="assets/admin-2.png" alt="Admin Control Panel Environment Settings Editor" width="100%"/></a> |
+| *Watchlist CRUD & On-Demand Reprocessing* | *Live LLM Parameters & System Log Controls* |
 
 ---
 

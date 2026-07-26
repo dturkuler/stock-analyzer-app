@@ -54,3 +54,6 @@ _workspace/
 
 # Workspace Skills & Subagent Rules
 .agents/
+
+# Others
+assets/
