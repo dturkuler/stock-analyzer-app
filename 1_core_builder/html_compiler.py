@@ -18,6 +18,7 @@ Usage:
 import json
 import math
 import datetime
+import re
 
 
 def _fmt_curr(val, is_en=False, decimals=2):
@@ -89,6 +90,91 @@ def _peer_row(peer, is_target=False, is_en=False):
     return f'<tr{style}><td>{peer.get("ticker", "")}</td><td>{mcap}</td><td>{ps}</td><td>{pe}</td><td>{margin}</td><td>{growth}</td><td><span class="{tag_class}">{tag_text}</span></td></tr>'
 
 
+def format_analyst_text(text, is_en=False):
+    """Format raw analyst text, converting embedded lists, subheaders, and scenario blocks into visual HTML cards & bullets."""
+    if not text:
+        return ""
+    text_str = str(text).strip()
+    if not text_str:
+        return ""
+
+    has_catalysts = "büyüme fırsatları" in text_str.lower() or "growth opportunities" in text_str.lower() or "katalizörler" in text_str.lower()
+    has_risks = "riskler" in text_str.lower() or "risk radar" in text_str.lower() or "risk faktörleri" in text_str.lower()
+
+    if has_catalysts and has_risks:
+        parts = re.split(r'(?:kritik risk faktörleri|kritik riskler|risk faktörleri|risk radarı|riskler|risk radar):', text_str, flags=re.IGNORECASE)
+        if len(parts) >= 2:
+            cat_part = re.sub(r'^(?:büyüme fırsatları|growth opportunities|katalizörler):', '', parts[0], flags=re.IGNORECASE).strip()
+            risk_part = parts[1].strip()
+
+            def _parse_bullets(raw_str):
+                items = re.split(r'(?:\b\d+\)|\b\d+\.(?=\s|$)|(?:^\s*|\n\s*)[\-\•]\s*)', raw_str)
+                cleaned = [it.strip() for it in items if it.strip()]
+                if not cleaned:
+                    cleaned = [raw_str]
+                lis = "".join([f'<li>{it}</li>' for it in cleaned])
+                return f'<ul class="analyst-bullet-list">{lis}</ul>'
+
+            cat_html = _parse_bullets(cat_part)
+            risk_html = _parse_bullets(risk_part)
+
+            cat_title = "🚀 Growth Opportunities & Catalysts" if is_en else "🚀 Büyüme Fırsatları & Katalizörler"
+            risk_title = "🔴 Risk Factors & Radar" if is_en else "🔴 Kritik Riskler & Risk Radarı"
+
+            return f'''<div class="grid-2" style="margin-bottom:0.5rem;">
+                <div class="analyst-subcard analyst-subcard-emerald">
+                    <h4>{cat_title}</h4>
+                    {cat_html}
+                </div>
+                <div class="analyst-subcard analyst-subcard-rose">
+                    <h4>{risk_title}</h4>
+                    {risk_html}
+                </div>
+            </div>'''
+
+    has_bull = "boğa senaryosu" in text_str.lower() or "bull case" in text_str.lower() or "boğa:" in text_str.lower()
+    has_bear = "ayı senaryosu" in text_str.lower() or "bear case" in text_str.lower() or "ayı:" in text_str.lower()
+
+    if has_bull and has_bear:
+        bull_match = re.search(r'(?:boğa senaryosu|bull case|boğa):\s*(.*?)(?=(?:ayı senaryosu|bear case|ayı|nihai değerlendirme|sonuç|takeaway):|$)', text_str, re.IGNORECASE | re.DOTALL)
+        bear_match = re.search(r'(?:ayı senaryosu|bear case|ayı):\s*(.*?)(?=(?:nihai değerlendirme|sonuç|takeaway|küçük yatırımcı):|$)', text_str, re.IGNORECASE | re.DOTALL)
+        verdict_match = re.search(r'(?:nihai değerlendirme|sonuç|takeaway|küçük yatırımcı için sonuç):\s*(.*)', text_str, re.IGNORECASE | re.DOTALL)
+
+        bull_text = bull_match.group(1).strip() if bull_match else ""
+        bear_text = bear_match.group(1).strip() if bear_match else ""
+        verdict_text = verdict_match.group(1).strip() if verdict_match else ""
+
+        bull_title = "🟢 Bull Case Scenario" if is_en else "🟢 Boğa Senaryosu (İyimser)"
+        bear_title = "🔴 Bear Case Scenario" if is_en else "🔴 Ayı Senaryosu (Kötümser)"
+
+        out_html = f'''<div class="grid-2" style="margin-bottom:0.5rem;">
+            <div class="analyst-subcard analyst-subcard-emerald">
+                <h4>{bull_title}</h4>
+                <p style="color:var(--text-main); font-size:0.92rem; line-height:1.6;">{bull_text}</p>
+            </div>
+            <div class="analyst-subcard analyst-subcard-rose">
+                <h4>{bear_title}</h4>
+                <p style="color:var(--text-main); font-size:0.92rem; line-height:1.6;">{bear_text}</p>
+            </div>
+        </div>'''
+
+        if verdict_text:
+            out_html += f'''<div class="analyst-takeaway-banner">
+                <strong>💡 {"Retail Investor Takeaway & Verdict:" if is_en else "Küçük Yatırımcı İçin Sonuç:"}</strong> {verdict_text}
+            </div>'''
+        return out_html
+
+    if re.search(r'(?:\b\d+\)|\b\d+\.(?=\s|$)|(?:^\s*|\n\s*)[\-\•]\s*)', text_str):
+        items = re.split(r'(?:\b\d+\)|\b\d+\.(?=\s|$)|(?:^\s*|\n\s*)[\-\•]\s*)', text_str)
+        cleaned = [it.strip() for it in items if it.strip()]
+        if len(cleaned) > 1:
+            lis = "".join([f'<li>{it}</li>' for it in cleaned])
+            return f'<ul class="analyst-bullet-list">{lis}</ul>'
+
+    paras = [p.strip() for p in text_str.split('\n') if p.strip()]
+    return "".join([f'<p style="margin-bottom:0.6rem;">{p}</p>' for p in paras])
+
+
 def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     """Compile a 100% master parity 13-tab HTML dashboard with modern web layout."""
 
@@ -118,7 +204,20 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
     az = metrics.get("altman_z_score", {})
     z_score = az.get("z_score", 0)
-    z_zone = az.get("zone", "N/A")
+    if is_en:
+        if z_score > 2.99:
+            z_zone = "Safe Zone (Low Insolvency Risk)"
+        elif z_score >= 1.81:
+            z_zone = "Grey Zone (Moderate Insolvency Risk)"
+        else:
+            z_zone = "Distress Zone (High Insolvency Risk)"
+    else:
+        if z_score > 2.99:
+            z_zone = "Güvenli Bölge (Düşük İflas Riski)"
+        elif z_score >= 1.81:
+            z_zone = "Gri Bölge (Orta Derece Risk)"
+        else:
+            z_zone = "Riskli Bölge (Yüksek İflas Riski)"
 
     dp = metrics.get("dupont_analysis", {})
     rs = metrics.get("relative_strength", {})
@@ -204,15 +303,15 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         }
     else:
         piotroski_labels = {
-            "positive_net_income": "1. Pozitif Net Kâr (Net Income > 0)",
-            "positive_cfo": "2. Pozitif Faaliyet Nakit Akışı (CFO > 0)",
-            "higher_roa_yoy": "3. Yıllık ROA Artışı (Higher ROA YoY)",
-            "accruals_cfo_gt_ni": "4. Kâr Kalitesi / Tahakkuk (CFO > Net Income)",
-            "lower_leverage_yoy": "5. Kaldıraç Azalışı (Lower Debt/Equity YoY)",
-            "higher_current_ratio_yoy": "6. Cari Oran İyileşmesi (Higher Current Ratio)",
-            "no_heavy_dilution": "7. Bedelli Sulandırma Olmaması (No Dilution)",
-            "higher_gross_margin_yoy": "8. Brüt Kâr Marjı Artışı (Higher Gross Margin)",
-            "higher_operating_margin_yoy": "9. Varlık Devir Hızı Artışı (Higher Asset Turnover)",
+            "positive_net_income": "1. Pozitif Net Kâr (Net Kâr > 0)",
+            "positive_cfo": "2. Pozitif Faaliyet Nakit Akışı (Nakit Akışı > 0)",
+            "higher_roa_yoy": "3. Yıllık ROA Artışı",
+            "accruals_cfo_gt_ni": "4. Kâr Kalitesi (Faaliyet Nakit Akışı > Net Kâr)",
+            "lower_leverage_yoy": "5. Kaldıraç Azalışı (Borç/Özkaynak Oranı İyileşmesi)",
+            "higher_current_ratio_yoy": "6. Cari Oran İyileşmesi",
+            "no_heavy_dilution": "7. Bedelli Sermaye Sulandırması Olmaması",
+            "higher_gross_margin_yoy": "8. Brüt Kâr Marjı Artışı",
+            "higher_operating_margin_yoy": "9. Varlık Devir Hızı Artışı",
         }
     piotroski_rows_html = ""
     for key, label in piotroski_labels.items():
@@ -271,19 +370,19 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         '''
     else:
         bs_table_html = f'''
-        <tr><td><strong>{"Current Assets" if is_en else "Dönen Varlıklar (Current Assets)"}</strong></td><td>{_fmt_try(hist[1].get("revenue", 0)*0.75, is_en=is_en) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("revenue", 0)*0.75, is_en=is_en) if hist else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*0.66, is_en=is_en) if hist else "N/A"}</strong></td><td>{"Liquid cash and receivables" if is_en else "Likit nakit ve alacak stoku"}</td></tr>
-        <tr><td><strong>{"Non-Current Assets" if is_en else "Duran Varlıklar (Non-Current)"}</strong></td><td>{_fmt_try(hist[1].get("revenue", 0)*0.25, is_en=is_en) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("revenue", 0)*0.28, is_en=is_en) if hist else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*0.22, is_en=is_en) if hist else "N/A"}</strong></td><td>{"Infrastructure and R&D assets" if is_en else "Altyapı ve Ar-Ge lisans yatırımları"}</td></tr>
-        <tr><td><strong>{"Short-Term Liabilities" if is_en else "Kısa Vadeli Borçlar"}</strong></td><td>{_fmt_try(debt*0.6, is_en=is_en)}</td><td>{_fmt_try(debt*0.8, is_en=is_en)}</td><td><strong>{_fmt_try(debt, is_en=is_en)}</strong></td><td>{"Current Ratio " + _fmt_num(hist[0].get("current_ratio", 1.8), is_en=is_en, decimals=2) + "x (Safe)" if is_en else f"Cari Oran {_fmt_num(hist[0].get('current_ratio', 1.8), 2) if hist else 'N/A'}x (Emniyetli)"}</td></tr>
-        <tr><td><strong>{"Long-Term Liabilities" if is_en else "Uzun Vadeli Borçlar"}</strong></td><td>{_fmt_try(debt*0.2, is_en=is_en)}</td><td>{_fmt_try(debt*0.25, is_en=is_en)}</td><td><strong>{_fmt_try(debt*0.3, is_en=is_en)}</strong></td><td>{"Low long-term debt burden" if is_en else "Uzun vadeli borç yükü düşük"}</td></tr>
-        <tr><td><strong>{"Total Equity" if is_en else "Özkaynaklar (Equity)"}</strong></td><td>{_fmt_try(mcap*0.003, is_en=is_en)}</td><td>{_fmt_try(mcap*0.004, is_en=is_en)}</td><td><strong>{_fmt_try(mcap*0.005, is_en=is_en)}</strong></td><td>{"Strong equity buffer" if is_en else "Güçlü sermaye tavanı"}</td></tr>
-        <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>{"Net Debt / (Net Cash)" if is_en else "Net Borç / (Net Nakit)"}</strong></td><td>-</td><td>-</td><td><strong>{_fmt_try(net_debt, is_en=is_en)}</strong></td><td><span class="{"tag-green" if net_debt < 0 else "tag-red"}">{("🟢 Excellent Net Cash" if net_debt < 0 else "🔴 Net Debt Position") if is_en else ("🟢 Mükemmel Net Nakit" if net_debt < 0 else "🔴 Net Borçlu")}</span></td></tr>
+        <tr><td><strong>Dönen Varlıklar</strong></td><td>{_fmt_try(hist[1].get("revenue", 0)*0.75, is_en=is_en) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("revenue", 0)*0.75, is_en=is_en) if hist else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*0.66, is_en=is_en) if hist else "N/A"}</strong></td><td>Likit nakit ve alacak stoku</td></tr>
+        <tr><td><strong>Duran Varlıklar</strong></td><td>{_fmt_try(hist[1].get("revenue", 0)*0.25, is_en=is_en) if len(hist)>=2 else "N/A"}</td><td>{_fmt_try(hist[0].get("revenue", 0)*0.28, is_en=is_en) if hist else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0)*0.22, is_en=is_en) if hist else "N/A"}</strong></td><td>Altyapı ve Ar-Ge lisans yatırımları</td></tr>
+        <tr><td><strong>Kısa Vadeli Borçlar</strong></td><td>{_fmt_try(debt*0.6, is_en=is_en)}</td><td>{_fmt_try(debt*0.8, is_en=is_en)}</td><td><strong>{_fmt_try(debt, is_en=is_en)}</strong></td><td>Cari Oran {_fmt_num(hist[0].get("current_ratio", 1.8), is_en=is_en, decimals=2)}x (Emniyetli)</td></tr>
+        <tr><td><strong>Uzun Vadeli Borçlar</strong></td><td>{_fmt_try(debt*0.2, is_en=is_en)}</td><td>{_fmt_try(debt*0.25, is_en=is_en)}</td><td><strong>{_fmt_try(debt*0.3, is_en=is_en)}</strong></td><td>Uzun vadeli borç yükü düşük</td></tr>
+        <tr><td><strong>Özkaynaklar</strong></td><td>{_fmt_try(mcap*0.003, is_en=is_en)}</td><td>{_fmt_try(mcap*0.004, is_en=is_en)}</td><td><strong>{_fmt_try(mcap*0.005, is_en=is_en)}</strong></td><td>Güçlü sermaye tavanı</td></tr>
+        <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>Net Borç / (Net Nakit)</strong></td><td>-</td><td>-</td><td><strong>{_fmt_try(net_debt, is_en=is_en)}</strong></td><td><span class="{"tag-green" if net_debt < 0 else "tag-red"}">{"🟢 Mükemmel Net Nakit" if net_debt < 0 else "🔴 Net Borçlu"}</span></td></tr>
         '''
         is_table_html = f'''
-        <tr><td><strong>{"Revenue" if is_en else "Hasılat (Ciro)"}</strong></td><td>{_fmt_try(hist[2].get("revenue", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("revenue", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0), is_en=is_en) if hist else "N/A"}</strong></td><td>{"Annual Revenue Growth" if is_en else "Yıllık Ciro Gelişimi"}</td></tr>
-        <tr><td><strong>{"Gross Profit" if is_en else "Brüt Kâr"}</strong></td><td>{_fmt_try(hist[2].get("gross_profit", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("gross_profit", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("gross_profit", 0), is_en=is_en) if hist else "N/A"}</strong></td><td>{"Gross Margin " + _fmt_pct(hist[0].get("gross_margin", 0), is_en=is_en) if hist else "N/A"}</td></tr>
-        <tr><td><strong>{"EBITDA" if is_en else "FAVÖK (EBITDA)"}</strong></td><td>{_fmt_try(hist[2].get("operating_income", 0)*1.15, is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("operating_income", 0)*1.15, is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ebit*1.15, is_en=is_en)}</strong></td><td>{"Operating Strength" if is_en else "Faaliyet Gücü"}</td></tr>
-        <tr><td><strong>{"Operating Income (EBIT)" if is_en else "Faaliyet Kârı (EBIT)"}</strong></td><td>{_fmt_try(hist[2].get("operating_income", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("operating_income", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ebit, is_en=is_en)}</strong></td><td><span class="{"tag-green" if last_ebit > 0 else "tag-red"}">{("🟢 Positive Operating Profit" if last_ebit > 0 else "🔴 Operating Loss") if is_en else ("🟢 Faaliyet Kârı Pozitif" if last_ebit > 0 else "🔴 Esas Faaliyet Zararı")}</span></td></tr>
-        <tr><td><strong>{"Net Income" if is_en else "Net Dönem Kârı"}</strong></td><td>{_fmt_try(hist[2].get("net_income", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("net_income", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ni, is_en=is_en)}</strong></td><td>{"Net Income Result" if is_en else "Net Dönem Sonucu"}</td></tr>
+        <tr><td><strong>Hasılat (Ciro)</strong></td><td>{_fmt_try(hist[2].get("revenue", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("revenue", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("revenue", 0), is_en=is_en) if hist else "N/A"}</strong></td><td>Yıllık Ciro Gelişimi</td></tr>
+        <tr><td><strong>Brüt Kâr</strong></td><td>{_fmt_try(hist[2].get("gross_profit", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("gross_profit", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(hist[0].get("gross_profit", 0), is_en=is_en) if hist else "N/A"}</strong></td><td>Brüt Marj {_fmt_pct(hist[0].get("gross_margin", 0), is_en=is_en) if hist else "N/A"}</td></tr>
+        <tr><td><strong>FAVÖK (EBITDA)</strong></td><td>{_fmt_try(hist[2].get("operating_income", 0)*1.15, is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("operating_income", 0)*1.15, is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ebit*1.15, is_en=is_en)}</strong></td><td>Faaliyet Gücü</td></tr>
+        <tr><td><strong>Faaliyet Kârı (EBIT)</strong></td><td>{_fmt_try(hist[2].get("operating_income", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("operating_income", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ebit, is_en=is_en)}</strong></td><td><span class="{"tag-green" if last_ebit > 0 else "tag-red"}">{"🟢 Faaliyet Kârı Pozitif" if last_ebit > 0 else "🔴 Esas Faaliyet Zararı"}</span></td></tr>
+        <tr><td><strong>Net Dönem Kârı</strong></td><td>{_fmt_try(hist[2].get("net_income", 0), is_en=is_en) if len(hist)>=3 else "N/A"}</td><td>{_fmt_try(hist[1].get("net_income", 0), is_en=is_en) if len(hist)>=2 else "N/A"}</td><td><strong>{_fmt_try(last_ni, is_en=is_en)}</strong></td><td>Net Dönem Sonucu</td></tr>
         '''
 
     # Determine Piotroski pill text & style
@@ -297,13 +396,91 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         pf_desc = "Weak / Risk" if is_en else "Zayıf / Riskli"
         pf_pill_class = "pill-rose"
 
+    # SEO Variables & JSON-LD Schemas Setup
+    blog_headline = commentary.get("blog_headline", f"📰 {company_name} ({ticker}): Daily Investor Briefing")
+    blog_summary = commentary.get("blog_summary", commentary.get("executive_summary", ""))
+    blog_summary_clean = blog_summary.replace('"', '&quot;').replace('\n', ' ')[:160]
+
+    seo_title = f"{ticker} Hisse Analizi & Günlük Bülten — {company_name} | Stock Analyzer" if not is_en else f"{ticker} Stock Analysis & Daily Briefing — {company_name} | Stock Analyzer"
+    seo_keywords = f"{ticker}, {ticker} hisse, {company_name}, {ticker} borsa analizi, {ticker} hedef fiyat, {ticker} bilanço" if not is_en else f"{ticker}, {ticker} stock, {company_name}, {ticker} stock analysis, {ticker} target price"
+
+    blog_takeaways = commentary.get("blog_key_takeaways", [])
+    if not isinstance(blog_takeaways, list) or not blog_takeaways:
+        blog_takeaways = [
+            f"{company_name} ({ticker}) bilanço ve finansal bünye analizi",
+            f"12 nicel model sentezli risk ve değerleme değerlendirmesi",
+            f"50 günlük hareketli ortalama ve teknik momentum takibi"
+        ]
+
+    blog_faqs = commentary.get("blog_faqs", [])
+    if not isinstance(blog_faqs, list) or not blog_faqs:
+        blog_faqs = [
+            {"q": f"{ticker} hissesi yatırım için uygun mu?" if not is_en else f"Is {ticker} stock a good investment?", "a": commentary.get("risk_discipline", "")},
+            {"q": f"{company_name} adil değer tahmini nedir?" if not is_en else f"What is {ticker}'s fair value target?", "a": commentary.get("dcf_valuation", "")},
+            {"q": f"{ticker} hissesinde temel riskler nelerdir?" if not is_en else f"What are the main financial risks for {ticker}?", "a": commentary.get("weak_points", "")}
+        ]
+
+    faq_entities = []
+    for faq in blog_faqs:
+        q_text = str(faq.get("q", "")).replace('"', '\\"').replace('\n', ' ')
+        a_text = str(faq.get("a", "")).replace('"', '\\"').replace('\n', ' ')
+        faq_entities.append(f'{{"@type": "Question", "name": "{q_text}", "acceptedAnswer": {{"@type": "Answer", "text": "{a_text}"}}}}')
+    faq_json_ld = ',\n          '.join(faq_entities)
+
+    today_iso = datetime.datetime.now().strftime("%Y-%m-%d")
+    today_disp = datetime.datetime.now().strftime("%d %B %Y")
+    clean_headline_json = blog_headline.replace('"', '\\"').replace('\n', ' ')
+    clean_summary_json = blog_summary_clean.replace('"', '\\"').replace('\n', ' ')
+    clean_company_json = company_name.replace('"', '\\"').replace('\n', ' ')
+
     # Build full HTML with 13 TABS & MODERN EXECUTIVE HEADER CARD
     html = f'''<!DOCTYPE html>
-<html lang="en">
+<html lang="{ 'en' if is_en else 'tr' }">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{company_name} ({ticker}) — 360° Master Equity Research Dashboard</title>
+  <title>{seo_title}</title>
+  <meta name="description" content="{blog_summary_clean}">
+  <meta name="keywords" content="{seo_keywords}">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="{seo_title}">
+  <meta property="og:description" content="{blog_summary_clean}">
+  <meta property="og:site_name" content="Stock Analyzer App">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{seo_title}">
+  <meta name="twitter:description" content="{blog_summary_clean}">
+  <script type="application/ld+json">
+  {{
+    "@context": "https://schema.org",
+    "@graph": [
+      {{
+        "@type": "AnalysisNewsArticle",
+        "headline": "{clean_headline_json}",
+        "description": "{clean_summary_json}",
+        "author": {{
+          "@type": "Organization",
+          "name": "Stock Analyzer AI Equity Intelligence"
+        }},
+        "publisher": {{
+          "@type": "Organization",
+          "name": "Stock Analyzer App"
+        }},
+        "datePublished": "{today_iso}",
+        "about": {{
+          "@type": "FinancialProduct",
+          "name": "{clean_company_json}",
+          "tickerSymbol": "{ticker}"
+        }}
+      }},
+      {{
+        "@type": "FAQPage",
+        "mainEntity": [
+          {faq_json_ld}
+        ]
+      }}
+    ]
+  }}
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -362,11 +539,36 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     .exec-summary-box {{ background: var(--panel-bg); border: 1px solid var(--panel-border); padding: 1.25rem; border-radius: 10px; }}
     .exec-summary-box h4 {{ font-family: 'Outfit', sans-serif; font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.5rem; }}
     .exec-summary-box p {{ color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; }}
+    .blog-article-container {{ line-height: 1.7; font-size: 1rem; }}
+    .seo-byline-badge {{ display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; background: rgba(6, 182, 212, 0.08); border: 1px solid var(--panel-border); padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.85rem; color: var(--text-muted); margin-top: 0.75rem; margin-bottom: 1.5rem; }}
+    .seo-key-takeaways-box {{ background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(139, 92, 246, 0.12)); border: 1px solid var(--accent-cyan); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 2rem; }}
+    .seo-key-takeaways-box h3 {{ font-family: 'Outfit', sans-serif; font-size: 1.1rem; color: var(--accent-cyan); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }}
+    .seo-key-takeaways-box ul {{ list-style-type: none; padding-left: 0; }}
+    .seo-key-takeaways-box li {{ position: relative; padding-left: 1.5rem; margin-bottom: 0.5rem; font-size: 0.95rem; color: var(--text-main); }}
+    .seo-key-takeaways-box li::before {{ content: '⚡'; position: absolute; left: 0; top: 0; }}
+    .article-section {{ margin-bottom: 2rem; padding: 1.5rem; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 12px; }}
+    .article-section h2 {{ font-family: 'Outfit', sans-serif; font-size: 1.3rem; margin-bottom: 1rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--panel-border); padding-bottom: 0.5rem; }}
+    .seo-faq-section {{ margin-top: 2.5rem; padding: 1.5rem; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 12px; }}
+    .seo-faq-section h2 {{ font-family: 'Outfit', sans-serif; font-size: 1.3rem; margin-bottom: 1rem; color: var(--accent-purple); border-bottom: 1px solid var(--panel-border); padding-bottom: 0.5rem; }}
+    .faq-item {{ margin-bottom: 1.25rem; border-bottom: 1px dashed var(--panel-border); padding-bottom: 1rem; }}
+    .faq-item:last-child {{ border-bottom: none; margin-bottom: 0; padding-bottom: 0; }}
+    .faq-question {{ font-weight: 700; font-size: 1.05rem; color: var(--text-main); margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.5rem; }}
+    .faq-answer {{ color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; }}
     .analyst-header {{ background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(139, 92, 246, 0.12)); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 14px; padding: 1.75rem; margin-bottom: 1.5rem; }}
     .analyst-heading {{ font-family: 'Outfit', sans-serif; font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.5rem; }}
     .analyst-sub {{ color: var(--accent-cyan); font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; }}
     .analyst-block {{ background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1rem; }}
     .analyst-block-title {{ font-family: 'Outfit', sans-serif; font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.6rem; }}
+    .analyst-subcard {{ background: rgba(255, 255, 255, 0.03); border: 1px solid var(--panel-border); border-radius: 10px; padding: 1.25rem; margin-bottom: 0.5rem; }}
+    .analyst-subcard h4 {{ font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }}
+    .analyst-subcard-emerald {{ border-color: rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.05); }}
+    .analyst-subcard-emerald h4 {{ color: var(--accent-emerald); }}
+    .analyst-subcard-rose {{ border-color: rgba(244, 63, 94, 0.35); background: rgba(244, 63, 94, 0.05); }}
+    .analyst-subcard-rose h4 {{ color: var(--accent-rose); }}
+    .analyst-bullet-list {{ list-style-type: none; padding-left: 0; margin-top: 0.5rem; margin-bottom: 0.5rem; }}
+    .analyst-bullet-list li {{ position: relative; padding-left: 1.5rem; margin-bottom: 0.5rem; font-size: 0.95rem; color: var(--text-main); line-height: 1.5; }}
+    .analyst-bullet-list li::before {{ content: '⚡'; position: absolute; left: 0; top: 0; color: var(--accent-cyan); }}
+    .analyst-takeaway-banner {{ background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(139, 92, 246, 0.12)); border: 1px solid var(--accent-cyan); border-radius: 10px; padding: 1rem 1.25rem; margin-top: 1rem; color: var(--text-main); font-size: 0.95rem; line-height: 1.6; }}
     .analyst-text {{ color: var(--text-muted); font-size: 0.92rem; line-height: 1.7; }}
     .calc-box {{ background: var(--panel-bg); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 14px; padding: 1.5rem; margin-bottom: 1.5rem; }}
     .form-group {{ display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }}
@@ -521,18 +723,19 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     <div id="sidebarMenuNav" class="sidebar-menu-nav">
       <ul class="nav-tabs">
         <li class="nav-item active" onclick="switchTab('exec')" data-i18n="tab_exec">{"🏛️ Executive Summary" if is_en else "🏛️ Executive Report (Özet)"}</li>
-        <li class="nav-item" onclick="switchTab('scorecard')" data-i18n="tab_scorecard">{"⭐ 1. 360° Company Scorecard" if is_en else "⭐ 1. 360° Şirket Karnesi"}</li>
-        <li class="nav-item" onclick="switchTab('qual')" data-i18n="tab_qual">{"🛡️ 2. Moats & Catalysts" if is_en else "🛡️ 2. Hendekler & Katalizörler"}</li>
-        <li class="nav-item" onclick="switchTab('ownership')" data-i18n="tab_ownership">{"👥 3. Ownership & FX Sensitivity" if is_en else "👥 3. Ortaklık & FX Duyarlılığı"}</li>
-        <li class="nav-item" onclick="switchTab('peer')" data-i18n="tab_peer">{"👥 4. Industry & Peer Comparison" if is_en else "👥 4. Sektör & Rakip Karşılaştırma"}</li>
-        <li class="nav-item" onclick="switchTab('statements')" data-i18n="tab_statements">{"📊 5. Financials & DuPont Analysis" if is_en else "📊 5. Bilanço & DuPont Analizi"}</li>
-        <li class="nav-item" onclick="switchTab('forward')" data-i18n="tab_forward">{"🔮 6. Forward Forecasts (2026E/27E)" if is_en else "🔮 6. İleri Tahminler (2026E/27E)"}</li>
-        <li class="nav-item" onclick="switchTab('quant')" data-i18n="tab_quant">{"🧮 7. Valuation & 2D Sensitivity" if is_en else "🧮 7. Nicel Değerleme & 2D Duyarlılık"}</li>
-        <li class="nav-item" onclick="switchTab('forensic')" data-i18n="tab_forensic">🔍 8. Adli Denetim & Balon</li>
-        <li class="nav-item" onclick="switchTab('ratios')" data-i18n="tab_ratios">📈 9. Tarihsel Finansallar & Likidite</li>
-        <li class="nav-item" onclick="switchTab('calc')" data-i18n="tab_calc">{"⚡ 10. Reverse DCF Calculator" if is_en else "⚡ 10. Ters DCF Hesaplayıcı"}</li>
-        <li class="nav-item" onclick="switchTab('verdict')" data-i18n="tab_verdict">{"🎯 11. Algorithmic Risk Model" if is_en else "🎯 11. Algoritmik Risk Modeli Özeti"}</li>
-        <li class="nav-item" onclick="switchTab('analyst')" data-i18n="tab_analyst">🤖 12. AI Finansal Analiz Yorumu</li>
+        <li class="nav-item" onclick="switchTab('blog')" data-i18n="tab_blog">{"📰 AI Stock Market Blog & Investor Briefing" if is_en else "📰 AI Finansal Blog & Yatırımcı Bülteni"}</li>
+        <li class="nav-item" onclick="switchTab('scorecard')" data-i18n="tab_scorecard">{"⭐ 360° Company Scorecard" if is_en else "⭐ 360° Şirket Karnesi"}</li>
+        <li class="nav-item" onclick="switchTab('qual')" data-i18n="tab_qual">{"🛡️ Moats & Catalysts" if is_en else "🛡️ Hendekler & Katalizörler"}</li>
+        <li class="nav-item" onclick="switchTab('ownership')" data-i18n="tab_ownership">{"👥 Ownership & FX Sensitivity" if is_en else "👥 Ortaklık & FX Duyarlılığı"}</li>
+        <li class="nav-item" onclick="switchTab('peer')" data-i18n="tab_peer">{"👥 Industry & Peer Comparison" if is_en else "👥 Sektör & Rakip Karşılaştırma"}</li>
+        <li class="nav-item" onclick="switchTab('statements')" data-i18n="tab_statements">{"📊 Financials & DuPont Analysis" if is_en else "📊 Bilanço & DuPont Analizi"}</li>
+        <li class="nav-item" onclick="switchTab('forward')" data-i18n="tab_forward">{"🔮 Forward Forecasts (2026E/27E)" if is_en else "🔮 İleri Tahminler (2026E/27E)"}</li>
+        <li class="nav-item" onclick="switchTab('quant')" data-i18n="tab_quant">{"🧮 Valuation & 2D Sensitivity" if is_en else "🧮 Nicel Değerleme & 2D Duyarlılık"}</li>
+        <li class="nav-item" onclick="switchTab('forensic')" data-i18n="tab_forensic">🔍 Adli Denetim & Balon</li>
+        <li class="nav-item" onclick="switchTab('ratios')" data-i18n="tab_ratios">📈 Tarihsel Finansallar & Likidite</li>
+        <li class="nav-item" onclick="switchTab('calc')" data-i18n="tab_calc">{"⚡ Reverse DCF Calculator" if is_en else "⚡ Ters DCF Hesaplayıcı"}</li>
+        <li class="nav-item" onclick="switchTab('verdict')" data-i18n="tab_verdict">{"🎯 Algorithmic Risk Model" if is_en else "🎯 Algoritmik Risk Modeli Özeti"}</li>
+        <li class="nav-item" onclick="switchTab('analyst')" data-i18n="tab_analyst">🤖 AI Finansal Analiz Yorumu</li>
       </ul>
       <div class="sidebar-bottom-admin">
         <button class="btn-admin-panel" onclick="triggerAdminModal()" data-i18n="btn_admin">
@@ -1084,34 +1287,171 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
       <div class="analyst-header">
         <h2 class="analyst-heading">{"🤖 AI Equity Intelligence & Strategy Synthesis" if is_en else "🤖 AI Finansal Analiz & Yapay Zekâ Strateji Sentezi"}</h2>
-        <div class="analyst-sub">AI Quantitative Intelligence Synthesis — {company_name} ({ticker})</div>
+        <div class="analyst-sub">{"AI Quantitative Intelligence Synthesis — " if is_en else "Yapay Zekâ Kantitatif Analiz Sentezi — "}{company_name} ({ticker})</div>
         <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.6; margin-top:0.5rem;">
           "{verdict}..."
         </p>
       </div>
       <div class="analyst-block">
-        <div class="analyst-block-title">{"📊 1. Fundamental Quality & Cash Generation" if is_en else "📊 1. Temel Bilanço Kalitesi & Nakit Gücü (Fundamental Quality)"}</div>
-        <div class="analyst-text">{commentary.get("strong_points", "")}</div>
+        <div class="analyst-block-title">{"📊 1. Fundamental Quality & Cash Generation" if is_en else "📊 1. Temel Bilanço Kalitesi & Nakit Gücü"}</div>
+        <div class="analyst-text">{format_analyst_text(commentary.get("strong_points", ""), is_en=is_en)}</div>
       </div>
       <div class="analyst-block">
-        <div class="analyst-block-title">{"🔍 2. Forensic Accounting & Governance Safety" if is_en else "🔍 2. Adli Muhasebe & Mevzuat Güvenliği (Forensic & Governance Safety)"}</div>
-        <div class="analyst-text">{commentary.get("forensic_audit", "")}</div>
+        <div class="analyst-block-title">{"🔍 2. Forensic Accounting & Governance Safety" if is_en else "🔍 2. Adli Muhasebe & Mevzuat Güvenliği"}</div>
+        <div class="analyst-text">{format_analyst_text(commentary.get("forensic_audit", ""), is_en=is_en)}</div>
       </div>
       <div class="analyst-block">
-        <div class="analyst-block-title">{"🔴 3. Speculative Multiple Overheating & Valuation Risk" if is_en else "🔴 3. Spekülatif Çarpan Isınması & Değerleme Balonu (Valuation Risk)"}</div>
-        <div class="analyst-text">{commentary.get("weak_points", "")}</div>
+        <div class="analyst-block-title">{"🔴 3. Speculative Multiple Overheating & Valuation Risk" if is_en else "🔴 3. Spekülatif Çarpan Isınması & Değerleme Balonu"}</div>
+        <div class="analyst-text">{format_analyst_text(commentary.get("weak_points", ""), is_en=is_en)}</div>
       </div>
       <div class="analyst-block">
-        <div class="analyst-block-title">{"📉 4. Technical Momentum & Key Price Levels" if is_en else "📉 4. Teknik Momentum & Grafikte Kritik Seviyeler (Technical Momentum)"}</div>
-        <div class="analyst-text">{commentary.get("technical_analysis", "")}</div>
+        <div class="analyst-block-title">{"📉 4. Technical Momentum & Key Price Levels" if is_en else "📉 4. Teknik Momentum & Grafikte Kritik Seviyeler"}</div>
+        <div class="analyst-text">{format_analyst_text(commentary.get("technical_analysis", ""), is_en=is_en)}</div>
       </div>
       <div class="analyst-block">
-        <div class="analyst-block-title">{"🎯 5. AI Risk Model & Execution Discipline" if is_en else "🎯 5. AI Risk Modeli & Teknik Destek Disiplini (Model Analysis)"}</div>
-        <div class="analyst-text">{commentary.get("risk_discipline", "")}</div>
+        <div class="analyst-block-title">{"🎯 5. AI Risk Model & Execution Discipline" if is_en else "🎯 5. AI Risk Modeli & Teknik Destek Disiplini"}</div>
+        <div class="analyst-text">{format_analyst_text(commentary.get("risk_discipline", ""), is_en=is_en)}</div>
       </div>
       <div class="legal-disclaimer-footer">
         {"<strong>DISCLAIMER & AI LIABILITY NOTICE:</strong> Generated using autonomous AI technologies. Does not constitute investment advice." if is_en else "<strong>YASAL UYARI & YAPAY ZEKÂ SORUMLULUK BİLDİRİMİ:</strong> Bu rapor otonom yapay zekâ teknolojileri kullanılarak otomatik hazırlanmıştır. Yatırım danışmanlığı kapsamında değildir."}
       </div>
+    </div>
+
+    <!-- TAB 13: AI STOCK MARKET BLOG & INVESTOR BRIEFING -->
+    <div id="blog" class="tab-pane">
+      <article class="blog-article-container">
+        <header class="article-header">
+          <div class="investor-guide-box" style="margin-bottom:1rem;">
+            <div class="guide-title">{"💡 WHAT IS MODULE 13 INVESTOR BRIEFING?" if is_en else "💡 MODÜL 13 YATIRIMCI BÜLTENİ NEDİR?"}</div>
+            <div class="guide-text">
+              {"An automated, blog-style reporting feature aggregating quantitative models 1 to 12 into an actionable daily equity research briefing." if is_en else "1 ila 12 arasındaki tüm nicel ve adli modül çıktılarını birleştiren, günün tarihine özel yapay zekâ destekli günlük yatırımcı bültenidir."}
+            </div>
+          </div>
+
+          <h1 class="analyst-heading" style="font-size:1.8rem; line-height:1.3; font-weight:800; color:var(--text-main); margin-bottom:0.5rem;">
+            {blog_headline}
+          </h1>
+
+          <div class="seo-byline-badge">
+            <span>⏱️ 4 {"min read" if is_en else "dk okuma süresi"}</span>
+            <span>•</span>
+            <span>📅 {today_disp}</span>
+            <span>•</span>
+            <span data-i18n="author_label">✍️ {"AI Senior Analyst" if is_en else "Yapay Zekâ Kıdemli Analisti"}</span>
+            <span>•</span>
+            <span class="brand-badge">{ticker}</span>
+          </div>
+
+          <!-- POSITION 0 FEATURED SNIPPET BOX -->
+          <div class="seo-key-takeaways-box">
+            <h3 data-i18n="key_takeaways_title">📌 {"Key Takeaways & Thesis Highlights" if is_en else "Öne Çıkan Özet & Ana Tezler"}</h3>
+            <ul>
+              {"".join([f"<li>{item}</li>" for item in blog_takeaways])}
+            </ul>
+          </div>
+        </header>
+
+        <section class="article-section">
+          <h2>{"📰 Executive Summary & Daily Thesis" if is_en else "📰 Yönetici Özeti & Günlük Analiz Tezi"}</h2>
+          <div class="analyst-text">{format_analyst_text(blog_summary, is_en=is_en)}</div>
+        </section>
+
+        <!-- SECTION 2: FINANCIAL HEALTH & CASH CUSHION -->
+        <section class="article-section">
+          <h2>{"🏦 Financial Health & Cash Cushion" if is_en else "🏦 Finansal Sağlık & Nakit Deposu Röntgeni"}</h2>
+          <div class="grid-2" style="margin-bottom:0.75rem;">
+            <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(16, 185, 129, 0.08); border-left:3px solid var(--accent-emerald);">
+              <div class="stat-label" style="font-size:0.75rem;">{"Net Cash Cushion" if is_en else "Net Nakit Deposu"}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:var(--accent-emerald);">{_fmt_curr(abs(net_debt), is_en=is_en)}</div>
+            </div>
+            <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(6, 182, 212, 0.08); border-left:3px solid var(--accent-cyan);">
+              <div class="stat-label" style="font-size:0.75rem;">{"Altman Z-Score Safety" if is_en else "Altman Z-Score Güvenliği"}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:var(--accent-cyan);">{_fmt_num(z_score, is_en=is_en, decimals=2)} ({z_zone.split(' ')[0]})</div>
+            </div>
+          </div>
+          <div class="analyst-text">{format_analyst_text(commentary.get("blog_cash_and_health", commentary.get("altman_z_commentary", commentary.get("strong_points", ""))), is_en=is_en)}</div>
+        </section>
+
+        <!-- SECTION 3: EARNINGS QUALITY & DUPONT ROE -->
+        <section class="article-section">
+          <h2>{"📊 Earnings Quality & Piotroski Balance Sheet Audit" if is_en else "📊 Kâr Kalitesi & Piotroski Bilanço Denetimi"}</h2>
+          <div class="grid-2" style="margin-bottom:0.75rem;">
+            <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(139, 92, 246, 0.08); border-left:3px solid #8b5cf6;">
+              <div class="stat-label" style="font-size:0.75rem;">{"Piotroski F-Score" if is_en else "Piotroski F-Skoru"}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:#8b5cf6;">{pf_score}/9</div>
+            </div>
+            <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(244, 63, 94, 0.08); border-left:3px solid var(--accent-rose);">
+              <div class="stat-label" style="font-size:0.75rem;">{"Gross Margin Trend" if is_en else "Brüt Kâr Marjı Seviyesi"}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:var(--accent-rose);">{_fmt_pct(hist[0].get("gross_margin", 0), is_en=is_en) if hist else "N/A"}</div>
+            </div>
+          </div>
+          <div class="analyst-text">{format_analyst_text(commentary.get("blog_earnings_quality", commentary.get("piotroski_commentary", commentary.get("dupont_analysis", ""))), is_en=is_en)}</div>
+        </section>
+
+        <!-- SECTION 4: VALUATION REALITY & REVERSE DCF -->
+        <section class="article-section">
+          <h2>{"💰 Valuation Reality Check & Reverse DCF Story" if is_en else "💰 Değerleme Gerçekliği & Ters DCF Hikayesi"}</h2>
+          <div class="grid-2" style="margin-bottom:0.75rem;">
+            <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(245, 158, 11, 0.08); border-left:3px solid #f59e0b;">
+              <div class="stat-label" style="font-size:0.75rem;">{"P/S Multiple" if is_en else "Fiyat / Satışlar (P/S)"}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:#f59e0b;">{_fmt_num(ps_ratio, is_en=is_en, decimals=1)}x</div>
+            </div>
+            <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(6, 182, 212, 0.08); border-left:3px solid var(--accent-cyan);">
+              <div class="stat-label" style="font-size:0.75rem;">{"Implied Growth Rate (g)" if is_en else "Piyasa İmplike Büyüme Beklentisi (%g)"}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:var(--accent-cyan);">{_fmt_pct(implied_g, is_en=is_en)}</div>
+            </div>
+          </div>
+          <div class="analyst-text">{format_analyst_text(commentary.get("blog_valuation_dcf", commentary.get("dcf_valuation", commentary.get("peer_comparison", ""))), is_en=is_en)}</div>
+        </section>
+
+        <!-- SECTION 5: TECHNICAL MOMENTUM & 4 SCENARIO PRICE TARGETS -->
+        <section class="article-section">
+          <h2>{"📈 Technical Momentum & 4 Price Target Scenarios" if is_en else "📈 Grafik Momentum & 4 Senaryolu Hedef Fiyat"}</h2>
+          <div class="analyst-text" style="margin-bottom:0.75rem;">{format_analyst_text(commentary.get("technical_analysis", commentary.get("scenario_analysis", "")), is_en=is_en)}</div>
+
+          <!-- 4 SCENARIO TARGET PRICE VISUAL GRID -->
+          <div class="grid-4" style="margin-top:0.75rem; margin-bottom:0.75rem;">
+            <div class="card" style="padding:0.6rem 0.8rem; text-align:center; background:rgba(244, 63, 94, 0.08); border-top:3px solid var(--accent-rose);">
+              <div style="font-size:0.75rem; color:var(--accent-rose); font-weight:600;">🔴 {"Severe Downside" if is_en else "Sert Düşüş"}</div>
+              <div style="font-size:1.1rem; font-weight:750; margin-top:0.2rem; color:var(--text-main);">{_fmt_curr(scenarios.get("severe_downside", price*0.5), is_en=is_en)}</div>
+            </div>
+            <div class="card" style="padding:0.6rem 0.8rem; text-align:center; background:rgba(245, 158, 11, 0.08); border-top:3px solid #f59e0b;">
+              <div style="font-size:0.75rem; color:#f59e0b; font-weight:600;">🟡 {"Bear Target" if is_en else "Ayı Senaryosu"}</div>
+              <div style="font-size:1.1rem; font-weight:750; margin-top:0.2rem; color:var(--text-main);">{_fmt_curr(scenarios.get("bear_target", price*0.7), is_en=is_en)}</div>
+            </div>
+            <div class="card" style="padding:0.6rem 0.8rem; text-align:center; background:rgba(6, 182, 212, 0.08); border-top:3px solid var(--accent-cyan);">
+              <div style="font-size:0.75rem; color:var(--accent-cyan); font-weight:600;">🔵 {"Base Target" if is_en else "Baz Senaryo"}</div>
+              <div style="font-size:1.1rem; font-weight:750; margin-top:0.2rem; color:var(--text-main);">{_fmt_curr(scenarios.get("base_target", price*1.1), is_en=is_en)}</div>
+            </div>
+            <div class="card" style="padding:0.6rem 0.8rem; text-align:center; background:rgba(16, 185, 129, 0.08); border-top:3px solid var(--accent-emerald);">
+              <div style="font-size:0.75rem; color:var(--accent-emerald); font-weight:600;">🟢 {"Bull Target" if is_en else "Boğa Senaryosu"}</div>
+              <div style="font-size:1.1rem; font-weight:750; margin-top:0.2rem; color:var(--text-main);">{_fmt_curr(scenarios.get("bull_target", price*1.3), is_en=is_en)}</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECTION 6: CATALYSTS & RISK RADAR -->
+        <section class="article-section">
+          <h2>{"⚡ Risk Radar & Upcoming Catalysts" if is_en else "⚡ Risk Faktörleri & Katalizör Radarı"}</h2>
+          <div class="analyst-text">{format_analyst_text(commentary.get("blog_catalysts_and_risks", commentary.get("moat_and_catalysts", "")), is_en=is_en)}</div>
+        </section>
+
+        <!-- SECTION 7: BULL VS BEAR & ACTION PLAN -->
+        <section class="article-section">
+          <h2>{"⚖️ Bull vs. Bear Verdict & Retail Action Plan" if is_en else "⚖️ Boğa vs. Ayı Senaryo & Yatırımcı Eylem Planı"}</h2>
+          <div class="analyst-text">{format_analyst_text(commentary.get("blog_bull_vs_bear", commentary.get("weak_points", "")), is_en=is_en)}</div>
+        </section>
+
+        <!-- FAQ ACCORDION SECTION -->
+        <section class="seo-faq-section">
+          <h2 data-i18n="faq_title">{"❓ Frequently Asked Questions (FAQ)" if is_en else "❓ Sıkça Sorulan Sorular (SSS)"}</h2>
+          {"".join([f'<div class="faq-item"><div class="faq-question">❓ {faq.get("q", "")}</div><div class="faq-answer">{faq.get("a", "")}</div></div>' for faq in blog_faqs])}
+        </section>
+
+        <footer class="legal-disclaimer-footer" data-i18n="disclaimer_notice" style="font-size:0.78rem; color:var(--text-muted); margin-top:2rem; padding:0.75rem; border-top:1px dashed var(--panel-border);">
+          {"<strong>DISCLAIMER & AI LIABILITY NOTICE:</strong> The information contained herein does not constitute investment advice. Generated using autonomous AI technologies." if is_en else "<strong>YASAL UYARI & YAPAY ZEKÂ SORUMLULUK BİLDİRİMİ:</strong> Burada yer alan yatırım bilgi, yorum ve değerlendirmeler yatırım danışmanlığı kapsamında değildir. Otonom yapay zekâ teknolojileri kullanılarak otomatik hazırlanmıştır."}
+        </footer>
+      </article>
     </div>
 
   </main>
@@ -1183,7 +1523,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         new Chart(ctxBs, {{
           type: 'doughnut',
           data: {{
-            labels: ['Cash', 'Other Current Assets', 'Non-Current Assets'],
+            labels: {json.dumps(['Cash', 'Other Current Assets', 'Non-Current Assets'] if is_en else ['Nakit & Benzerleri', 'Diğer Dönen Varlıklar', 'Duran Varlıklar'])},
             datasets: [{{ data: [
               Math.round((lastHist.cash_and_equivalents || 0) / 1e6),
               Math.round(((lastHist.revenue || 0) * (lastHist.current_ratio || 1)) / 1e6),
@@ -1203,18 +1543,19 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         btn_print: "Yazdır / PDF İndir",
         btn_admin: "{"🔒 Admin Panel" if is_en else "🔒 Yönetim Paneli"}",
         tab_exec: "🏛️ Executive Report (Özet)",
-        tab_scorecard: "⭐ 1. 360° Şirket Karnesi",
-        tab_qual: "🛡️ 2. Hendekler & Katalizörler",
-        tab_ownership: "👥 3. Ortaklık & FX Duyarlılığı",
-        tab_peer: "👥 4. Sektör & Rakip Karşılaştırma",
-        tab_statements: "📊 5. Bilanço & DuPont Analizi",
-        tab_forward: "🔮 6. İleri Tahminler (2026E/27E)",
-        tab_quant: "🧮 7. Nicel Değerleme & 2D Duyarlılık",
-        tab_forensic: "🔍 8. Adli Denetim & Balon",
-        tab_ratios: "📈 9. Tarihsel Finansallar & Likidite",
-        tab_calc: "⚡ 10. Ters DCF Hesaplayıcı",
-        tab_verdict: "🎯 11. Algoritmik Risk Modeli Özeti",
-        tab_analyst: "🤖 12. AI Finansal Analiz Yorumu"
+        tab_blog: "📰 AI Finansal Blog & Yatırımcı Bülteni",
+        tab_scorecard: "⭐ 360° Şirket Karnesi",
+        tab_qual: "🛡️ Hendekler & Katalizörler",
+        tab_ownership: "👥 Ortaklık & FX Duyarlılığı",
+        tab_peer: "👥 Sektör & Rakip Karşılaştırma",
+        tab_statements: "📊 Bilanço & DuPont Analizi",
+        tab_forward: "🔮 İleri Tahminler (2026E/27E)",
+        tab_quant: "🧮 Nicel Değerleme & 2D Duyarlılık",
+        tab_forensic: "🔍 Adli Denetim & Balon",
+        tab_ratios: "📈 Tarihsel Finansallar & Likidite",
+        tab_calc: "⚡ Ters DCF Hesaplayıcı",
+        tab_verdict: "🎯 Algoritmik Risk Modeli Özeti",
+        tab_analyst: "🤖 AI Finansal Analiz Yorumu"
       }},
       EN: {{
         menu_title: "Modules",
@@ -1223,18 +1564,19 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         btn_print: "Print / Download PDF",
         btn_admin: "🔒 Admin Panel",
         tab_exec: "🏛️ Executive Summary",
-        tab_scorecard: "⭐ 1. 360° Company Scorecard",
-        tab_qual: "🛡️ 2. Moats & Catalysts",
-        tab_ownership: "👥 3. Ownership & FX Sensitivity",
-        tab_peer: "👥 4. Industry & Peer Comparison",
-        tab_statements: "📊 5. Financials & DuPont Analysis",
-        tab_forward: "🔮 6. Forward Forecasts (2026E/27E)",
-        tab_quant: "🧮 7. Valuation & 2D Sensitivity",
-        tab_forensic: "🔍 8. Forensic Audit & Red Flags",
-        tab_ratios: "📈 9. Historical Ratios & Liquidity",
-        tab_calc: "⚡ 10. Reverse DCF Calculator",
-        tab_verdict: "🎯 11. Algorithmic Risk Model",
-        tab_analyst: "🤖 12. AI Financial Commentary"
+        tab_blog: "📰 AI Stock Market Blog & Investor Briefing",
+        tab_scorecard: "⭐ 360° Company Scorecard",
+        tab_qual: "🛡️ Moats & Catalysts",
+        tab_ownership: "👥 Ownership & FX Sensitivity",
+        tab_peer: "👥 Industry & Peer Comparison",
+        tab_statements: "📊 Financials & DuPont Analysis",
+        tab_forward: "🔮 Forward Forecasts (2026E/27E)",
+        tab_quant: "🧮 Valuation & 2D Sensitivity",
+        tab_forensic: "🔍 Forensic Audit & Red Flags",
+        tab_ratios: "📈 Historical Ratios & Liquidity",
+        tab_calc: "⚡ Reverse DCF Calculator",
+        tab_verdict: "🎯 Algorithmic Risk Model",
+        tab_analyst: "🤖 AI Financial Commentary"
       }}
     }};
 

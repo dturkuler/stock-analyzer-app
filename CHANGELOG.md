@@ -5,7 +5,22 @@ All notable changes to the Stock Analyzer Platform project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] - 2026-07-26
+## [1.4.0] - 2026-07-27
+
+### ✨ Added
+- **6-Section Deep-Dive Article Architecture for Module 13**: Expanded AI Stock Market Blog & Investor Briefing into a publication-grade equity research report incorporating all 12 quantitative models (Piotroski, Altman Z, Beneish M-Score, DuPont 5-Step, Reverse DCF, Peer Benchmarks).
+- **Embedded Visual Callout Widgets**: In-article mini stat callout badges (Net Cash, Altman Z, Piotroski, Gross Margin %, P/S ratio, Reverse DCF $g$) and a 4-card Target Price Scenario Grid (`🔴 Sert Düşüş`, `🟡 Ayı`, `🔵 Baz`, `🟢 Boğa`).
+- **Retail Investor Storyteller Persona**: Updated LLM system prompts and fallback commentary to translate technical financial jargon into plain language with everyday business/shopkeeper analogies.
+
+### ⚡ Improved
+- **Smart HTML Text Parser (`format_analyst_text`)**: Automatically detects inline numbers, section headers, and catalysts/risks into side-by-side 2-column visual cards (`.grid-2`).
+- **Decimal-Safe Regex Parsing**: Preserves currency values (`₺390.8M`) and decimal percentage ranges (`%2,5 - %5,0`) without string fragmentation.
+- **Sidebar & Header Clean-Up**: Removed hardcoded module numbers (`1.`, `2.`, `13.`) from sidebar navigation and header ticker search box for a cleaner modern UI.
+
+### 🐛 Fixed
+- **Module 13 API Response**: Updated `POST /api/v1/modules/13/generate` payload to return `blog_cash_and_health`, `blog_earnings_quality`, `blog_valuation_dcf`.
+
+---
 
 ### ✨ Added
 - Unified JSON localization catalogs (`1_core_builder/locales/{en,tr}.json` & `3_web_server/locales/{en,tr}.json`) for decoupled report compilation and Web UI rendering.

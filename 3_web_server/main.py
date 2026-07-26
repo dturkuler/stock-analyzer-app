@@ -125,6 +125,24 @@ def init_db():
     """)
     conn.commit()
 
+    # Auto-sync existing report files on disk into reports_index table
+    if os.path.exists(REPORTS_DIR):
+        try:
+            for ticker in os.listdir(REPORTS_DIR):
+                t_dir = os.path.join(REPORTS_DIR, ticker)
+                if os.path.isdir(t_dir) and not ticker.startswith(".") and ticker.upper() not in {"BATCH", "TMP", "TEMP"}:
+                    for f in glob.glob(os.path.join(t_dir, "*.html")):
+                        if not f.endswith("_printable.html"):
+                            report_date = os.path.basename(f).replace(".html", "")
+                            cur.execute("""
+                                INSERT INTO reports_index (ticker, report_date, file_path, status)
+                                VALUES (?, ?, ?, 'SUCCESS')
+                                ON CONFLICT(ticker, report_date) DO NOTHING
+                            """, (ticker, report_date, f))
+            conn.commit()
+        except Exception as e:
+            print(f"⚠️ Error syncing reports_index on init: {e}")
+
     cur.execute("SELECT COUNT(*) FROM watchlist")
     if cur.fetchone()[0] == 0 and os.path.exists(WATCHLIST_PATH):
         try:
@@ -490,6 +508,53 @@ def get_reprocess_status(ticker: str):
     return info
 
 
+class Module13Request(BaseModel):
+    ticker: str
+    target_date: Optional[str] = None
+    lang: Optional[str] = "TR"
+
+
+@app.post("/api/v1/modules/13/generate")
+def generate_module13_blog(req: Module13Request):
+    ticker = req.ticker.strip().upper()
+    lang = (req.lang or "TR").strip().upper()
+
+    workspace_dir = os.path.join(BASE_DIR, "storage", "_workspace")
+    metrics_path = os.path.join(workspace_dir, f"01_quant_metrics_{ticker}.json")
+    commentary_path = os.path.join(workspace_dir, f"02_llm_commentary_{ticker}.json")
+
+    if not os.path.exists(metrics_path):
+        raise HTTPException(status_code=404, detail=f"Metrics for {ticker} not found. Please run initial analysis first.")
+
+    with open(metrics_path, "r", encoding="utf-8") as f:
+        metrics = json.load(f)
+
+    builder_path = os.path.join(BASE_DIR, "1_core_builder")
+    if builder_path not in sys.path:
+        sys.path.insert(0, builder_path)
+
+    from llm_commentary import generate_commentary
+    commentary = generate_commentary(metrics, lang=lang)
+
+    with open(commentary_path, "w", encoding="utf-8") as f:
+        json.dump(commentary, f, indent=2, ensure_ascii=False)
+
+    return {
+        "ticker": ticker,
+        "lang": lang,
+        "blog_headline": commentary.get("blog_headline", ""),
+        "blog_summary": commentary.get("blog_summary", ""),
+        "blog_cash_and_health": commentary.get("blog_cash_and_health", ""),
+        "blog_earnings_quality": commentary.get("blog_earnings_quality", ""),
+        "blog_valuation_dcf": commentary.get("blog_valuation_dcf", ""),
+        "blog_catalysts_and_risks": commentary.get("blog_catalysts_and_risks", ""),
+        "blog_bull_vs_bear": commentary.get("blog_bull_vs_bear", ""),
+        "blog_key_takeaways": commentary.get("blog_key_takeaways", []),
+        "blog_faqs": commentary.get("blog_faqs", []),
+        "status": "SUCCESS"
+    }
+
+
 @app.get("/api/reprocess/stream/{ticker}")
 async def stream_reprocess_logs(ticker: str):
     ticker = ticker.strip().upper()
@@ -721,6 +786,25 @@ def index():
             .log-tab:hover { background: rgba(6, 182, 212, 0.15); color: #fff; border-color: var(--accent-cyan); }
             .log-tab.active { background: linear-gradient(135deg, var(--accent-cyan), #0284c7); color: #fff; border-color: transparent; }
 
+            /* Admin Domain Tab Bar Styles */
+            .admin-nav-bar { display: flex; gap: 0.75rem; border-bottom: 1px solid var(--panel-border); padding-bottom: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+            .admin-nav-tab {
+                background: rgba(255,255,255,0.04);
+                border: 1px solid var(--panel-border);
+                color: var(--text-muted);
+                padding: 0.6rem 1.2rem;
+                border-radius: 8px;
+                font-size: 0.9rem;
+                font-weight: 700;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            .admin-nav-tab:hover { background: rgba(6, 182, 212, 0.12); color: #fff; border-color: var(--accent-cyan); }
+            .admin-nav-tab.active { background: linear-gradient(135deg, var(--accent-cyan), #0284c7); color: #fff; border-color: transparent; box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3); }
+
             .console-box {
                 background: #070a12;
                 color: #10b981;
@@ -742,6 +826,16 @@ def index():
             .console-box::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 4px; }
             .console-box::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.4); border-radius: 4px; }
             .console-box::-webkit-scrollbar-thumb:hover { background: var(--accent-cyan); }
+
+            /* Tag Badges & In-Tab Execution Animations */
+            .tag-badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; line-height: 1.2; }
+            .tag-green { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+            .tag-amber { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+            .tag-rose { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); }
+            .pulse-badge { animation: pulseAnimation 1.5s infinite; }
+            @keyframes pulseAnimation { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.65; transform: scale(0.98); } 100% { opacity: 1; transform: scale(1); } }
+            @keyframes spinAnimation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            .spinner-icon { display: inline-block; animation: spinAnimation 1s linear infinite; }
 
             /* Responsive Mobile Layout */
             @media (max-width: 900px) {
@@ -783,10 +877,6 @@ def index():
             <div class="header-left">
                 <div class="brand">🏛️ Stock Research Platform</div>
                 <div class="control-group">
-                    <label for="tickerFilter">🔍</label>
-                    <input type="text" id="tickerFilter" data-i18n-ph="ph_search_ticker" placeholder="Hisse Ara..." oninput="filterTickers(this.value)" style="width:110px; padding:0.35rem 0.5rem; font-size:0.8rem;">
-                </div>
-                <div class="control-group">
                     <label for="tickerSelect">📈</label>
                     <select id="tickerSelect" onchange="loadDates()"></select>
                 </div>
@@ -813,7 +903,7 @@ def index():
             </div>
         </header>
 
-        <iframe id="contentFrame" onload="notifyIframeLanguage()"></iframe>
+        <iframe id="contentFrame" onload="syncIframeTheme(); notifyIframeLanguage();"></iframe>
 
         <!-- ADMIN MODAL -->
         <div id="adminModal" class="modal-backdrop">
@@ -835,96 +925,115 @@ def index():
                     </div>
 
                     <!-- PROTECTED ADMIN CONTENT CONTAINER -->
-                    <div id="protectedAdminContent" style="display:none; flex-direction:column; gap:1.5rem;">
+                    <div id="protectedAdminContent" style="display:none; flex-direction:column; gap:1.25rem;">
                         
-                        <!-- SECTION 1: LLM & SYSTEM SETTINGS (.ENV EDITOR) -->
-                        <div class="admin-card">
-                            <div class="card-heading">
-                                <span data-i18n="sec1_heading">🛠️ LLM Sağlayıcı & Sistem Ayarları (.env Düzenleyici)</span>
-                                <button class="btn btn-primary" onclick="saveAppSettings()" data-i18n="btn_save_settings">💾 Ayarları Kaydet (.env)</button>
-                            </div>
-                            <div class="settings-grid">
-                                <div class="form-field">
-                                    <label data-i18n="lbl_admin_pass">Yönetici Şifresi (ADMIN_PASSWORD):</label>
-                                    <input type="password" id="settingAdminPassword" data-i18n-ph="ph_setting_admin_pass" placeholder="Yönetici şifresi">
-                                </div>
-                                <div class="form-field">
-                                    <label data-i18n="lbl_llm_model">LLM Model Adı (LLM_MODEL):</label>
-                                    <input type="text" id="settingLlmModel" data-i18n-ph="ph_setting_llm_model" placeholder="Örn: code_combo, gpt-4o">
-                                </div>
-                                <div class="form-field">
-                                    <label data-i18n="lbl_llm_url">LLM Provider Base URL (LLM_BASE_URL):</label>
-                                    <input type="text" id="settingLlmBaseUrl" data-i18n-ph="ph_setting_llm_url" placeholder="http://localhost:20128/v1">
-                                </div>
-                                <div class="form-field">
-                                    <label data-i18n="lbl_cron_delay">Cron Hisseler Arası Bekleme (Saniye) (CRON_DELAY_SECONDS):</label>
-                                    <input type="number" id="settingCronDelaySeconds" data-i18n-ph="ph_setting_cron_delay" placeholder="15">
-                                </div>
-                                <div class="form-field">
-                                    <label data-i18n="lbl_llm_timeout">LLM Zaman Aşımı (Saniye) (LLM_TIMEOUT):</label>
-                                    <input type="number" id="settingLlmTimeout" data-i18n-ph="ph_setting_llm_timeout" placeholder="120">
-                                </div>
-                                <div class="form-field" style="grid-column: span 2;">
-                                    <label data-i18n="lbl_llm_key">LLM API Key (LLM_API_KEY):</label>
-                                    <input type="password" id="settingLlmApiKey" data-i18n-ph="ph_setting_llm_key" placeholder="sk-...">
-                                </div>
-                            </div>
+                        <!-- ADMIN MAIN TAB BAR -->
+                        <div class="admin-nav-bar">
+                            <div id="adminNavTabStocks" class="admin-nav-tab active" onclick="switchAdminTab('stocks')" data-i18n="admin_tab_stocks">📈 Hisse Yönetimi</div>
+                            <div id="adminNavTabSettings" class="admin-nav-tab" onclick="switchAdminTab('settings')" data-i18n="admin_tab_settings">⚙️ Sistem & LLM Ayarları</div>
                         </div>
 
-                        <!-- SECTION 2: SYSTEM LOGS & CONSOLE -->
-                        <div class="admin-card">
-                            <div class="card-heading">
-                                <span data-i18n="sec2_heading">📜 Sistem, Cron Job & Analiz Logları</span>
-                                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-                                    <button class="btn" onclick="fetchFileLogs()" data-i18n="btn_refresh_logs">🔄 Logları Yenile</button>
-                                    <button class="btn btn-danger" onclick="clearActiveLogs()" data-i18n="btn_clear_logs">🗑️ Logları Temizle</button>
-                                    <button class="btn btn-primary" onclick="triggerBatchRun()" data-i18n="btn_batch_run">🚀 Tüm Aktif Hisseleri Çalıştır (Batch Run)</button>
+                        <!-- DOMAIN TAB 1: STOCKS MANAGEMENT -->
+                        <div id="adminDomainTabStocks" style="display:flex; flex-direction:column; gap:1.5rem;">
+                            
+                            <!-- SECTION 3: ADD NEW STOCK -->
+                            <div class="admin-card">
+                                <div class="card-heading" data-i18n="sec3_heading">➕ Yeni Hisse Ekle (Create Stock)</div>
+                                <div class="create-form">
+                                    <input type="text" id="newTicker" data-i18n-ph="ph_ticker" placeholder="Hisse Sembolü (Örn: AAPL, THYAO.IS)" style="text-transform:uppercase;">
+                                    <input type="text" id="newCompanyName" data-i18n-ph="ph_company" placeholder="Şirket Unvanı (Örn: Türk Hava Yolları)">
+                                    <select id="newLang">
+                                        <option value="TR">TR (Türkçe)</option>
+                                        <option value="EN">EN (English)</option>
+                                    </select>
+                                    <button class="btn btn-primary" onclick="createStock()" data-i18n="btn_add">➕ Ekle</button>
                                 </div>
                             </div>
-                            <div class="log-tab-bar">
-                                <div id="tabCronLog" class="log-tab active" onclick="switchLogTab('cron')" data-i18n="tab_cron">⏰ Cron Scheduler Logları (cron.log)</div>
-                                <div id="tabAnalysisLog" class="log-tab" onclick="switchLogTab('analysis')" data-i18n="tab_analysis">📊 Analiz Rapor Logları (analysis.log)</div>
-                                <div id="tabLiveLog" class="log-tab" onclick="switchLogTab('live')" data-i18n="tab_live">⚡ Canlı İşlem Çıktısı (Live)</div>
+
+                            <!-- SECTION 4: CRUD WATCHLIST TABLE & BATCH RUN HEADER -->
+                            <div class="admin-card">
+                                <div class="card-heading" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+                                    <span data-i18n="sec4_heading">📋 İzleme Listesi & İşlem Yönetimi (Stock CRUD Table)</span>
+                                    <button id="batchRunBtn" class="btn btn-primary" onclick="triggerBatchRun()" data-i18n="btn_batch_run">🚀 Tüm Aktif Hisseleri Çalıştır (Batch Run)</button>
+                                </div>
+                                <div class="table-wrapper">
+                                    <table class="admin-table">
+                                        <thead>
+                                            <tr>
+                                                <th data-i18n="th_ticker">Sembol</th>
+                                                <th data-i18n="th_company">Şirket Unvanı</th>
+                                                <th data-i18n="th_lang">Dil</th>
+                                                <th data-i18n="th_active">Aktif</th>
+                                                <th data-i18n="th_last_report">Son Rapor / Skorlar</th>
+                                                <th style="text-align:right;" data-i18n="th_actions">İşlemler (Actions)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="watchlistTableBody">
+                                            <!-- Populated via JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                            <div id="fileConsoleBox" class="console-box" data-i18n="log_loading">Loglar yükleniyor...</div>
+
                         </div>
 
-                        <!-- SECTION 3: ADD NEW STOCK -->
-                        <div class="admin-card">
-                            <div class="card-heading" data-i18n="sec3_heading">➕ Yeni Hisse Ekle (Create Stock)</div>
-                            <div class="create-form">
-                                <input type="text" id="newTicker" data-i18n-ph="ph_ticker" placeholder="Hisse Sembolü (Örn: AAPL, THYAO.IS)" style="text-transform:uppercase;">
-                                <input type="text" id="newCompanyName" data-i18n-ph="ph_company" placeholder="Şirket Unvanı (Örn: Türk Hava Yolları)">
-                                <select id="newLang">
-                                    <option value="TR">TR (Türkçe)</option>
-                                    <option value="EN">EN (English)</option>
-                                </select>
-                                <button class="btn btn-primary" onclick="createStock()" data-i18n="btn_add">➕ Ekle</button>
+                        <!-- DOMAIN TAB 2: SYSTEM & LLM SETTINGS -->
+                        <div id="adminDomainTabSettings" style="display:none; flex-direction:column; gap:1.5rem;">
+
+                            <!-- SECTION 1: LLM & SYSTEM SETTINGS (.ENV EDITOR) -->
+                            <div class="admin-card">
+                                <div class="card-heading">
+                                    <span data-i18n="sec1_heading">🛠️ LLM Sağlayıcı & Sistem Ayarları (.env Düzenleyici)</span>
+                                    <button class="btn btn-primary" onclick="saveAppSettings()" data-i18n="btn_save_settings">💾 Ayarları Kaydet (.env)</button>
+                                </div>
+                                <div class="settings-grid">
+                                    <div class="form-field">
+                                        <label data-i18n="lbl_admin_pass">Yönetici Şifresi (ADMIN_PASSWORD):</label>
+                                        <input type="password" id="settingAdminPassword" data-i18n-ph="ph_setting_admin_pass" placeholder="Yönetici şifresi">
+                                    </div>
+                                    <div class="form-field">
+                                        <label data-i18n="lbl_llm_model">LLM Model Adı (LLM_MODEL):</label>
+                                        <input type="text" id="settingLlmModel" data-i18n-ph="ph_setting_llm_model" placeholder="Örn: code_combo, gpt-4o">
+                                    </div>
+                                    <div class="form-field">
+                                        <label data-i18n="lbl_llm_url">LLM Provider Base URL (LLM_BASE_URL):</label>
+                                        <input type="text" id="settingLlmBaseUrl" data-i18n-ph="ph_setting_llm_url" placeholder="http://localhost:20128/v1">
+                                    </div>
+                                    <div class="form-field">
+                                        <label data-i18n="lbl_cron_delay">Cron Hisseler Arası Bekleme (Saniye) (CRON_DELAY_SECONDS):</label>
+                                        <input type="number" id="settingCronDelaySeconds" data-i18n-ph="ph_setting_cron_delay" placeholder="15">
+                                    </div>
+                                    <div class="form-field">
+                                        <label data-i18n="lbl_llm_timeout">LLM Zaman Aşımı (Saniye) (LLM_TIMEOUT):</label>
+                                        <input type="number" id="settingLlmTimeout" data-i18n-ph="ph_setting_llm_timeout" placeholder="120">
+                                    </div>
+                                    <div class="form-field" style="grid-column: span 2;">
+                                        <label data-i18n="lbl_llm_key">LLM API Key (LLM_API_KEY):</label>
+                                        <input type="password" id="settingLlmApiKey" data-i18n-ph="ph_setting_llm_key" placeholder="sk-...">
+                                    </div>
+                                </div>
                             </div>
+
+                            <!-- SECTION 2: SYSTEM LOGS & CONSOLE -->
+                            <div class="admin-card">
+                                <div class="card-heading">
+                                    <span data-i18n="sec2_heading">📜 Sistem, Cron Job & Analiz Logları</span>
+                                    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                                        <button class="btn" onclick="fetchFileLogs()" data-i18n="btn_refresh_logs">🔄 Logları Yenile</button>
+                                        <button class="btn btn-danger" onclick="clearActiveLogs()" data-i18n="btn_clear_logs">🗑️ Logları Temizle</button>
+                                    </div>
+                                </div>
+                                <div class="log-tab-bar">
+                                    <div id="tabCronLog" class="log-tab active" onclick="switchLogTab('cron')" data-i18n="tab_cron">⏰ Cron Scheduler Logları (cron.log)</div>
+                                    <div id="tabAnalysisLog" class="log-tab" onclick="switchLogTab('analysis')" data-i18n="tab_analysis">📊 Analiz Rapor Logları (analysis.log)</div>
+                                    <div id="tabLiveLog" class="log-tab" onclick="switchLogTab('live')" data-i18n="tab_live">⚡ Canlı İşlem Çıktısı (Live)</div>
+                                </div>
+                                <div id="fileConsoleBox" class="console-box" data-i18n="log_loading">Loglar yükleniyor...</div>
+                            </div>
+
                         </div>
 
-                        <!-- SECTION 4: CRUD WATCHLIST TABLE -->
-                        <div class="admin-card">
-                            <div class="card-heading" data-i18n="sec4_heading">📋 İzleme Listesi & İşlem Yönetimi (Stock CRUD Table)</div>
-                            <div class="table-wrapper">
-                                <table class="admin-table">
-                                    <thead>
-                                        <tr>
-                                            <th data-i18n="th_ticker">Sembol</th>
-                                            <th data-i18n="th_company">Şirket Unvanı</th>
-                                            <th data-i18n="th_lang">Dil</th>
-                                            <th data-i18n="th_active">Aktif</th>
-                                            <th data-i18n="th_last_report">Son Rapor / Skorlar</th>
-                                            <th style="text-align:right;" data-i18n="th_actions">İşlemler (Actions)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="watchlistTableBody">
-                                        <!-- Populated via JavaScript -->
-                                    </tbody>
-                                </table>
-                        </div>
                     </div>
-                </div>
             </div>
         </div>
 
@@ -963,6 +1072,8 @@ def index():
         <script>
             const UI_I18N = {
                 TR: {
+                    admin_tab_stocks: "📈 Hisse Yönetimi",
+                    admin_tab_settings: "⚙️ Sistem & LLM Ayarları",
                     opt_dashboard: "📊 İnteraktif",
                     opt_printable: "📄 PDF",
                     btn_admin: "🔒 Yönetim Paneli",
@@ -1027,6 +1138,8 @@ def index():
                     msg_batch_started: "⚡ Tüm aktif hisseler için toplu analiz başlatıldı..."
                 },
                 EN: {
+                    admin_tab_stocks: "📈 Stock Management",
+                    admin_tab_settings: "⚙️ System & LLM Settings",
                     opt_dashboard: "📊 Interactive",
                     opt_printable: "📄 PDF",
                     btn_admin: "🔒 Admin Panel",
@@ -1111,12 +1224,26 @@ def index():
                 const currentTheme = document.body.getAttribute('data-theme') || 'dark';
                 const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
                 document.body.setAttribute('data-theme', newTheme);
+                localStorage.setItem('app_theme', newTheme);
                 const btn = document.getElementById('headerThemeBtn');
                 if (btn) btn.innerHTML = newTheme === 'light' ? '☀️' : '🌙';
+                syncIframeTheme();
+            }
+
+            function syncIframeTheme() {
+                const activeTheme = document.body.getAttribute('data-theme') || localStorage.getItem('app_theme') || 'dark';
                 const iframe = document.getElementById('contentFrame');
-                if (iframe && iframe.contentWindow && iframe.contentWindow.toggleTheme) {
+                if (iframe) {
                     try {
-                        iframe.contentWindow.toggleTheme();
+                        if (iframe.contentDocument && iframe.contentDocument.body) {
+                            iframe.contentDocument.body.setAttribute('data-theme', activeTheme);
+                        }
+                        if (iframe.contentWindow && iframe.contentWindow.toggleTheme) {
+                            const innerTheme = iframe.contentDocument && iframe.contentDocument.body ? iframe.contentDocument.body.getAttribute('data-theme') : null;
+                            if (innerTheme !== activeTheme) {
+                                iframe.contentWindow.toggleTheme();
+                            }
+                        }
                     } catch(e) {}
                 }
             }
@@ -1286,6 +1413,7 @@ def index():
             }
 
             function openAdminModal() {
+                applyUiLanguage();
                 document.getElementById('adminModal').classList.add('active');
                 if (adminAuthPassword) {
                     verifyStoredPassword();
@@ -1301,6 +1429,24 @@ def index():
                 loadTickers();
             }
 
+            function switchAdminTab(tabName) {
+                document.querySelectorAll('.admin-nav-tab').forEach(t => t.classList.remove('active'));
+                const stocksTab = document.getElementById('adminDomainTabStocks');
+                const settingsTab = document.getElementById('adminDomainTabSettings');
+                if (stocksTab) stocksTab.style.display = 'none';
+                if (settingsTab) settingsTab.style.display = 'none';
+
+                if (tabName === 'stocks') {
+                    const navTab = document.getElementById('adminNavTabStocks');
+                    if (navTab) navTab.classList.add('active');
+                    if (stocksTab) stocksTab.style.display = 'flex';
+                } else if (tabName === 'settings') {
+                    const navTab = document.getElementById('adminNavTabSettings');
+                    if (navTab) navTab.classList.add('active');
+                    if (settingsTab) settingsTab.style.display = 'flex';
+                }
+            }
+
             function showLockScreen() {
                 document.getElementById('authLockScreen').style.display = 'flex';
                 document.getElementById('protectedAdminContent').style.display = 'none';
@@ -1309,6 +1455,8 @@ def index():
             function showProtectedContent() {
                 document.getElementById('authLockScreen').style.display = 'none';
                 document.getElementById('protectedAdminContent').style.display = 'flex';
+                switchAdminTab('stocks');
+                applyUiLanguage();
                 fetchAppSettings();
                 fetchWatchlist();
                 fetchFileLogs();
@@ -1436,6 +1584,17 @@ def index():
                 }
             }
 
+            let executionStates = {};
+            let isBatchExecuting = false;
+
+            function jumpToLog(ticker) {
+                switchAdminTab('settings');
+                switchLogTab('live');
+                if (ticker && ticker !== '_BATCH_') {
+                    startSseStream(ticker);
+                }
+            }
+
             async function fetchWatchlist() {
                 try {
                     const t = UI_I18N[currentUiLang] || UI_I18N.TR;
@@ -1453,6 +1612,23 @@ def index():
                             const zScore = lastRep.altman_z !== null ? lastRep.altman_z.toFixed(1) : '-';
                             repBadge = `<span class="tag-badge tag-green" style="cursor:pointer;" onclick="selectAndLoadReport('${item.ticker}')" title="${t.view_report_title}">📅 ${lastRep.report_date} (P:${pScore} | Z:${zScore}) 🔍</span>`;
                         }
+
+                        const execStatus = executionStates[item.ticker];
+                        let statusBadge = repBadge;
+                        let analyzeBtn = `<button class="btn btn-primary" onclick="reprocessSingle('${item.ticker}')" title="${t.single_analyze_title}">${t.btn_analyze}</button>`;
+
+                        if (execStatus === 'RUNNING') {
+                            statusBadge = `<span class="tag-badge tag-amber pulse-badge">${t.status_analyzing || '🟡 Analyzing...'}</span>`;
+                            analyzeBtn = `<button class="btn btn-primary" disabled><span class="spinner-icon">⏳</span> ${t.status_analyzing || 'Analyzing...'}</button>`;
+                        } else if (execStatus === 'QUEUED') {
+                            statusBadge = `<span class="tag-badge tag-amber">${t.status_queued || '🟡 Queued...'}</span>`;
+                            analyzeBtn = `<button class="btn btn-primary" disabled><span class="spinner-icon">⏳</span> ${t.status_queued || 'Queued...'}</button>`;
+                        } else if (execStatus === 'SUCCESS') {
+                            statusBadge = `${repBadge} <span class="tag-badge tag-green">${t.status_success || '🟢 Updated'}</span>`;
+                        } else if (execStatus === 'FAILED') {
+                            statusBadge = `${repBadge} <span class="tag-badge tag-rose">${t.status_failed || '🔴 Failed'} <a style="color:var(--accent-cyan); text-decoration:underline; font-size:0.75rem; cursor:pointer;" onclick="jumpToLog('${item.ticker}')">${t.btn_view_log || '📜 View Log'}</a></span>`;
+                        }
+
                         const activeChecked = item.is_active ? 'checked' : '';
                         return `
                             <tr>
@@ -1462,9 +1638,9 @@ def index():
                                 <td>
                                     <input type="checkbox" ${activeChecked} onchange="toggleStockActive('${item.ticker}', this.checked)">
                                 </td>
-                                <td>${repBadge}</td>
+                                <td>${statusBadge}</td>
                                 <td style="text-align:right; display:flex; gap:0.4rem; justify-content:flex-end;">
-                                    <button class="btn btn-primary" onclick="reprocessSingle('${item.ticker}')" title="${t.single_analyze_title}">${t.btn_analyze}</button>
+                                    ${analyzeBtn}
                                     <button class="btn" onclick="editStockPrompt('${item.ticker}', '${item.company_name || ''}', '${item.lang}')">${t.btn_edit}</button>
                                     <button class="btn btn-danger" onclick="deleteStock('${item.ticker}')">${t.btn_delete}</button>
                                 </td>
@@ -1574,21 +1750,33 @@ def index():
                     currentEventSource.close();
                 }
                 const box = document.getElementById('fileConsoleBox');
-                box.innerText = `▶ Connecting live event stream for: ${targetKey}...\n`;
+                if (box) box.innerText = `▶ Connecting live event stream for: ${targetKey}...\n`;
 
                 currentEventSource = new EventSource(`/api/reprocess/stream/${targetKey}`);
                 currentEventSource.onmessage = function(event) {
                     try {
                         const data = JSON.parse(event.data);
-                        if (data.line) {
+                        if (data.line && box) {
                             box.innerText += `${data.line}\n`;
                             box.scrollTop = box.scrollHeight;
                         }
                         if (data.done) {
                             currentEventSource.close();
-                            fetchWatchlist();
-                            fetchFileLogs();
-                            if (targetKey !== '_BATCH_') {
+                            if (targetKey === '_BATCH_') {
+                                isBatchExecuting = false;
+                                const t = UI_I18N[currentUiLang] || UI_I18N.TR;
+                                const batchBtn = document.getElementById('batchRunBtn');
+                                if (batchBtn) {
+                                    batchBtn.disabled = false;
+                                    batchBtn.innerHTML = `🚀 ${t.btn_batch_run || 'Run All Active Stocks'}`;
+                                }
+                                fetchWatchlist();
+                                fetchFileLogs();
+                                loadTickers();
+                            } else {
+                                executionStates[targetKey] = 'SUCCESS';
+                                fetchWatchlist();
+                                fetchFileLogs();
                                 loadTickers(targetKey);
                             }
                         }
@@ -1601,7 +1789,8 @@ def index():
             }
 
             async function reprocessSingle(ticker) {
-                switchLogTab('live');
+                executionStates[ticker] = 'RUNNING';
+                fetchWatchlist();
                 logConsole(`▶ Single stock analysis triggered for: ${ticker}`);
                 const res = await fetch(`/api/reprocess/${ticker}`, {
                     method: 'POST',
@@ -1609,6 +1798,8 @@ def index():
                 });
                 const data = await res.json();
                 if (!res.ok) {
+                    executionStates[ticker] = 'FAILED';
+                    fetchWatchlist();
                     alert(`Error: ${data.detail || data.message}`);
                     return;
                 }
@@ -1618,7 +1809,12 @@ def index():
 
             async function triggerBatchRun() {
                 const t = UI_I18N[currentUiLang] || UI_I18N.TR;
-                switchLogTab('live');
+                isBatchExecuting = true;
+                const batchBtn = document.getElementById('batchRunBtn');
+                if (batchBtn) {
+                    batchBtn.disabled = true;
+                    batchBtn.innerHTML = `<span class="spinner-icon">⏳</span> ${t.batch_running || 'Batch Execution Active...'}`;
+                }
                 logConsole(t.msg_batch_started);
                 const res = await fetch(`/api/reprocess/batch`, {
                     method: 'POST',
@@ -1626,6 +1822,11 @@ def index():
                 });
                 const data = await res.json();
                 if (!res.ok) {
+                    isBatchExecuting = false;
+                    if (batchBtn) {
+                        batchBtn.disabled = false;
+                        batchBtn.innerHTML = `🚀 ${t.btn_batch_run || 'Run All Active Stocks'}`;
+                    }
                     alert(`Error: ${data.detail || data.message}`);
                     return;
                 }
@@ -1639,15 +1840,29 @@ def index():
                     const res = await fetch(`/api/reprocess/status/${targetKey}`);
                     const data = await res.json();
                     if (data.log && data.log.length > 0) {
-                        document.getElementById('fileConsoleBox').innerText = data.log.join(String.fromCharCode(10));
                         const box = document.getElementById('fileConsoleBox');
-                        box.scrollTop = box.scrollHeight;
+                        if (box) {
+                            box.innerText = data.log.join(String.fromCharCode(10));
+                            box.scrollTop = box.scrollHeight;
+                        }
                     }
                     if (data.status === 'SUCCESS' || data.status === 'FAILED') {
                         clearInterval(pollingTimer);
-                        fetchWatchlist();
-                        fetchFileLogs();
-                        if (targetKey !== '_BATCH_') {
+                        if (targetKey === '_BATCH_') {
+                            isBatchExecuting = false;
+                            const t = UI_I18N[currentUiLang] || UI_I18N.TR;
+                            const batchBtn = document.getElementById('batchRunBtn');
+                            if (batchBtn) {
+                                batchBtn.disabled = false;
+                                batchBtn.innerHTML = `🚀 ${t.btn_batch_run || 'Run All Active Stocks'}`;
+                            }
+                            fetchWatchlist();
+                            fetchFileLogs();
+                            loadTickers();
+                        } else {
+                            executionStates[targetKey] = data.status;
+                            fetchWatchlist();
+                            fetchFileLogs();
                             loadTickers(targetKey);
                         }
                     }
@@ -1656,11 +1871,17 @@ def index():
 
             function logConsole(msg) {
                 const box = document.getElementById('fileConsoleBox');
-                box.innerText += String.fromCharCode(10) + msg;
-                box.scrollTop = box.scrollHeight;
+                if (box) {
+                    box.innerText += String.fromCharCode(10) + msg;
+                    box.scrollTop = box.scrollHeight;
+                }
             }
 
             function initApp() {
+                const savedTheme = localStorage.getItem('app_theme') || 'dark';
+                document.body.setAttribute('data-theme', savedTheme);
+                const btn = document.getElementById('headerThemeBtn');
+                if (btn) btn.innerHTML = savedTheme === 'light' ? '☀️' : '🌙';
                 loadTickers();
                 setUiLanguage(currentUiLang);
             }

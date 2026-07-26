@@ -86,8 +86,8 @@ class TestFetchYFinanceModels(unittest.TestCase):
 
         self.assertIn("finansal bünye", tr_comm.get("strong_points", ""))
         self.assertIn("financial position", en_comm.get("strong_points", ""))
-        self.assertEqual(len(tr_comm), 18)
-        self.assertEqual(len(en_comm), 18)
+        self.assertEqual(len(tr_comm), 27)
+        self.assertEqual(len(en_comm), 27)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ SKILL.md
 references/
 .gemini_security/
 docs/
+storage/reports_old/
 
 # Secrets & Environment Files
 .env

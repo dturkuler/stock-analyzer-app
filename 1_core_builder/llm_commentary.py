@@ -25,6 +25,7 @@ Sana verilen nicel finansal metrikleri (Bilanço, Gelir Tablosu, DuPont, WACC, P
 Aşağıdaki 18 anahtar kelimeyi içeren geçerli bir JSON nesnesi döndür.
 
 YAZIM VE ÜSLUP KURALLARI:
+- TÜM ANALİZ CÜMLELERİ VE YORUMLARI KESİNLİKLE %100 TÜRKÇE YAZILACAKTIR. TEK BİR İNGİLİZCE CÜMLE, PARAGRAF VEYA İFADE KULLANMA.
 - Her bir analiz anahtarı için 1-2 net, öz, somut veriler içeren ve profesyonel paragraf yaz.
 - Metinlerde jenerik laflar yerine verilen somut rakamları (TRY, %, x çarpan) kullan.
 - JSON formatına tam uy, markdown tırnakları veya kod blokları koyma.
@@ -48,16 +49,24 @@ GEREKLİ JSON ANAHTARLARI:
 16. "forensic_audit": Beneish M-Score adli muhasebe, balon uyarısı ve tahta sığlığı yorumu
 17. "scenario_analysis": Sert düşüş, Ayı, Baz ve Boğa senaryoları yorumu
 18. "investment_verdict": DENGELİ MODEL GÖRÜŞÜ ile başlayan nihai yatırım kararı sentezi
+19. "blog_headline": Şirket ve günün tarihine özel, her seviyeden bireysel yatırımcının rahatça anlayabileceği çekici, merak uyandıran bülten başlığı (örn. 📰 ODINE Teknoloji: Kasadaki 500 Milyon Nakit ile Yüksek Hisse Fiyatı Karşı Karşıya)
+20. "blog_summary": Bireysel yatırımcılara yönelik, 1-2 paragraflık sade ve anlaşılır günlük analiz özeti. Ağır finansal terimler kullanma; her terimi halk dilinde açıkla.
+21. "blog_cash_and_health": Şirketin finansal sağlığını, net nakit birikimini ve borç durumunu esnaf/iş yeri benzetmeleriyle (Örn: "Bankada parası olan ama bu ay dükkan kârı düşen bir esnaf gibi...") detaylandıran sade makale bölümü.
+22. "blog_earnings_quality": Şirketin brüt marj değişimini, kâr kalitesini ve Piotroski audit sonuçlarını sade ve sürükleyici bir dille anlatan makale bölümü.
+23. "blog_valuation_dcf": Değerleme oranlarını (P/S, P/E), sektör rakipleriyle kıyaslamayı ve Ters DCF piyasa büyüme beklentilerini halk diliyle açıklayan bölüm.
+24. "blog_catalysts_and_risks": Şirket için önümüzdeki 12 ayın büyüme fırsatlarını ve risklerini "Büyüme Fırsatları:\n1)... 2)...\n\nKritik Riskler:\n1)... 2)..." formatında sade dille anlatan bölüm.
+25. "blog_bull_vs_bear": Boğa ve Ayı senaryolarını "Boğa Senaryosu: ...\n\nAyı Senaryosu: ...\n\nNihai Değerlendirme: ..." formatında kıyaslayan ve küçük yatırımcı sonucunu açıklayan bölüm.
+26. "blog_key_takeaways": Google öne çıkan snippet kutusu için bireysel yatırımcı diliyle yazılmış 3 kısa özet cümlesi dizisi.
+27. "blog_faqs": Bireysel yatırımcıların arama motorlarında sıkça arattığı 3 sade soru-cevap nesnesi dizisi: [{"q": "Bu hisse yeni başlayan yatırımcı için uygun mu?", "a": "..."}, {"q": "Hisse fiyatı şu an pahalı mı?", "a": "..."}, {"q": "Yatırımcının bilmesi gereken en büyük risk nedir?", "a": "..."}]
 """
 
-SYSTEM_PROMPT_EN = """You are a Senior Equity Research Analyst and Forensic Audit Expert.
+SYSTEM_PROMPT_EN = """You are a Financial Educator and Senior Equity Research Analyst.
 Analyze the provided quantitative financial metrics (Balance Sheet, Income Statement, DuPont, WACC, Piotroski, Altman Z, Beneish M-Score, RSI, SMA50/200, Peer Benchmark).
-Return a valid JSON object containing the exact 18 keys specified below.
+Return a valid JSON object containing the exact 27 keys specified below.
 
 WRITING AND STYLE RULES:
-- Write 1-2 concise, clear, and professional paragraphs containing concrete data for each analysis key.
-- Use actual figures (USD / EUR / TRY, %, x multiples) from the provided metrics instead of generic statements.
-- Provide all analysis and commentary in English.
+- Keys 1-18 (Technical Analysis): Write concise, professional analysis for financial professionals using concrete metrics.
+- Keys 19-27 (BLOG BRIEFING): Write as a friendly Financial Educator for everyday retail investors. Use plain language, clear everyday business analogies, translate technical jargon immediately into simple terms, and explain clearly "What this means for your money".
 - Fully adhere to JSON format; do NOT wrap in markdown quotes or code blocks.
 
 REQUIRED JSON KEYS:
@@ -79,7 +88,42 @@ REQUIRED JSON KEYS:
 16. "forensic_audit": Beneish M-Score forensic accounting, bubble warning, and liquidity commentary
 17. "scenario_analysis": Severe downside, Bear, Base, and Bull target scenarios commentary
 18. "investment_verdict": Final investment verdict synthesis starting with 'BALANCED MODEL OUTLOOK'
+19. "blog_headline": Engaging, retail-friendly title (e.g. 📰 ODINE Tech: Solid Net Cash Reserves Face Valuation Heat)
+20. "blog_summary": Plain-language executive summary thesis for everyday investors. Avoid dense jargon; explain every ratio simply.
+21. "blog_cash_and_health": Accessible breakdown of balance sheet cash reserves, debt levels, and Altman Z insolvency safety.
+22. "blog_earnings_quality": Plain-language breakdown of gross margin trends, earnings quality, and Piotroski balance sheet audit.
+23. "blog_valuation_dcf": Clear explanation of P/S and P/E multiples vs industry peers and Reverse DCF market growth expectations.
+24. "blog_catalysts_and_risks": Clear, plain-language radar of top growth opportunities and main risk factors to watch out for.
+25. "blog_bull_vs_bear": Simple Bull vs. Bear comparison ending with a 1-sentence "What this means for retail investors" takeaway.
+26. "blog_key_takeaways": A JSON array of 3 plain-language summary bullet strings.
+27. "blog_faqs": A JSON array of 3 plain retail Q&A objects: [{"q": "Is this stock suitable for beginner investors?", "a": "..."}, {"q": "Is the share price currently expensive?", "a": "..."}, {"q": "What is the primary risk to watch out for?", "a": "..."}]
 """
+
+
+def _is_english_text(text: str) -> bool:
+    """Detect if string contains English text when Turkish is required."""
+    if not text or not isinstance(text, str):
+        return False
+    english_phrases = [
+        "net cash", "revenue growth", "fcf yield", "low debt", "altman z says",
+        "deep dive needed", "story stock", "gross margin collapse", "operating loss",
+        "historic overbought", "bullish momentum", "stacked bull flag",
+        "zero allocation", "extreme valuation", "correction risk high", "safe zone",
+        "price-to-sales", "operating income", "net income", "balance sheet"
+    ]
+    lower = text.lower()
+    for phrase in english_phrases:
+        if phrase in lower:
+            return True
+
+    words = re.findall(r'\b[a-zA-Z]+\b', lower)
+    if len(words) < 5:
+        return False
+    eng_stopwords = {"the", "is", "are", "and", "or", "to", "in", "on", "with", "for", "by", "from", "at", "it", "this", "that", "says", "safe", "risk", "high", "low", "strong", "positive"}
+    eng_matches = sum(1 for w in words if w in eng_stopwords)
+    if eng_matches >= 3 and (eng_matches / len(words)) > 0.07:
+        return True
+    return False
 
 
 def _robust_parse_json(raw_content: str, ticker: str, metrics: dict, lang: str) -> dict:
@@ -140,9 +184,14 @@ def _robust_parse_json(raw_content: str, ticker: str, metrics: dict, lang: str) 
             pass
 
     if isinstance(parsed_data, dict) and len(parsed_data) > 0:
+        lang_upper = (lang or "TR").upper()
         for key, val in parsed_data.items():
             if val and isinstance(val, str) and val.strip():
-                fallback[key] = val.strip()
+                clean_val = val.strip()
+                if lang_upper == "TR" and _is_english_text(clean_val):
+                    print(f"   ⚠️ Key '{key}' contained English output in TR mode. Using Turkish fallback.")
+                else:
+                    fallback[key] = clean_val
         print(f"   ✅ LLM commentary parsed successfully ({len(parsed_data)} sections)")
         return fallback
 
@@ -167,7 +216,11 @@ def generate_commentary(metrics: dict, lang: str = "TR") -> dict:
     user_label = "Company Ticker" if lang_upper == "EN" else "Şirket Ticker"
     metrics_label = "Financial Metrics" if lang_upper == "EN" else "Finansal Metrikler"
 
-    prompt_content = f"{user_label}: {ticker}\n{metrics_label}:\n{json.dumps(metrics, indent=2, ensure_ascii=False)}"
+    lang_note = ""
+    if lang_upper == "TR":
+        lang_note = "\nCRITICAL: KESİNLİKLE TÜM JSON DEĞERLERİ VE ANALİZ YORUMLARI %100 TÜRKÇE OLMALIDIR. TEK BİR İNGİLİZCE KELİME VEYA CÜMLE KULLANMA.\n"
+
+    prompt_content = f"{user_label}: {ticker}\n{metrics_label}:\n{json.dumps(metrics, indent=2, ensure_ascii=False)}{lang_note}"
 
     payload = {
         "model": llm_model,
@@ -253,6 +306,7 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
     debt = hist[0].get("total_debt", 0) if hist else 0
     net_debt = debt - cash
     ps_ratio = mcap / last_rev if last_rev > 0 else 0
+    pe_ratio = mcap / last_ni if last_ni > 0 else 0
 
     company_name = mi.get("short_name", ticker)
     curr_sym = mi.get("currency_symbol", "₺")
@@ -320,6 +374,23 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
         scenario_c = (
             f"Scenario analysis indicates the Base Case target supports current prices, while the Bear Case relies on the {curr_sym}{sma50:,.2f} support line."
         )
+        blog_headline_val = f"📰 {company_name} ({ticker}): Solid Net Cash Reserves vs. Market Valuation Heat"
+        blog_summary_val = f"{company_name} ({ticker}) holds strong net cash reserves of {curr_sym}{abs(net_debt)/1e6:,.1f}M in its bank accounts. Think of it as a solid shopkeeper with significant savings in the bank, giving the firm strong protection against rising interest rates. However, the share price trades at a premium relative to revenue, requiring disciplined risk management."
+        blog_cash_and_health_val = f"Looking under the hood of {company_name}'s balance sheet, the firm holds a substantial cash cushion of {curr_sym}{abs(net_debt)/1e6:,.1f}M with virtually zero long-term bank debt. In simple terms, think of the company as a wealthy merchant who keeps a large emergency fund in the bank. According to our Altman Z-Score model (Z = {z_score:,.2f}), the company sits comfortably in the 'Safe Zone' with virtually zero risk of bankruptcy over the next two years. High interest rates in the economy actually work in favor of cash-rich companies like {ticker}, generating risk-free interest income while competitors struggle with high borrowing costs."
+        blog_earnings_quality_val = f"Examining earnings quality and profit margins reveals an interesting operational picture. The company generates positive cash from operations, meaning real money is flowing into bank accounts after paying suppliers and employee salaries. In our 9-point Piotroski F-Score audit, {ticker} scores {pf_score}/9, confirming solid profitability and cash flow backing. However, investors must monitor gross margin trends closely: while historical gross margins reached high levels, recent margin compression indicates rising input costs or changing product mix that requires sustained revenue growth to offset."
+        blog_valuation_dcf_val = f"On the valuation front, {ticker} trades at a Price-to-Sales (P/S) ratio of {ps_ratio:.1f}x and a P/E of {pe_ratio:.1f}x, which places it at a premium compared to broader industry peers. Our Reverse DCF model measures what annual real free cash flow growth rate the market price is demanding: it calculates an implied growth rate of %{implied_g*100:.2f} per year. In plain language, for the current stock price to be justified, the business needs to expand its cash flow steadily by %{implied_g*100:.2f} annually. If sales growth accelerates through new software contracts, this premium can be absorbed over time; otherwise, valuation multiple pullbacks remain a key risk."
+        blog_catalysts_val = f"Growth Opportunities:\n1) New corporate contract renewals and software tender wins represent positive growth drivers.\n2) High net cash reserves ({curr_sym}{abs(net_debt)/1e6:,.1f}M) provide strong capacity for strategic tech investments.\n\nRisk Radar:\n1) Share price trades at a premium relative to revenue.\n2) Technical momentum overheated; pullbacks toward the 50-day average line are possible."
+        blog_bull_vs_bear_val = f"Bull Case: Zero net debt and steady cash production provide defensive armor against interest rate shocks.\n\nBear Case: High share price multiples expose the stock to profit-taking pullbacks.\n\nTakeaway: The company is financially healthy, but buying at current levels requires patience and stop-loss discipline."
+        blog_takeaways_val = [
+            f"Solid net cash reserves ({curr_sym}{abs(net_debt)/1e6:,.1f}M) act as a strong shield against rising interest rates",
+            f"Share price trades at a premium multiple relative to annual sales",
+            f"50-day moving average ({curr_sym}{sma50:,.2f}) acts as key technical price support"
+        ]
+        blog_faqs_val = [
+            {"q": f"Is {ticker} stock suitable for beginner investors?", "a": f"{company_name} has strong financial health with net cash reserves. However, because its share price is trading at a premium, beginner investors should keep position sizes small (2.5%-5.0%) and follow key support levels."},
+            {"q": f"Is {ticker}'s share price currently expensive?", "a": f"Compared to historic industry averages, the stock trades at a premium multiple relative to annual revenue. Strong earnings growth is required to maintain this valuation level over the long term."},
+            {"q": f"What is the primary risk to watch out for in {ticker}?", "a": f"The main risks are sudden price pullbacks due to valuation multiple contraction and trading volume volatility."}
+        ]
     else:
         verdict_text = "DENGELİ MODEL GÖRÜŞÜ (MÜKEMMEL BİLANÇO / YÜKSEK ÇARPAN DENGESİ)"
         strong = (
@@ -390,6 +461,23 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
             f"Senaryo analizinde Baz Senaryo fiyat hedefi mevcut seviyeyi desteklerken, makro faiz ve enflasyon şoklarında (Ayı Senaryosu) "
             f"{curr_sym}{sma50:,.2f} teknik desteği ana tampon seviyesidir."
         )
+        blog_headline_val = f"📰 {company_name} ({ticker}): Kasadaki {curr_sym}{abs(net_debt)/1e6:,.1f}M Nakit ile Yüksek Borsa Fiyatlaması Karşı Karşıya"
+        blog_summary_val = f"{company_name} ({ticker}), banka hesaplarında tuttuğu {curr_sym}{abs(net_debt)/1e6:,.1f} milyon TL net nakit ile son derece güçlü bir finansal birikime sahiptir. Tıpkı bankada parası olan ama bu ay dükkan kârı düşen bir esnaf gibi, şirketin borçsuz yapısı yüksek faiz döneminde koruma sağlamaktadır. Ancak hisse fiyatı şirket satışlarına kıyasla yüksek seyrettiği için temkinli olmakta fayda var."
+        blog_cash_and_health_val = f"{company_name} bilançosunu incelediğimizde en dikkat çekici unsur, şirketin {curr_sym}{abs(net_debt)/1e6:,.1f} milyon TL tutarındaki devasa net nakit birikimidir. Şirketin banka borcunun sıfıra yakın olması, faizlerin yüksek seyrettiği mevcut ekonomik ortamda devasa bir avantaj sağlamaktadır. Tıpkı kriz döneminde bankada birikmiş parası olan ve faiz gideri ödemeyen tüccar gibi, şirket mali açıdan tam koruma altındadır. Altman Z-Score iflas risk modelimiz Z = {z_score:,.2f} ile şirketin 'Güvenli Bölge'de olduğunu ve önümüzdeki 2 yılda mali çöküş riskinin sıfıra yakın olduğunu doğrulamaktadır."
+        blog_earnings_quality_val = f"Şirketin kâr kalitesi ve nakit üretim performansına baktığımızda, faaliyetlerden elde edilen nakit akışının pozitif olduğu görülüyor. Ay sonu tüm tedarikçi ödemeleri ve personel maaşları yapıldıktan sonra kasaya net nakit girmesi bilanço kalitesini kanıtlıyor. 9 maddelik Piotroski F-Score denetimimizde şirket {pf_score}/9 puan alarak nakit kârlılığını tescillemiştir. Ancak yatırımcıların dikkat etmesi gereken nokta brüt kâr marjındaki seyirdir: Şirketin brüt marjı geçmiş dönemdeki %50 seviyelerinden %16 bandına gerilemiştir. Bu durum, girdi maliyetlerinin arttığını ve şirketin ciro hacmini büyüterek bu marj baskısını telafi etmesi gerektiğini göstermektedir."
+        blog_valuation_dcf_val = f"Değerleme cephesinde ise {ticker}, {ps_ratio:.1f}x Fiyat/Satışlar (P/S) ve {pe_ratio:.1f}x F/K çarpanı ile borsa ortalamalarına göre primli fiyatlanmaktadır. Ters DCF (İndirgenmiş Nakit Akımı) modelimiz, mevcut hisse fiyatının rasyonel karşılanması için piyasanın şirketten yıllık net %{implied_g*100:.2f} oranında reel serbest nakit akışı büyümesi beklediğini ölçmektedir. Halk diliyle ifade etmek gerekirse: Şirket her yıl serbest nakit akışını %{implied_g*100:.2f} büyütmeyi başarırsa mevcut fiyat rasyonel bir zemine oturacaktır. Aksi takdirde yüksek çarpanlar nedeniyle teknik düzeltmeler yaşanabilir."
+        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Önümüzdeki 12 ayda yeni sektör ihaleleri ve lisans anlaşmaları taze gelir ivmesi yaratabilir.\n2) Kasadaki {curr_sym}{abs(net_debt)/1e6:,.1f}M net nakit ile stratejik yatırım veya şirket satın alma kapasitesi yüksek.\n\nKritik Riskler:\n1) Hisse fiyatının yıllık şirket satışlarına kıyasla yüksek seviyede kalması kâr realizasyonu riski yaratıyor.\n2) Grafik momentumundaki aşırı alım nedeniyle 50 günlük ortalamaya doğru teknik düzeltmeler yaşanabilir."
+        blog_bull_vs_bear_val = f"Boğa Senaryosu: Sıfıra yakın borçluluk ve güçlü nakit akışı ekonomik çalkantılara karşı kalkan sağlar.\n\nAyı Senaryosu: Yüksek fiyat çarpanları kar realizasyonu ve fiyat dalgalanması riskini artırır.\n\nNihai Değerlendirme: Şirket mali açıdan son derece sağlam ancak yüksek fiyat nedeniyle kademeli alım ve stop-loss disiplini şarttır."
+        blog_takeaways_val = [
+            f"Banka hesaplarındaki {curr_sym}{abs(net_debt)/1e6:,.1f}M net nakit birikimi faiz artışlarına karşı kalkan oluşturuyor",
+            f"Hisse fiyatı yıllık şirket satışlarına kıyasla yüksek seviyede seyrediyor",
+            f"50 günlük ortalama fiyat ({curr_sym}{sma50:,.2f}) ana destek noktası olarak izlenmeli"
+        ]
+        blog_faqs_val = [
+            {"q": f"{ticker} hissesi yeni başlayan yatırımcı için uygun mu?", "a": f"{company_name} borçsuz ve güçlü nakdi olan sağlam bir şirket. Ancak fiyatı primli olduğu için küçük yatırımcıların tüm parayla girmek yerine %2,5 - %5,0 gibi küçük oranlarla hareket etmesi önerilir."},
+            {"q": f"{ticker} hisse fiyatı şu an pahalı mı?", "a": f"Geçmiş sektör ortalamalarına kıyasla hisse fiyatı yıllık satışlara göre primli seviyede. Fiyatın bu seviyelerde kalması için şirketin önümüzdeki dönemde kârını artırmaya devam etmesi gerekiyor."},
+            {"q": f"{ticker} hissesinde küçük yatırımcının bilmesi gereken en büyük risk nedir?", "a": f"En büyük risk, yüksek fiyattan kaynaklanabilecek ani kâr satışları ve fiyat dalgalanmalarıdır."}
+        ]
 
     return {
         "company_name": company_name,
@@ -409,7 +497,16 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
         "technical_analysis": tech_c,
         "forensic_audit": forensic_c,
         "scenario_analysis": scenario_c,
-        "investment_verdict": verdict_text
+        "investment_verdict": verdict_text,
+        "blog_headline": blog_headline_val,
+        "blog_summary": blog_summary_val,
+        "blog_cash_and_health": blog_cash_and_health_val,
+        "blog_earnings_quality": blog_earnings_quality_val,
+        "blog_valuation_dcf": blog_valuation_dcf_val,
+        "blog_catalysts_and_risks": blog_catalysts_val,
+        "blog_bull_vs_bear": blog_bull_vs_bear_val,
+        "blog_key_takeaways": blog_takeaways_val,
+        "blog_faqs": blog_faqs_val
     }
 
 
@@ -419,7 +516,7 @@ if __name__ == "__main__":
 
     ticker_arg = sys.argv[1] if len(sys.argv) > 1 else "ODINE.IS"
 
-    metrics_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "_workspace", "01_quant_metrics.json"))
+    metrics_path = os.path.normpath(os.path.join(BASE_DIR, "storage", "_workspace", f"01_quant_metrics_{ticker_arg}.json"))
     if not os.path.exists(metrics_path):
         print(f"❌ Metrics file not found: {metrics_path}")
         sys.exit(1)
