@@ -795,6 +795,24 @@ def index():
                 --accent-purple: #8b5cf6;
                 --text-main: #f3f4f6;
                 --text-muted: #9ca3af;
+                --body-bg: #0b0f19;
+                --input-bg: #1a202c;
+                --input-border: #374151;
+            }
+            [data-theme="light"] {
+                --bg-dark: #f8fafc;
+                --panel-bg: #ffffff;
+                --panel-border: #cbd5e1;
+                --accent-cyan: #0284c7;
+                --accent-emerald: #059669;
+                --accent-amber: #d97706;
+                --accent-rose: #e11d48;
+                --accent-purple: #7c3aed;
+                --text-main: #0f172a;
+                --text-muted: #64748b;
+                --body-bg: #f8fafc;
+                --input-bg: #ffffff;
+                --input-border: #cbd5e1;
             }
             html, body {
                 margin: 0;
@@ -811,45 +829,46 @@ def index():
                 color: var(--text-main);
                 display: flex;
                 flex-direction: column;
+                transition: background-color 0.3s ease, color 0.3s ease;
             }
 
-            header { background: var(--panel-bg); padding: 0.6rem 1rem; display: flex; gap: 1rem; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--panel-border); flex-shrink: 0; z-index: 1000; width: 100%; box-sizing: border-box; }
+            header { background: var(--panel-bg); padding: 0.6rem 1rem; display: flex; gap: 1rem; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--panel-border); flex-shrink: 0; z-index: 1000; width: 100%; box-sizing: border-box; transition: background 0.3s ease; }
             .header-left { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; flex: 1; min-width: 0; }
-            .brand { font-family: 'Outfit', sans-serif; font-size: 1.2rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 0.5rem; }
+            .brand { font-family: 'Outfit', sans-serif; font-size: 1.2rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; }
             .brand-badge { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); color: #fff; font-size: 0.65rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 700; }
 
             .controls { display: flex; align-items: center; gap: 1rem; }
             .control-group { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
-            select, input { background: #1a202c; color: #fff; border: 1px solid #374151; padding: 0.45rem 0.8rem; border-radius: 6px; font-size: 0.85rem; outline: none; transition: border-color 0.2s; }
+            select, input { background: var(--input-bg); color: var(--text-main); border: 1px solid var(--input-border); padding: 0.45rem 0.8rem; border-radius: 6px; font-size: 0.85rem; outline: none; transition: border-color 0.2s, background-color 0.3s, color 0.3s; }
             select:focus, input:focus { border-color: var(--accent-cyan); }
             
-            .btn { background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); color: #fff; padding: 0.45rem 0.9rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: all 0.2s; }
+            .btn { background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); color: var(--text-main); padding: 0.45rem 0.9rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: all 0.2s; }
             .btn:hover { background: rgba(6, 182, 212, 0.15); border-color: var(--accent-cyan); color: var(--accent-cyan); }
             .btn-primary { background: linear-gradient(135deg, var(--accent-cyan), #0284c7); border: none; color: #fff; }
             .btn-primary:hover { opacity: 0.9; color: #fff; }
             .btn-danger { background: rgba(244, 63, 94, 0.15); border-color: var(--accent-rose); color: var(--accent-rose); }
             .btn-danger:hover { background: var(--accent-rose); color: #fff; }
 
-            #contentFrame { width: 100%; flex: 1 1 0%; min-height: 0; border: none; background: var(--bg-dark); -webkit-overflow-scrolling: touch; }
+            #contentFrame { width: 100%; flex: 1 1 0%; min-height: 0; border: none; background: var(--bg-dark); -webkit-overflow-scrolling: touch; transition: background 0.3s ease; }
 
             /* Modal Overlay */
-            .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); z-index: 1000; justify-content: center; align-items: center; }
+            .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); z-index: 1000; justify-content: center; align-items: center; }
             .modal-backdrop.active { display: flex; }
-            .modal { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 12px; width: 90%; max-width: 1050px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+            .modal { background: var(--panel-bg); color: var(--text-main); border: 1px solid var(--panel-border); border-radius: 12px; width: 90%; max-width: 1050px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); transition: background 0.3s ease; }
             .modal-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--panel-border); display: flex; justify-content: space-between; align-items: center; }
             .modal-title { font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
             .close-btn { background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; }
-            .close-btn:hover { color: #fff; }
+            .close-btn:hover { color: var(--text-main); }
 
             .modal-body { padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; }
 
             /* Auth Lock Box */
-            .auth-box { background: rgba(11, 15, 25, 0.8); border: 1px solid var(--panel-border); border-radius: 10px; padding: 2.5rem; max-width: 450px; margin: 2rem auto; text-align: center; display: flex; flex-direction: column; gap: 1.25rem; }
+            .auth-box { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 10px; padding: 2.5rem; max-width: 450px; margin: 2rem auto; text-align: center; display: flex; flex-direction: column; gap: 1.25rem; }
             .auth-title { font-size: 1.15rem; font-weight: 700; color: var(--accent-cyan); display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
             .auth-input-group { display: flex; gap: 0.5rem; }
             .auth-input-group input { flex: 1; }
 
-            .admin-card { background: rgba(11, 15, 25, 0.6); border: 1px solid var(--panel-border); border-radius: 8px; padding: 1.25rem; }
+            .admin-card { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 8px; padding: 1.25rem; }
             .card-heading { font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; color: var(--accent-cyan); display: flex; justify-content: space-between; align-items: center; }
 
             .create-form { display: grid; grid-template-columns: 1fr 2fr 120px auto; gap: 0.75rem; align-items: center; }
@@ -863,9 +882,9 @@ def index():
 
             .icon-tools-group { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; margin-left: auto; }
             .icon-btn {
-                background: rgba(255,255,255,0.06);
+                background: var(--panel-bg);
                 border: 1px solid var(--panel-border);
-                color: #fff;
+                color: var(--text-main);
                 width: 34px;
                 height: 34px;
                 border-radius: 6px;
@@ -879,9 +898,9 @@ def index():
             .icon-btn:hover { background: rgba(6, 182, 212, 0.2); border-color: var(--accent-cyan); }
             
             .icon-select {
-                background: #1a202c;
-                color: #fff;
-                border: 1px solid #374151;
+                background: var(--input-bg);
+                color: var(--text-main);
+                border: 1px solid var(--input-border);
                 padding: 0.35rem 0.4rem;
                 border-radius: 6px;
                 font-size: 0.95rem;
@@ -1648,7 +1667,7 @@ def index():
                                 ${t.matrix_title || '📊 Tüm Hisseler Değerleme & Karşılaştırma Matrisi'}
                             </h2>
                             <div style="display:flex; gap:0.5rem; align-items:center;">
-                                <input type="text" id="matrixSearchInput" placeholder="${t.matrix_search_ph || '🔍 Search Ticker...'}" value="${matrixFilterText}" oninput="matrixFilterText = this.value; renderMatrixTable();" style="background:#1a202c; color:#fff; border:1px solid #374151; padding:0.45rem 0.8rem; border-radius:6px; font-size:0.85rem; width:240px; outline:none;">
+                                <input type="text" id="matrixSearchInput" placeholder="${t.matrix_search_ph || '🔍 Search Ticker...'}" value="${matrixFilterText}" oninput="matrixFilterText = this.value; renderMatrixTable();" style="background:var(--input-bg); color:var(--text-main); border:1px solid var(--input-border); padding:0.45rem 0.8rem; border-radius:6px; font-size:0.85rem; width:240px; outline:none;">
                             </div>
                         </div>
 
@@ -1660,7 +1679,7 @@ def index():
                             <button onclick="setMatrixCategoryFilter('BARGAIN')" class="pill-btn ${matrixFilterCategory === 'BARGAIN' ? 'active' : ''}">${t.pill_bargain || '💎 Ucuz Değerleme (P/S < 5.0)'}</button>
                         </div>
 
-                        <div style="background:rgba(11, 15, 25, 0.7); border:1px solid var(--panel-border); border-radius:10px; overflow-x:auto;">
+                        <div style="background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:10px; overflow-x:auto;">
                             <table class="admin-table matrix-table" style="width:100%; border-collapse:collapse; font-size:0.85rem;">
                                 <thead>
                                     <tr style="background:rgba(255,255,255,0.04); color:var(--text-muted);">
