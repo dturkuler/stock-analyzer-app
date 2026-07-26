@@ -12,6 +12,7 @@ GEMINI.md
 SKILL.md
 references/
 .gemini_security/
+docs/
 
 # Secrets & Environment Files
 .env
