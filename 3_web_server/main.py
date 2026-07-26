@@ -1209,7 +1209,7 @@ def index():
                                 if (btn) btn.innerHTML = isEn ? "🔒 Open Admin Panel" : "🔒 Yönetim Paneli (Admin Panel)";
                             }
                         });
-                    </script>
+                    <\/script>
                 </body>
                 </html>`;
             }
