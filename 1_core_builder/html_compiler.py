@@ -586,7 +586,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       <div class="investor-guide-box">
         <div class="guide-title">{"💡 WHAT DOES THIS EXECUTIVE SUMMARY MEAN?" if is_en else "💡 BU YÖNETİCİ ÖZETİ NE ANLAMA GELİR?"}</div>
         <div class="guide-text">
-          {"This section presents key algorithmic valuation model results. Does not constitute investment advice." if is_en else f"Bu bölüm, {company_name} şirketinin tüm detaylı veri analizlerinin algoritmik model sonuçlarını sunar. Yatırım tavsiyesi içermez; şirketin temel borçsuzluk yapısı ({_fmt_try(net_debt)} net borç/nakit), değerleme rasyoları ({_fmt_num(ps_ratio, 1)}x P/S) ve teknik destek seviyelerinin ({_fmt_try(sma50)}) matematiksel özetidir."}
+          {"This section presents the algorithmic model summary of all detailed data analyses for " + company_name + ". Does not constitute investment advice; it is a mathematical overview of the company's net debt/cash structure (" + _fmt_try(net_debt, is_en=is_en) + "), valuation ratios (" + _fmt_num(ps_ratio, is_en=is_en, decimals=1) + "x P/S), and key technical support levels (" + _fmt_try(sma50, is_en=is_en) + ")." if is_en else f"Bu bölüm, {company_name} şirketinin tüm detaylı veri analizlerinin algoritmik model sonuçlarını sunar. Yatırım tavsiyesi içermez; şirketin temel borçsuzluk yapısı ({_fmt_try(net_debt)} net borç/nakit), değerleme rasyoları ({_fmt_num(ps_ratio, 1)}x P/S) ve teknik destek seviyelerinin ({_fmt_try(sma50)}) matematiksel özetidir."}
         </div>
       </div>
 
@@ -744,7 +744,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       <div class="investor-guide-box">
         <div class="guide-title">{"💡 INDUSTRY & PEER BENCHMARK EXPLANATION" if is_en else "💡 SEKTÖR VE RAKİP KARŞILAŞTIRMASI NE ANLAMA GELİR?"}</div>
         <div class="guide-text">
-          {"This table compares valuation multiples (P/S, P/E), profit margins, and revenue growth with direct industry peers." if is_en else f"Bu tablo, {company_name} ({ticker}) borsa çarpanlarını (Fiyat/Satışlar P/S: {_fmt_num(ps_ratio, 1)}x, Fiyat/Kâr P/E: {_fmt_num(pe_ratio, 1)}x), kâr marjlarını ve büyüme oranlarını sektördeki doğrudan rakipleriyle yan yana karşılaştırır."}
+          {"This table compares stock valuation multiples for " + company_name + " (" + ticker + ") (Price-to-Sales P/S: " + _fmt_num(ps_ratio, is_en=is_en, decimals=1) + "x, Price-to-Earnings P/E: " + _fmt_num(pe_ratio, is_en=is_en, decimals=1) + "x), profit margins, and revenue growth side-by-side with direct industry peers." if is_en else f"Bu tablo, {company_name} ({ticker}) borsa çarpanlarını (Fiyat/Satışlar P/S: {_fmt_num(ps_ratio, 1)}x, Fiyat/Kâr P/E: {_fmt_num(pe_ratio, 1)}x), kâr marjlarını ve büyüme oranlarını sektördeki doğrudan rakipleriyle yan yana karşılaştırır."}
         </div>
       </div>
 
@@ -826,8 +826,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       <div class="investor-guide-box">
         <div class="guide-title">{"💡 WHAT DO FORWARD FORECASTS MEAN?" if is_en else "💡 İLERİ TAHMİNLER NE ANLAMA GELİR?"}</div>
         <div class="guide-text">
-          {"Forward financial forecasts for the next 2 fiscal years." if is_en else f"Bu tablo {company_name} şirketinin önümüzdeki 2 yılda yapabileceği tahmini satış ve kâr projeksiyonlarını içerir."}<br>
-          {"• <strong>Forward Price-to-Sales (Forward P/S):</strong> Evaluates multiple contraction as revenue grows over time." if is_en else "• <strong>İleri P/S (Forward Price-to-Sales):</strong> Şirket büyüdükçe yüksek olan çarpanın zamanla kâr ve ciro artışı ile rasyonel seviyeye yaklaşma eğilimini gösterir"} {"(multiple contraction trend)." if is_en else f"({_fmt_num(ps_ratio, 1)}x çarpanından {_fmt_num(ps_ratio/2.25, 1)}x seviyesine düşüş eğilimi)."}
+          {"This table presents forward revenue and profit projections for " + company_name + " over the next 2 fiscal years.<br>• <strong>Forward Price-to-Sales (Forward P/S):</strong> Shows the tendency of elevated multiples to contract toward rational levels as revenue and earnings expand over time (projected multiple contraction from " + _fmt_num(ps_ratio, is_en=is_en, decimals=1) + "x to " + _fmt_num(ps_ratio/2.25, is_en=is_en, decimals=1) + "x)." if is_en else f"Bu tablo {company_name} şirketinin önümüzdeki 2 yılda yapabileceği tahmini satış ve kâr projeksiyonlarını içerir.<br>• <strong>İleri P/S (Forward Price-to-Sales):</strong> Şirket büyüdükçe yüksek olan çarpanın zamanla kâr ve ciro artışı ile rasyonel seviyeye yaklaşma eğilimini gösterir ({_fmt_num(ps_ratio, 1)}x çarpanından {_fmt_num(ps_ratio/2.25, 1)}x seviyesine düşüş eğilimi)."}
         </div>
       </div>
 
@@ -1079,8 +1078,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       <div class="investor-guide-box">
         <div class="guide-title">{"💡 WHAT IS AI QUANT SYNTHESIS?" if is_en else "💡 YAPAY ZEKÂ SENTEZİ NEDİR?"}</div>
         <div class="guide-text">
-          {"Objective synthesis of all quantitative metrics generated by artificial intelligence." if is_en else "Bu bölüm, tüm matematiksel ve adli verilerin yapay zekâ tarafından oluşturulmuş objektif özetidir."}<br>
-          <strong>{"Divergence Between Quality Fundamentals and Speculative Valuation Multiples" if is_en else "Kusursuz Bilanço Temeli ile Çarpan Gerçekliğinden Kopmuş Spekülatif Fiyatlama Arasındaki Ayrışma"}</strong>
+          {"This section presents an objective synthesis of all mathematical quantitative models and forensic accounting audits generated by artificial intelligence.<br><strong>&quot;Divergence Between Quality Fundamentals and Speculative Valuation Multiples&quot;</strong>" if is_en else "Bu bölüm, tüm matematiksel ve adli verilerin yapay zekâ tarafından oluşturulmuş objektif özetidir.<br><strong>&quot;Kusursuz Bilanço Temeli ile Çarpan Gerçekliğinden Kopmuş Spekülatif Fiyatlama Arasındaki Ayrışma&quot;</strong>"}
         </div>
       </div>
 
