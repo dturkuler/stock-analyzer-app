@@ -169,6 +169,8 @@ python 2_cron_scheduler/scheduler.py
 
 ## 🐳 Docker Deployment
 
+For detailed production deployment instructions on a new VPS (including volume persistence and Cloudflare Tunnel setup), see the [**VPS Production Deployment Guide**](documentation/vps_deployment_guide.md).
+
 ### 1. Docker Compose Deployment
 ```bash
 # Build and start Web Server & Scheduler containers

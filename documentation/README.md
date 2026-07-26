@@ -12,6 +12,7 @@ Welcome to the developer documentation for the **Stock Analyzer Platform**. This
 | [**2. Adding a New Financial Metric**](file:///home/doggy/projects/stock-analyzer-app/documentation/adding_new_financial_metric.md) | How to compute and integrate new quantitative metrics, ratios, or forensic formulas. | `1_core_builder/fetch_yfinance.py`, `1_core_builder/html_compiler.py` |
 | [**3. Adding a New Report Tab/Module**](file:///home/doggy/projects/stock-analyzer-app/documentation/adding_new_report_tab.md) | How to create a new 360° report tab, investor guide box, and navigation item. | `1_core_builder/html_compiler.py` |
 | [**4. Web Server & API Architecture**](file:///home/doggy/projects/stock-analyzer-app/documentation/api_and_web_server.md) | Architecture overview of HTTP handlers, SQLite database indexing, and `.env` settings. | `3_web_server/main.py`, `storage/app.db` |
+| [**5. VPS Production Deployment & Cloudflare Tunnel**](file:///home/doggy/projects/stock-analyzer-app/documentation/vps_deployment_guide.md) | Production guide for Docker Compose deployment, volume persistence (`storage/`), and Cloudflare Tunnel. | `docker-compose.yml`, `Dockerfile`, `cloudflared` |
 
 ---
 
