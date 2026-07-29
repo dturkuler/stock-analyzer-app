@@ -276,6 +276,7 @@ def get_app_settings(x_admin_password: Optional[str] = Header(None)):
     base_url = os.getenv("LLM_BASE_URL") or os.getenv("BASE_URL") or os.getenv("NINEROUTER_URL", "http://localhost:20128/v1")
     api_key = os.getenv("LLM_API_KEY") or os.getenv("API_KEY") or os.getenv("NINEROUTER_KEY", "")
     return {
+        "VERSION": get_app_version(),
         "ADMIN_PASSWORD": "••••••••",
         "ADMIN_PASSWORD_IS_SET": bool(os.getenv("ADMIN_PASSWORD", "").strip()),
         "LLM_BASE_URL": base_url,
@@ -932,7 +933,7 @@ def get_report(ticker: str, date: str, mode: str = "dashboard"):
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    return """
+    html_content = """
     <!DOCTYPE html>
     <html lang="tr">
     <head>
@@ -1403,6 +1404,12 @@ def index():
                                 <div id="fileConsoleBox" class="console-box" data-i18n="log_loading">Loglar yükleniyor...</div>
                             </div>
 
+                        </div>
+
+                        <!-- ADMIN MODAL FOOTER VERSION BADGE -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--panel-border); margin-top:1.25rem; padding-top:0.75rem; font-size:0.8rem; color:var(--text-muted);">
+                            <span>📊 Stock Analyzer Platform</span>
+                            <span>Sürüm / Version: <strong style="color:var(--accent-cyan); font-weight:700;">v__APP_VERSION__</strong></span>
                         </div>
 
                     </div>
@@ -2580,3 +2587,4 @@ def index():
     </body>
     </html>
     """
+    return html_content.replace("__APP_VERSION__", get_app_version())
