@@ -1306,32 +1306,32 @@ def index():
                             <!-- SECTION 1: LLM & SYSTEM SETTINGS (.ENV EDITOR) -->
                             <div class="admin-card">
                                 <div class="card-heading">
-                                    <span data-i18n="sec1_heading">🛠️ LLM Sağlayıcı & Sistem Ayarları (.env Düzenleyici)</span>
-                                    <button class="btn btn-primary" onclick="saveAppSettings()" data-i18n="btn_save_settings">💾 Ayarları Kaydet (.env)</button>
+                                    <span data-i18n="sec1_heading">🛠️ LLM Sağlayıcı & Sistem Ayarları</span>
+                                    <button class="btn btn-primary" onclick="saveAppSettings()" data-i18n="btn_save_settings">💾 Ayarları Kaydet</button>
                                 </div>
                                 <div class="settings-grid">
                                     <div class="form-field">
-                                        <label data-i18n="lbl_admin_pass">Yönetici Şifresi (ADMIN_PASSWORD):</label>
+                                        <label data-i18n="lbl_admin_pass">Yönetici Şifresi:</label>
                                         <input type="password" id="settingAdminPassword" data-i18n-ph="ph_setting_admin_pass" placeholder="Yönetici şifresi">
                                     </div>
                                     <div class="form-field">
-                                        <label data-i18n="lbl_llm_model">LLM Model Adı (LLM_MODEL):</label>
+                                        <label data-i18n="lbl_llm_model">LLM Model Adı:</label>
                                         <input type="text" id="settingLlmModel" data-i18n-ph="ph_setting_llm_model" placeholder="Örn: code_combo, gpt-4o">
                                     </div>
                                     <div class="form-field">
-                                        <label data-i18n="lbl_llm_url">LLM Provider Base URL (LLM_BASE_URL):</label>
+                                        <label data-i18n="lbl_llm_url">LLM Provider Base URL:</label>
                                         <input type="text" id="settingLlmBaseUrl" data-i18n-ph="ph_setting_llm_url" placeholder="http://localhost:20128/v1">
                                     </div>
                                     <div class="form-field">
-                                        <label data-i18n="lbl_cron_delay">Cron Hisseler Arası Bekleme (Saniye) (CRON_DELAY_SECONDS):</label>
+                                        <label data-i18n="lbl_cron_delay">Hisseler Arası Bekleme (Saniye):</label>
                                         <input type="number" id="settingCronDelaySeconds" data-i18n-ph="ph_setting_cron_delay" placeholder="15">
                                     </div>
                                     <div class="form-field">
-                                        <label data-i18n="lbl_llm_timeout">LLM Zaman Aşımı (Saniye) (LLM_TIMEOUT):</label>
+                                        <label data-i18n="lbl_llm_timeout">LLM Zaman Aşımı (Saniye):</label>
                                         <input type="number" id="settingLlmTimeout" data-i18n-ph="ph_setting_llm_timeout" placeholder="120">
                                     </div>
                                     <div class="form-field" style="grid-column: span 2;">
-                                        <label data-i18n="lbl_llm_key">LLM API Key (LLM_API_KEY):</label>
+                                        <label data-i18n="lbl_llm_key">LLM API Key:</label>
                                         <input type="password" id="settingLlmApiKey" data-i18n-ph="ph_setting_llm_key" placeholder="sk-...">
                                     </div>
                                 </div>
@@ -1470,15 +1470,15 @@ def index():
                     auth_desc: "Lütfen uygulamanın <code>.env</code> dosyasında tanımlı <strong>ADMIN_PASSWORD</strong> şifrenizi giriniz.",
                     auth_placeholder: "Yönetici Şifreniz",
                     auth_btn: "Giriş Yap",
-                    sec1_heading: "🛠️ LLM Sağlayıcı & Sistem Ayarları (.env Düzenleyici)",
-                    btn_save_settings: "💾 Ayarları Kaydet (.env)",
-                    lbl_admin_pass: "Yönetici Şifresi (ADMIN_PASSWORD):",
-                    lbl_output_lang: "Varsayılan Rapor Dili (OUTPUT_LANGUAGE):",
-                    lbl_llm_model: "LLM Model Adı (LLM_MODEL):",
-                    lbl_llm_url: "LLM Provider Base URL (LLM_BASE_URL):",
-                    lbl_llm_key: "LLM API Key (LLM_API_KEY):",
-                    lbl_cron_delay: "Cron Hisseler Arası Bekleme (Saniye) (CRON_DELAY_SECONDS):",
-                    lbl_llm_timeout: "LLM Zaman Aşımı (Saniye) (LLM_TIMEOUT):",
+                    sec1_heading: "🛠️ LLM Sağlayıcı & Sistem Ayarları",
+                    btn_save_settings: "💾 Ayarları Kaydet",
+                    lbl_admin_pass: "Yönetici Şifresi:",
+                    lbl_output_lang: "Varsayılan Rapor Dili:",
+                    lbl_llm_model: "LLM Model Adı:",
+                    lbl_llm_url: "LLM Provider Base URL:",
+                    lbl_llm_key: "LLM API Key:",
+                    lbl_cron_delay: "Hisseler Arası Bekleme (Saniye):",
+                    lbl_llm_timeout: "LLM Zaman Aşımı (Saniye):",
                     ph_search_ticker: "Hisse Ara...",
                     ph_setting_admin_pass: "Yönetici şifresi",
                     ph_setting_llm_model: "Örn: gpt-4o, claude-3-5-sonnet",
@@ -1572,15 +1572,15 @@ def index():
                     auth_desc: "Please enter the <strong>ADMIN_PASSWORD</strong> defined in the app's <code>.env</code> file.",
                     auth_placeholder: "Admin Password",
                     auth_btn: "Login",
-                    sec1_heading: "🛠️ LLM Provider & System Settings (.env Editor)",
-                    btn_save_settings: "💾 Save Settings (.env)",
-                    lbl_admin_pass: "Admin Password (ADMIN_PASSWORD):",
-                    lbl_output_lang: "Default Report Language (OUTPUT_LANGUAGE):",
-                    lbl_llm_model: "LLM Model Name (LLM_MODEL):",
-                    lbl_llm_url: "LLM Provider Base URL (LLM_BASE_URL):",
-                    lbl_llm_key: "LLM API Key (LLM_API_KEY):",
-                    lbl_cron_delay: "Cron Delay Between Stocks (Seconds) (CRON_DELAY_SECONDS):",
-                    lbl_llm_timeout: "LLM Timeout (Seconds) (LLM_TIMEOUT):",
+                    sec1_heading: "🛠️ LLM Provider & System Settings",
+                    btn_save_settings: "💾 Save Settings",
+                    lbl_admin_pass: "Admin Password:",
+                    lbl_output_lang: "Default Report Language:",
+                    lbl_llm_model: "LLM Model Name:",
+                    lbl_llm_url: "LLM Provider Base URL:",
+                    lbl_llm_key: "LLM API Key:",
+                    lbl_cron_delay: "Delay Between Tickers (Seconds):",
+                    lbl_llm_timeout: "LLM Timeout (Seconds):",
                     ph_search_ticker: "Search Ticker...",
                     ph_setting_admin_pass: "Admin Password",
                     ph_setting_llm_model: "e.g. gpt-4o, claude-3-5-sonnet",
