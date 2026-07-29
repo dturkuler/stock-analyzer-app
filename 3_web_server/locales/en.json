@@ -55,5 +55,19 @@
   "col_dupont": "DuPont ROE %",
   "col_growth": "Reverse DCF Growth (%g)",
   "col_ps": "P/S Ratio",
-  "col_score": "360° Score & Verdict"
+  "col_score": "360° Score & Verdict",
+  "sec_cron_heading": "⏰ Autonomous Analysis & Cron Scheduler Settings",
+  "lbl_cron_enable": "Autonomous Cron Scheduler:",
+  "lbl_cron_time": "Execution Time (HH:MM):",
+  "lbl_cron_tz": "Timezone:",
+  "lbl_cron_days": "Run Days:",
+  "lbl_cron_misfire": "Misfire Grace Window (Minutes):",
+  "btn_run_cron_now": "⚡ Run Cron Now",
+  "btn_save_cron_settings": "💾 Save Scheduler Settings",
+  "opt_days_weekdays": "Weekdays Only (Mon-Fri)",
+  "opt_days_everyday": "Everyday (Mon-Sun)",
+  "status_cron_active": "🟢 Active (Waiting for Trigger)",
+  "status_cron_running": "🟡 Execution in Progress...",
+  "status_cron_paused": "🔴 Paused",
+  "lbl_next_run": "Next Scheduled Run:"
 }

@@ -55,5 +55,19 @@
   "col_dupont": "DuPont ROE %",
   "col_growth": "Ters DCF Büyüme (%g)",
   "col_ps": "P/S Çarpanı",
-  "col_score": "360° Skoru & Değerlendirme"
+  "col_score": "360° Skoru & Değerlendirme",
+  "sec_cron_heading": "⏰ Otomatik Analiz & Cron Zamanlayıcı Ayarları",
+  "lbl_cron_enable": "Otonom Cron Zamanlayıcı:",
+  "lbl_cron_time": "Çalışma Saati (HH:MM):",
+  "lbl_cron_tz": "Zaman Dilimi (Timezone):",
+  "lbl_cron_days": "Çalışma Günleri:",
+  "lbl_cron_misfire": "Gecikme Toleransı (Misfire Grace Window - Dakika):",
+  "btn_run_cron_now": "⚡ Hemen Cron Çalıştır (Run Now)",
+  "btn_save_cron_settings": "💾 Zamanlayıcı Ayarlarını Kaydet",
+  "opt_days_weekdays": "Hafta İçi (Pazartesi-Cuma)",
+  "opt_days_everyday": "Her Gün (Pazartesi-Pazar)",
+  "status_cron_active": "🟢 Aktif (Zamanlayıcı Beklemede)",
+  "status_cron_running": "🟡 Analiz Çalışıyor...",
+  "status_cron_paused": "🔴 Duraklatıldı",
+  "lbl_next_run": "Sonraki Planlanan Çalışma:"
 }

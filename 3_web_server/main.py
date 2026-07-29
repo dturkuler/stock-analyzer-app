@@ -150,6 +150,25 @@ def init_db():
             UNIQUE(ticker, report_date)
         );
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cron_config (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            is_enabled INTEGER DEFAULT 1,
+            schedule_time TEXT DEFAULT '18:30',
+            timezone TEXT DEFAULT 'Europe/Istanbul',
+            run_days TEXT DEFAULT 'mon-fri',
+            misfire_grace_minutes INTEGER DEFAULT 120,
+            ticker_delay_seconds INTEGER DEFAULT 15,
+            is_running INTEGER DEFAULT 0,
+            last_run_at TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    cur.execute("""
+        INSERT INTO cron_config (id, is_enabled, schedule_time, timezone, run_days, misfire_grace_minutes, ticker_delay_seconds, is_running)
+        VALUES (1, 1, '18:30', 'Europe/Istanbul', 'mon-fri', 120, 15, 0)
+        ON CONFLICT(id) DO NOTHING;
+    """)
     conn.commit()
 
     # Auto-sync existing report files on disk into reports_index table
@@ -308,6 +327,104 @@ def update_app_settings(settings: SettingsUpdate, x_admin_password: Optional[str
         os.environ[k] = v
 
     return {"message": "Ayarlar .env dosyasına başarıyla kaydedildi.", "settings": env_data}
+
+
+# ══════════════════════════════════════════════════════════════
+# CRON SCHEDULER REST ENDPOINTS
+# ══════════════════════════════════════════════════════════════
+
+class CronConfigPayload(BaseModel):
+    is_enabled: bool = True
+    schedule_time: str = "18:30"
+    timezone: str = "Europe/Istanbul"
+    run_days: str = "mon-fri"
+    misfire_grace_minutes: int = 120
+    ticker_delay_seconds: int = 15
+
+def get_cron_config_from_db():
+    init_db()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT is_enabled, schedule_time, timezone, run_days, misfire_grace_minutes, ticker_delay_seconds, is_running, last_run_at
+            FROM cron_config WHERE id = 1
+        """)
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            return {
+                "is_enabled": bool(row[0]),
+                "schedule_time": row[1] or "18:30",
+                "timezone": row[2] or "Europe/Istanbul",
+                "run_days": row[3] or "mon-fri",
+                "misfire_grace_minutes": int(row[4] if row[4] is not None else 120),
+                "ticker_delay_seconds": int(row[5] if row[5] is not None else 15),
+                "is_running": bool(row[6]),
+                "last_run_at": row[7]
+            }
+    except Exception as e:
+        print(f"Error fetching cron_config: {e}")
+    return {
+        "is_enabled": True,
+        "schedule_time": "18:30",
+        "timezone": "Europe/Istanbul",
+        "run_days": "mon-fri",
+        "misfire_grace_minutes": 120,
+        "ticker_delay_seconds": 15,
+        "is_running": False,
+        "last_run_at": None
+    }
+
+@app.get("/api/cron/config")
+def get_cron_config_endpoint(x_admin_password: Optional[str] = Header(None)):
+    verify_password_header(x_admin_password)
+    cfg = get_cron_config_from_db()
+    next_run_str = "Unknown"
+    try:
+        parts = cfg["schedule_time"].split(":")
+        h, m = int(parts[0]), int(parts[1])
+        now_dt = datetime.datetime.now()
+        target_today = now_dt.replace(hour=h, minute=m, second=0, microsecond=0)
+        if now_dt > target_today:
+            next_dt = target_today + datetime.timedelta(days=1)
+        else:
+            next_dt = target_today
+        next_run_str = f"{next_dt.strftime('%d.%m.%Y %H:%M')} ({cfg['timezone']})"
+    except Exception:
+        pass
+    cfg["next_run_at"] = next_run_str
+    return cfg
+
+@app.post("/api/cron/config")
+def update_cron_config_endpoint(payload: CronConfigPayload, x_admin_password: Optional[str] = Header(None)):
+    verify_password_header(x_admin_password)
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE cron_config
+        SET is_enabled = ?, schedule_time = ?, timezone = ?, run_days = ?, misfire_grace_minutes = ?, ticker_delay_seconds = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = 1
+    """, (1 if payload.is_enabled else 0, payload.schedule_time, payload.timezone, payload.run_days, payload.misfire_grace_minutes, payload.ticker_delay_seconds))
+    conn.commit()
+    conn.close()
+    return {"message": "Cron zamanlayıcı ayarları kaydedildi.", "config": payload.dict()}
+
+@app.post("/api/cron/run-now")
+def trigger_cron_run_now(x_admin_password: Optional[str] = Header(None)):
+    verify_password_header(x_admin_password)
+    cfg = get_cron_config_from_db()
+    if cfg.get("is_running"):
+        raise HTTPException(status_code=400, detail="Analiz / Cron çalışması şu anda aktif. Lütfen bitmesini bekleyin.")
+    
+    python_exec = "py" if os.name == "nt" else sys.executable
+    scheduler_script = os.path.join(BASE_DIR, "2_cron_scheduler", "scheduler.py")
+    
+    try:
+        subprocess.Popen([python_exec, scheduler_script, "--now"])
+        return {"message": "⚡ Otonom Cron analizi arka planda başlatıldı."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cron başlatılamadı: {e}")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1219,6 +1336,56 @@ def index():
                                 </div>
                             </div>
 
+                            <!-- SECTION 1.5: CRON SCHEDULER SETUP -->
+                            <div class="admin-card">
+                                <div class="card-heading">
+                                    <span data-i18n="sec_cron_heading">⏰ Otomatik Analiz & Cron Zamanlayıcı Ayarları</span>
+                                    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                                        <span id="cronStatusBadge" class="badge" style="background:#28a745; color:#fff; padding:4px 8px; border-radius:4px; font-weight:bold;" data-i18n="status_cron_active">🟢 Aktif</span>
+                                        <button class="btn btn-secondary" onclick="triggerRunCronNow(event)" data-i18n="btn_run_cron_now">⚡ Hemen Cron Çalıştır (Run Now)</button>
+                                        <button class="btn btn-primary" onclick="saveCronConfig()" data-i18n="btn_save_cron_settings">💾 Zamanlayıcı Ayarlarını Kaydet</button>
+                                    </div>
+                                </div>
+                                <div class="settings-grid">
+                                    <div class="form-field">
+                                        <label data-i18n="lbl_cron_enable">Otonom Cron Zamanlayıcı:</label>
+                                        <select id="settingCronEnabled">
+                                            <option value="1">🟢 Aktif (Enabled)</option>
+                                            <option value="0">🔴 Duraklatıldı (Disabled)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-field">
+                                        <label data-i18n="lbl_cron_time">Çalışma Saati (HH:MM):</label>
+                                        <input type="time" id="settingCronTime" value="18:30">
+                                    </div>
+                                    <div class="form-field">
+                                        <label data-i18n="lbl_cron_tz">Zaman Dilimi (Timezone):</label>
+                                        <select id="settingCronTimezone">
+                                            <option value="Europe/Istanbul">Europe/Istanbul (TSI UTC+3)</option>
+                                            <option value="UTC">UTC (Coordinated Universal Time)</option>
+                                            <option value="Europe/London">Europe/London (GMT/BST)</option>
+                                            <option value="America/New_York">America/New_York (EST/EDT)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-field">
+                                        <label data-i18n="lbl_cron_days">Çalışma Günleri:</label>
+                                        <select id="settingCronDays">
+                                            <option value="mon-fri" data-i18n="opt_days_weekdays">Hafta İçi (Pazartesi-Cuma)</option>
+                                            <option value="mon-sun" data-i18n="opt_days_everyday">Her Gün (Pazartesi-Pazar)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-field">
+                                        <label data-i18n="lbl_cron_misfire">Gecikme Toleransı (Misfire Grace Window - Dakika):</label>
+                                        <input type="number" id="settingCronMisfire" placeholder="120" value="120">
+                                    </div>
+                                    <div class="form-field" style="grid-column: span 2;">
+                                        <span style="font-size: 0.85rem; color: #888;">
+                                            <strong data-i18n="lbl_next_run">Sonraki Planlanan Çalışma:</strong> <span id="cronNextRunText">Yükleniyor...</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- SECTION 2: SYSTEM LOGS & CONSOLE -->
                             <div class="admin-card">
                                 <div class="card-heading">
@@ -1872,6 +2039,7 @@ def index():
                 switchAdminTab('stocks');
                 applyUiLanguage();
                 fetchAppSettings();
+                fetchCronConfig();
                 fetchWatchlist();
                 fetchFileLogs();
             }
@@ -1965,6 +2133,98 @@ def index():
                 } else {
                     const err = await res.json();
                     alert(`Error: ${err.detail || 'Failed to save settings.'}`);
+                }
+            }
+
+            async function fetchCronConfig() {
+                const res = await fetch('/api/cron/config', { headers: getAdminHeaders() });
+                if (res.ok) {
+                    const c = await res.json();
+                    const enableEl = document.getElementById('settingCronEnabled');
+                    if (enableEl) enableEl.value = c.is_enabled ? '1' : '0';
+                    
+                    const timeEl = document.getElementById('settingCronTime');
+                    if (timeEl) timeEl.value = c.schedule_time || '18:30';
+                    
+                    const tzEl = document.getElementById('settingCronTimezone');
+                    if (tzEl) tzEl.value = c.timezone || 'Europe/Istanbul';
+                    
+                    const daysEl = document.getElementById('settingCronDays');
+                    if (daysEl) daysEl.value = c.run_days || 'mon-fri';
+                    
+                    const misfireEl = document.getElementById('settingCronMisfire');
+                    if (misfireEl) misfireEl.value = c.misfire_grace_minutes || 120;
+                    
+                    const nextRunEl = document.getElementById('cronNextRunText');
+                    if (nextRunEl) nextRunEl.innerText = c.next_run_at || 'Unknown';
+                    
+                    const badgeEl = document.getElementById('cronStatusBadge');
+                    if (badgeEl) {
+                        const t = UI_I18N[currentUiLang] || UI_I18N.TR;
+                        if (c.is_running) {
+                            badgeEl.style.background = '#ffc107';
+                            badgeEl.style.color = '#000';
+                            badgeEl.innerText = t.status_cron_running || '🟡 Analiz Çalışıyor...';
+                        } else if (!c.is_enabled) {
+                            badgeEl.style.background = '#dc3545';
+                            badgeEl.style.color = '#fff';
+                            badgeEl.innerText = t.status_cron_paused || '🔴 Duraklatıldı';
+                        } else {
+                            badgeEl.style.background = '#28a745';
+                            badgeEl.style.color = '#fff';
+                            badgeEl.innerText = t.status_cron_active || '🟢 Aktif';
+                        }
+                    }
+                }
+            }
+
+            async function saveCronConfig() {
+                const t = UI_I18N[currentUiLang] || UI_I18N.TR;
+                const payload = {
+                    is_enabled: document.getElementById('settingCronEnabled').value === '1',
+                    schedule_time: document.getElementById('settingCronTime').value,
+                    timezone: document.getElementById('settingCronTimezone').value,
+                    run_days: document.getElementById('settingCronDays').value,
+                    misfire_grace_minutes: parseInt(document.getElementById('settingCronMisfire').value || '120', 10),
+                    ticker_delay_seconds: parseInt(document.getElementById('settingCronDelaySeconds').value || '15', 10)
+                };
+                const res = await fetch('/api/cron/config', {
+                    method: 'POST',
+                    headers: getAdminHeaders(),
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    alert(t.msg_settings_saved || "Zamanlayıcı ayarları başarıyla kaydedildi.");
+                    fetchCronConfig();
+                } else {
+                    const err = await res.json();
+                    alert(`Hata: ${err.detail || 'Zamanlayıcı ayarları kaydedilemedi.'}`);
+                }
+            }
+
+            async function triggerRunCronNow(e) {
+                const btn = e ? e.target : event.target;
+                btn.disabled = true;
+                const originalText = btn.innerText;
+                btn.innerText = "⏳ Başlatılıyor...";
+                try {
+                    const res = await fetch('/api/cron/run-now', {
+                        method: 'POST',
+                        headers: getAdminHeaders()
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        alert(data.message || "⚡ Otonom Cron analizi arka planda başlatıldı.");
+                        fetchCronConfig();
+                    } else {
+                        const err = await res.json();
+                        alert(`Hata: ${err.detail || 'Cron çalışması başlatılamadı.'}`);
+                    }
+                } catch(err) {
+                    alert(`Hata: ${err.message}`);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = originalText;
                 }
             }
 

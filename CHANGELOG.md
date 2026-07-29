@@ -5,6 +5,24 @@ All notable changes to the Stock Analyzer Platform project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-07-29
+
+### ✨ New Features & Admin Panel Enhancements
+- **Admin Panel Autonomous Cron Scheduler Setup**: Added a dedicated **"⏰ Otomatik Analiz & Cron Zamanlayıcı Ayarları"** card inside the Admin Settings modal in the web interface.
+- **SQLite Configuration Persistence (`cron_config`)**: Created a dedicated `cron_config` table in `storage/app.db` to persist schedule parameters (`schedule_time`, `timezone`, `run_days`, `misfire_grace_minutes`, `ticker_delay_seconds`, `is_enabled`) dynamically without requiring environment file edits or container restarts.
+- **Misfire Grace Period & Catch-Up Protection**: Configured a **120-minute (2 hours)** misfire grace period (`misfire_grace_time=7200`). If host systems or Docker containers wake up late (e.g. PC turned on at 20:00 TSI instead of 18:30 TSI), missed daily runs execute immediately upon wake-up instead of being skipped.
+- **Explicit Timezone & Schedule Frequency Controls**: Bound scheduler execution to `Europe/Istanbul` (TSI UTC+3) with presets for **Weekdays (Mon-Fri)**, **Everyday (Mon-Sun)**, or custom days.
+- **On-Demand Background Trigger ("Run Cron Now")**: Added a `POST /api/cron/run-now` REST endpoint and UI button to trigger asynchronous background stock analysis on demand with an `is_running` single-execution lock guard.
+- **Real-Time Status & Next Run Preview**: Live UI status badge showing 🟢 **Active** / 🟡 **Running [Ticker X/10]** / 🔴 **Paused**, plus a preview timestamp for the next scheduled run.
+
+### 🌐 Internationalization (i18n)
+- **Bilingual Admin UI Support**: Added full English (`locales/en.json`) and Turkish (`locales/tr.json`) localization strings for all scheduler controls, badges, and time pickers.
+
+### 📖 Architecture & Documentation
+- **Domain Model & ADR Documentation**: Added domain model glossary (`CONTEXT.md`) and Architectural Decision Record (`docs/adr/0001-admin-cron-scheduler-setup.md`).
+
+---
+
 ## [1.6.0] - 2026-07-27
 
 ### 🛡️ Security & Hardening
