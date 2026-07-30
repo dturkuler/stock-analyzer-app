@@ -3,6 +3,11 @@ import sys
 import os
 import subprocess
 
+try:
+    os.umask(0000)
+except Exception:
+    pass
+
 def auto_install_dependencies():
     package_map = {
         "yfinance": "yfinance",
@@ -200,7 +205,7 @@ def calculate_relative_strength(ticker_symbol, info, language="TR"):
         return {}
 
 def compute_piotroski_f_score(history_metrics):
-    """Computes Piotroski F-Score (0 to 9 points) from history metrics."""
+    """Computes Piotroski F-Score (0 to 9 points) from history metrics using exact ROA and Share count criteria."""
     if not history_metrics or len(history_metrics) < 2:
         return {"score": 5, "rating": "Moderate Health", "breakdown": {}}
     
@@ -218,7 +223,9 @@ def compute_piotroski_f_score(history_metrics):
     score += f2
     breakdown["positive_cfo"] = f2
     
-    f3 = 1 if m0.get("net_income", 0) > m1.get("net_income", 0) else 0
+    roa0 = m0.get("net_income", 0) / m0.get("total_assets", 1.0) if m0.get("total_assets", 0) > 0 else 0
+    roa1 = m1.get("net_income", 0) / m1.get("total_assets", 1.0) if m1.get("total_assets", 0) > 0 else 0
+    f3 = 1 if roa0 > roa1 else 0
     score += f3
     breakdown["higher_roa_yoy"] = f3
     
@@ -234,7 +241,12 @@ def compute_piotroski_f_score(history_metrics):
     score += f6
     breakdown["higher_current_ratio_yoy"] = f6
     
-    f7 = 1 if m0.get("sbc", 0) <= m1.get("sbc", 0) else 0
+    shares0 = m0.get("shares_outstanding", 0)
+    shares1 = m1.get("shares_outstanding", 0)
+    if shares0 > 0 and shares1 > 0:
+        f7 = 1 if shares0 <= shares1 else 0
+    else:
+        f7 = 1 if m0.get("sbc", 0) <= m1.get("sbc", 0) else 0
     score += f7
     breakdown["no_heavy_dilution"] = f7
     
@@ -249,49 +261,83 @@ def compute_piotroski_f_score(history_metrics):
     rating = "Strong Financial Health (8-9)" if score >= 8 else ("Moderate Health (5-7)" if score >= 5 else "Weak/Distressed Health (0-4)")
     return {"score": score, "rating": rating, "breakdown": breakdown}
 
-def compute_altman_z_score(history_metrics, market_cap):
-    """Computes Altman Z-Score for non-manufacturing / emerging market firms."""
+def compute_altman_z_score(history_metrics, market_cap, ticker_symbol=""):
+    """Computes Altman Z-Score using exact balance sheet items.
+    Auto-detects Emerging Market / BIST (.IS) tickers and applies Altman Z''-Score."""
     if not history_metrics:
-        return {"z_score": 2.5, "zone": "Grey Zone"}
+        return {"z_score": 2.5, "zone": "Grey Zone", "model": "Altman Z (Default)"}
     
     m = history_metrics[0]
-    total_assets = m.get("revenue", 1) * 1.5
-    rev = m.get("revenue", 0)
-    ebit = m.get("operating_income", 0)
-    net_inc = m.get("net_income", 0)
-    total_debt = m.get("total_debt", 1)
-    
-    x1 = (m.get("cash_and_equivalents", 0) / total_assets) if total_assets > 0 else 0.1
-    x2 = (net_inc / total_assets) if total_assets > 0 else 0.05
+    total_assets = m.get("total_assets", 0.0)
+    if total_assets <= 0:
+        total_assets = m.get("revenue", 1) * 1.5
+        
+    rev = m.get("revenue", 0.0)
+    ebit = m.get("operating_income", 0.0)
+    working_cap = m.get("working_capital", 0.0)
+    retained_earnings = m.get("retained_earnings", 0.0)
+    if retained_earnings == 0.0:
+        retained_earnings = m.get("net_income", 0.0)
+        
+    total_liab = m.get("total_liabilities", 0.0)
+    if total_liab <= 0:
+        total_liab = m.get("total_debt", 1.0)
+        
+    x1 = (working_cap / total_assets) if total_assets > 0 else 0.1
+    x2 = (retained_earnings / total_assets) if total_assets > 0 else 0.05
     x3 = (ebit / total_assets) if total_assets > 0 else 0.05
-    x4 = (market_cap / total_debt) if total_debt > 0 else 2.0
+    x4 = (market_cap / total_liab) if total_liab > 0 else 2.0
     x5 = (rev / total_assets) if total_assets > 0 else 0.8
     
-    z_score = round(1.2 * x1 + 1.4 * x2 + 3.3 * x3 + 0.6 * x4 + 0.999 * x5, 2)
+    parts = ticker_symbol.upper().split('.')
+    suffix = parts[-1] if len(parts) > 1 else ""
+    is_emerging_or_bist = suffix in ["IS", "NS", "BO", "SA", "MX", "ZA", "RU"]
     
-    if z_score < 1.81:
-        zone = "Distress Zone (High Insolvency Risk)"
-    elif z_score <= 2.99:
-        zone = "Grey Zone (Moderate Insolvency Risk)"
+    if is_emerging_or_bist:
+        # Altman Z''-Score for Emerging Markets & Non-Manufacturing Firms
+        z_score = round(6.56 * x1 + 3.26 * x2 + 6.72 * x3 + 1.05 * x4, 2)
+        model_name = "Altman Z'' (Emerging Market / BIST Model)"
+        if z_score < 1.10:
+            zone = "Distress Zone (High Insolvency Risk)"
+        elif z_score <= 2.60:
+            zone = "Grey Zone (Moderate Insolvency Risk)"
+        else:
+            zone = "Safe Zone (Low Insolvency Risk)"
     else:
-        zone = "Safe Zone (Low Insolvency Risk)"
+        # Original 1968 Altman Z-Score for Developed Market Public Manufacturing Firms
+        z_score = round(1.2 * x1 + 1.4 * x2 + 3.3 * x3 + 0.6 * x4 + 0.999 * x5, 2)
+        model_name = "Altman Z (Developed Market Model)"
+        if z_score < 1.81:
+            zone = "Distress Zone (High Insolvency Risk)"
+        elif z_score <= 2.99:
+            zone = "Grey Zone (Moderate Insolvency Risk)"
+        else:
+            zone = "Safe Zone (Low Insolvency Risk)"
         
-    return {"z_score": z_score, "zone": zone}
+    return {"z_score": z_score, "zone": zone, "model": model_name}
 
 def compute_dupont_analysis(history_metrics):
-    """Computes DuPont 5-Step ROE Decomposition."""
+    """Computes DuPont 5-Step ROE Decomposition dynamically from financial statements."""
     if not history_metrics:
         return {}
     m = history_metrics[0]
     rev = m.get("revenue", 1.0)
     ebit = m.get("operating_income", 0.0)
     net_inc = m.get("net_income", 0.0)
+    pretax_inc = m.get("pretax_income", 0.0)
+    total_assets = m.get("total_assets", 1.0)
+    total_liab = m.get("total_liabilities", 0.0)
+    equity = m.get("book_equity", 0.0)
+    if equity <= 0:
+        equity = max(1.0, total_assets - total_liab)
     
-    tax_burden = round(net_inc / ebit, 4) if ebit != 0 else 1.0
-    interest_burden = 1.0
+    ebt = pretax_inc if pretax_inc != 0.0 else (net_inc * 1.25 if net_inc != 0 else ebit)
+    
+    tax_burden = round(net_inc / ebt, 4) if ebt != 0 else 0.80
+    interest_burden = round(ebt / ebit, 4) if ebit != 0 else 1.0
     ebit_margin = round(ebit / rev, 4) if rev > 0 else 0.0
-    asset_turnover = 0.8
-    financial_leverage = round(1.0 + m.get("debt_to_equity", 0.0), 2)
+    asset_turnover = round(rev / total_assets, 4) if total_assets > 0 else 0.8
+    financial_leverage = round(total_assets / equity, 2) if equity > 0 else 1.5
     
     calculated_roe = round(tax_burden * interest_burden * ebit_margin * asset_turnover * financial_leverage * 100, 2)
     
@@ -302,6 +348,83 @@ def compute_dupont_analysis(history_metrics):
         "asset_turnover": asset_turnover,
         "financial_leverage": financial_leverage,
         "dupont_roe_pct": calculated_roe
+    }
+
+def compute_beneish_m_score(history_metrics):
+    """Computes Beneish 8-Variable M-Score to detect earnings manipulation risk."""
+    if not history_metrics or len(history_metrics) < 2:
+        return {"m_score": -2.85, "zone": "Low Manipulation Risk (M <= -1.78)", "breakdown": {}}
+    
+    m0 = history_metrics[0] # year t
+    m1 = history_metrics[1] # year t-1
+    
+    rev0 = m0.get("revenue", 0.0)
+    rev1 = m1.get("revenue", 0.0)
+    
+    rec0 = m0.get("receivables", 0.0)
+    rec1 = m1.get("receivables", 0.0)
+    
+    dsr0 = rec0 / rev0 if rev0 > 0 else 0.0
+    dsr1 = rec1 / rev1 if rev1 > 0 else 0.0
+    dsri = dsr0 / dsr1 if dsr1 > 0 else 1.0
+    
+    gm0 = m0.get("gross_margin", 0.0)
+    gm1 = m1.get("gross_margin", 0.0)
+    gmi = gm1 / gm0 if gm0 > 0 else 1.0
+    
+    asset0 = m0.get("total_assets", 0.0)
+    asset1 = m1.get("total_assets", 0.0)
+    ca0 = m0.get("current_assets", 0.0)
+    ca1 = m1.get("current_assets", 0.0)
+    non_ca_ratio0 = (1.0 - (ca0 / asset0)) if asset0 > 0 else 0.5
+    non_ca_ratio1 = (1.0 - (ca1 / asset1)) if asset1 > 0 else 0.5
+    aqi = non_ca_ratio0 / non_ca_ratio1 if non_ca_ratio1 > 0 else 1.0
+    
+    sgi = rev0 / rev1 if rev1 > 0 else 1.0
+    
+    dep0 = m0.get("depreciation", 0.0)
+    dep1 = m1.get("depreciation", 0.0)
+    dep_rate0 = dep0 / asset0 if asset0 > 0 else 0.05
+    dep_rate1 = dep1 / asset1 if asset1 > 0 else 0.05
+    depi = dep_rate1 / dep_rate0 if dep_rate0 > 0 else 1.0
+    
+    sga0 = m0.get("sga", 0.0)
+    sga1 = m1.get("sga", 0.0)
+    sga_ratio0 = sga0 / rev0 if rev0 > 0 else 0.1
+    sga_ratio1 = sga1 / rev1 if rev1 > 0 else 0.1
+    sgai = sga_ratio0 / sga_ratio1 if sga_ratio1 > 0 else 1.0
+    
+    liab0 = m0.get("total_liabilities", 0.0)
+    liab1 = m1.get("total_liabilities", 0.0)
+    lev0 = liab0 / asset0 if asset0 > 0 else 0.5
+    lev1 = liab1 / asset1 if asset1 > 0 else 0.5
+    lvgi = lev0 / lev1 if lev1 > 0 else 1.0
+    
+    op_inc0 = m0.get("operating_income", 0.0)
+    cfo0 = m0.get("operating_cash_flow", 0.0)
+    total_accruals0 = op_inc0 - cfo0
+    tata = total_accruals0 / asset0 if asset0 > 0 else 0.0
+    
+    m_score = round(-4.84 + (0.920 * dsri) + (0.528 * gmi) + (0.404 * aqi) + (0.892 * sgi) + (0.115 * depi) - (0.172 * sgai) + (4.679 * tata) - (0.327 * lvgi), 2)
+    
+    if m_score > -1.78:
+        zone = "High Manipulation Risk (M > -1.78)"
+    else:
+        zone = "Low Manipulation Risk (M <= -1.78)"
+        
+    return {
+        "m_score": m_score,
+        "zone": zone,
+        "breakdown": {
+            "dsri": round(dsri, 3),
+            "gmi": round(gmi, 3),
+            "aqi": round(aqi, 3),
+            "sgi": round(sgi, 3),
+            "depi": round(depi, 3),
+            "sgai": round(sgai, 3),
+            "lvgi": round(lvgi, 3),
+            "tata": round(tata, 3)
+        }
     }
 
 def compute_2d_dcf_sensitivity(recent_fcf, net_debt, shares_outstanding, base_wacc, base_g=0.025):
@@ -409,6 +532,11 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
     cash_equivalents_list = []
     total_debts = []
     interest_expenses = []
+    pretax_incomes = []
+    retained_earnings_list = []
+    receivables_list = []
+    depreciations = []
+    sgas = []
     
     cols = financials.columns if financials is not None else []
     for i, col in enumerate(cols[:3]):
@@ -421,16 +549,21 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
         net_inc = safe_get(financials, ["NetIncome"], i)
         eps = safe_get(financials, ["BasicEPS", "DilutedEPS"], i)
         interest = safe_get(financials, ["InterestExpense"], i)
+        pretax = safe_get(financials, ["PretaxIncome", "IncomeBeforeTax"], i)
+        sga = safe_get(financials, ["SellingGeneralAndAdministration", "SellingGeneralAdmin"], i)
         
         op_cf = safe_get(cashflow, ["OperatingCashFlow", "CashFlowFromOperatingActivities"], i)
         capex = abs(safe_get(cashflow, ["CapitalExpenditure", "CapitalExpenditures"], i))
         sbc = safe_get(cashflow, ["StockBasedCompensation", "ShareBasedCompensation"], i)
+        depr = safe_get(cashflow, ["DepreciationAndAmortization", "DepreciationAmortizationDepletion"], i)
         
         total_assets = safe_get(balance_sheet, ["TotalAssets"], i)
         total_liab = safe_get(balance_sheet, ["TotalLiabilitiesNetMinorityInterest", "TotalLiabilities"], i)
         curr_assets = safe_get(balance_sheet, ["CurrentAssets", "TotalCurrentAssets"], i)
         curr_liab = safe_get(balance_sheet, ["CurrentLiabilities", "TotalCurrentLiabilities"], i)
         cash_eq = safe_get(balance_sheet, ["CashAndCashEquivalents", "CashCashEquivalentsAndShortTermInvestments"], i)
+        ret_earn = safe_get(balance_sheet, ["RetainedEarnings"], i)
+        rec = safe_get(balance_sheet, ["Receivables", "AccountsReceivable"], i)
         
         total_debt = safe_get(balance_sheet, ["TotalDebt"], i)
         if total_debt == 0.0:
@@ -453,9 +586,20 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
         cash_equivalents_list.append(cash_eq)
         total_debts.append(total_debt)
         interest_expenses.append(interest)
+        pretax_incomes.append(pretax)
+        retained_earnings_list.append(ret_earn)
+        receivables_list.append(rec)
+        depreciations.append(depr)
+        sgas.append(sga)
 
     rf = fetch_risk_free_rate()
-    erp = 0.050
+    parts = ticker_symbol.upper().split('.')
+    suffix = parts[-1] if len(parts) > 1 else ""
+    if suffix == "IS":
+        # Sovereign CDS / Risk Premium adjustment for BIST stocks if analyzing in USD
+        erp = 0.080
+    else:
+        erp = 0.050
     cost_of_equity = rf + (beta * erp)
     
     recent_debt = total_debts[0] if len(total_debts) > 0 else 0.0
@@ -494,6 +638,12 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
         curr_assets_val = current_assets_list[idx]
         curr_liabs_val = current_liabs_list[idx]
         cash_val = cash_equivalents_list[idx]
+        pretax_val = pretax_incomes[idx]
+        ret_earn_val = retained_earnings_list[idx]
+        rec_val = receivables_list[idx]
+        depr_val = depreciations[idx]
+        sga_val = sgas[idx]
+        working_cap = curr_assets_val - curr_liabs_val
         
         fcf = op_cf_val - capex_val
         sbc_adj_fcf = fcf - sbc_val
@@ -518,6 +668,7 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
             "gross_profit": gp_val,
             "operating_income": op_inc_val,
             "net_income": net_inc_val,
+            "pretax_income": pretax_val,
             "basic_eps": basic_epss[idx],
             "operating_cash_flow": op_cf_val,
             "capex": capex_val,
@@ -525,6 +676,15 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
             "sbc": sbc_val,
             "sbc_adjusted_fcf": sbc_adj_fcf,
             "total_debt": debt_val,
+            "total_assets": assets_val,
+            "total_liabilities": liabs_val,
+            "current_assets": curr_assets_val,
+            "current_liabilities": curr_liabs_val,
+            "working_capital": working_cap,
+            "retained_earnings": ret_earn_val,
+            "receivables": rec_val,
+            "depreciation": depr_val,
+            "sga": sga_val,
             "cash_and_equivalents": cash_val,
             "net_debt": net_debt_val,
             "gross_margin": gross_margin,
@@ -533,6 +693,8 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
             "fcf_margin": fcf_margin,
             "current_ratio": current_ratio,
             "debt_to_equity": debt_to_equity,
+            "book_equity": book_equity,
+            "shares_outstanding": shares_outstanding,
             "roe": roe,
             "roic": roic
         })
@@ -617,8 +779,9 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
         suggested_weighting[f"{tier}_conviction_pct"] = round(min(limit_cap, suggested_val), 2)
         
     piotroski = compute_piotroski_f_score(history_metrics)
-    altman_z = compute_altman_z_score(history_metrics, market_cap)
+    altman_z = compute_altman_z_score(history_metrics, market_cap, ticker_symbol=ticker_symbol)
     dupont = compute_dupont_analysis(history_metrics)
+    beneish_m = compute_beneish_m_score(history_metrics)
     dcf_2d_matrix = compute_2d_dcf_sensitivity(recent_fcf, net_debt, shares_outstanding, wacc)
     peer_benchmark = fetch_peer_benchmark_data(ticker_symbol, sector_name=info.get("sector", "Technology"))
     
@@ -680,6 +843,7 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
         "piotroski_f_score": piotroski,
         "altman_z_score": altman_z,
         "dupont_analysis": dupont,
+        "beneish_m_score": beneish_m,
         "dcf_2d_sensitivity": dcf_2d_matrix,
         "peer_benchmark": peer_benchmark,
         "valuation_parameters": {

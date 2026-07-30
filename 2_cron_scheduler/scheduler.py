@@ -9,6 +9,11 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 from dotenv import load_dotenv
 
+try:
+    os.umask(0000)
+except Exception:
+    pass
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGS_DIR = os.path.join(BASE_DIR, "storage", "logs")
 CRON_LOG_FILE = os.path.join(LOGS_DIR, "cron.log")

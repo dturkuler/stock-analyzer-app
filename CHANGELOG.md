@@ -5,6 +5,24 @@ All notable changes to the Stock Analyzer Platform project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2] - 2026-07-30
+
+### 🧮 Advanced Quantitative Models & Financial Formulas
+- **Altman Z'' Emerging Market & BIST Model**: Auto-detects BIST and Emerging Market tickers (`.IS`, `.NS`, `.SA`, etc.) and applies the specialized Altman Z'' 4-variable model ($6.56X_1 + 3.26X_2 + 6.72X_3 + 1.05X_4$) to accurately evaluate non-manufacturing and emerging market financial health.
+- **Beneish M-Score Earnings Manipulation Detector**: Integrated 8-variable Beneish M-Score ($M \le -1.78$) into financial data sourcing (`fetch_yfinance.py`) and matrix analytics to detect accounting anomalies.
+- **DuPont 5-Step ROE Decomposition**: Implemented 5-step ROE decomposition (Tax Burden, Interest Burden, Operating Margin, Asset Turnover, Financial Leverage) for deep financial performance analysis.
+
+### 🛡️ Dashboard UI & Ticker Folder Sanitization
+- **Ticker Directory Filtering**: Updated `/api/tickers` and `/api/v1/matrix` endpoints in `main.py` to sanitize directory scans and ignore folders starting with `.`, `-`, or `_`. Prevents invalid folder names (e.g. `--ticker`) from crashing the stock dashboard and sidebar.
+
+### 🔒 Storage & File Permission Fixes
+- **Cross-Environment Write Safety**: Configured explicit `os.umask(0000)` and fixed root ownership permissions across `storage/` volume to eliminate `PermissionError: [Errno 13]` when executing analysis scripts between Docker containers and host environments.
+
+### 🧪 Automated Testing & Reliability
+- **Comprehensive Unit Tests**: Updated unit test suite in `tests/test_fetch_yfinance.py` covering Developed vs. Emerging Market Altman Z models, Beneish M-Score, and DuPont decomposition (100% pass rate across all 30 tests).
+
+---
+
 ## [1.7.1] - 2026-07-29
 
 ### ✨ Features & UI Polish

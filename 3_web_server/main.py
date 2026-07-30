@@ -19,6 +19,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
+try:
+    os.umask(0000)
+except Exception:
+    pass
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(APP_ENV_PATH)
@@ -733,6 +738,8 @@ def get_stock_matrix(lang: str = "TR"):
     # 2. Scan storage/reports/ directories for stored metrics or auto-fetch
     if os.path.exists(reports_dir):
         for t_dir in os.listdir(reports_dir):
+            if t_dir.startswith(".") or t_dir.startswith("-") or t_dir.startswith("_"):
+                continue
             t_path = os.path.join(reports_dir, t_dir)
             if os.path.isdir(t_path):
                 ticker = t_dir
@@ -778,7 +785,7 @@ def get_stock_matrix(lang: str = "TR"):
 
         bm = metrics.get("beneish_m_score", {})
         m_score = bm.get("m_score", -2.85)
-        is_safe_m = bm.get("is_safe", True)
+        is_safe_m = m_score <= -1.78
 
         dp = metrics.get("dupont_analysis", {})
         dupont_roe = dp.get("dupont_roe_pct", 0)
@@ -797,7 +804,7 @@ def get_stock_matrix(lang: str = "TR"):
         rs = metrics.get("relative_strength", {})
         rsi = rs.get("technical_indicators", {}).get("rsi_14", 50)
 
-        health_score = 10.0 if z_score > 2.99 else (6.0 if z_score >= 1.81 else 2.0)
+        health_score = 10.0 if ("Safe Zone" in z_zone or z_score > 2.60) else (6.0 if "Grey Zone" in z_zone else 2.0)
         cash_score = min(10.0, (pf_score / 9.0) * 10.0)
         growth_score = min(10.0, max(0.0, (dupont_roe / 25.0) * 10.0))
         val_score = 10.0 if (0 < ps_ratio < 3.0) else (6.0 if (0 < ps_ratio < 8.0) else 2.0)
@@ -881,7 +888,11 @@ def get_tickers():
     ignored = {"BATCH", "TMP", "TEMP"}
     tickers = [
         d for d in os.listdir(REPORTS_DIR) 
-        if os.path.isdir(os.path.join(REPORTS_DIR, d)) and d.upper() not in ignored and not d.startswith(".")
+        if os.path.isdir(os.path.join(REPORTS_DIR, d)) 
+        and d.upper() not in ignored 
+        and not d.startswith(".") 
+        and not d.startswith("-") 
+        and not d.startswith("_")
     ]
     return sorted(tickers)
 

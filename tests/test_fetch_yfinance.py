@@ -46,7 +46,25 @@ class TestFetchYFinanceModels(unittest.TestCase):
         result = compute_altman_z_score(self.hist, mcap)
         self.assertIn("z_score", result)
         self.assertIn("zone", result)
+        self.assertIn("model", result)
+        self.assertEqual(result["model"], "Altman Z (Developed Market Model)")
         self.assertIsInstance(result["z_score"], (int, float))
+
+    def test_compute_altman_z_score_emerging_bist(self):
+        mcap = self.mock_metrics["market_info"]["market_cap"]
+        result = compute_altman_z_score(self.hist, mcap, ticker_symbol="THYAO.IS")
+        self.assertIn("z_score", result)
+        self.assertIn("zone", result)
+        self.assertIn("model", result)
+        self.assertEqual(result["model"], "Altman Z'' (Emerging Market / BIST Model)")
+
+    def test_compute_beneish_m_score(self):
+        from fetch_yfinance import compute_beneish_m_score
+        result = compute_beneish_m_score(self.hist)
+        self.assertIn("m_score", result)
+        self.assertIn("zone", result)
+        self.assertIn("breakdown", result)
+        self.assertIsInstance(result["m_score"], float)
 
     def test_compute_dupont_analysis(self):
         result = compute_dupont_analysis(self.hist)

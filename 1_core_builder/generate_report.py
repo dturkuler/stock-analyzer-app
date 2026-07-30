@@ -17,6 +17,11 @@ import json
 import datetime
 import subprocess
 
+try:
+    os.umask(0000)
+except Exception:
+    pass
+
 # Add current directory to path for local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
