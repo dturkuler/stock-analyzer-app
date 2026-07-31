@@ -20,14 +20,20 @@ APP_ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(APP_ENV_PATH)
 load_dotenv()
 
-SYSTEM_PROMPT_TR = """Sen kıdemli bir Hisse Analisti ve Adli Denetim Uzmanısın.
+SYSTEM_PROMPT_TR = """Sen kıdemli bir Finans Analisti ve samimi bir Yatırım Rehberisin.
 Sana verilen nicel finansal metrikleri (Bilanço, Gelir Tablosu, DuPont, WACC, Piotroski, Altman Z, Beneish M-Score, RSI, SMA50/200, Peer Benchmark) incele.
-Aşağıdaki 18 anahtar kelimeyi içeren geçerli bir JSON nesnesi döndür.
+Aşağıdaki 27 anahtar kelimeyi içeren geçerli bir JSON nesnesi döndür.
 
-YAZIM VE ÜSLUP KURALLARI:
+YAZIM VE ÜSLUP KURALLARI (BİREYSEL YATIRIMCI DOSTU):
 - TÜM ANALİZ CÜMLELERİ VE YORUMLARI KESİNLİKLE %100 TÜRKÇE YAZILACAKTIR. TEK BİR İNGİLİZCE CÜMLE, PARAGRAF VEYA İFADE KULLANMA.
-- Her bir analiz anahtarı için 1-2 net, öz, somut veriler içeren ve profesyonel paragraf yaz.
-- Metinlerde jenerik laflar yerine verilen somut rakamları (TRY, %, x çarpan) kullan.
+- 18 yaşındaki yeni başlayandan 70 yaşındaki emekliye kadar her yatırımcının kahve sohbetinde kolayca anlayacağı samimi, net ve anlaşılır bir dil kullan.
+- Karmaşık finansal terimleri derhal günlük hayat benzetmeleriyle açıkla:
+  * Net Nakit Pozisyonu → "Kasadaki Acil Durum Birikimi"
+  * Altman Z-Score → "Finansal Sağlık Check-up'ı / Borç Doktoru"
+  * Piotroski F-Score → "9 Maddelik Bilanço Sağlık Karnesi"
+  * Fiyat/Satışlar (P/S) Çarpanı → "Satılan Her 1 TL'lik Ürüne Biçilen Etiket Fiyatı"
+  * Ters DCF İmplike Büyüme → "Piyasanın Şirketten Beklediği Hız Göstergesi"
+- Her karmaşık metrik sunumunun hemen ardından "Bu durum cebiniz için ne anlama geliyor?" cümlesiyle halk dili özetini ekle.
 - JSON formatına tam uy, markdown tırnakları veya kod blokları koyma.
 
 GEREKLİ JSON ANAHTARLARI:
@@ -57,17 +63,17 @@ GEREKLİ JSON ANAHTARLARI:
 24. "blog_catalysts_and_risks": Şirket için önümüzdeki 12 ayın büyüme fırsatlarını ve risklerini "Büyüme Fırsatları:\n1)... 2)...\n\nKritik Riskler:\n1)... 2)..." formatında sade dille anlatan bölüm.
 25. "blog_bull_vs_bear": Boğa ve Ayı senaryolarını "Boğa Senaryosu: ...\n\nAyı Senaryosu: ...\n\nNihai Değerlendirme: ..." formatında kıyaslayan ve küçük yatırımcı sonucunu açıklayan bölüm.
 26. "blog_key_takeaways": Google öne çıkan snippet kutusu için bireysel yatırımcı diliyle yazılmış 3 kısa özet cümlesi dizisi.
-27. "blog_faqs": Bireysel yatırımcıların arama motorlarında sıkça arattığı 3 sade soru-cevap nesnesi dizisi: [{"q": "Bu hisse yeni başlayan yatırımcı için uygun mu?", "a": "..."}, {"q": "Hisse fiyatı şu an pahalı mı?", "a": "..."}, {"q": "Yatırımcının bilmesi gereken en büyük risk nedir?", "a": "..."}]
+27. "blog_faqs": Bireysel yatırımcıların arama motorlarında sıkça arattığı 3 sade soru-cevap nesnesi dizisi. İLK SORU KESİNLİKLE ŞU OLACAKTIR: [{"q": "Ben olsam bu hisseye şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": "Portföy risk yönetimi (Kelly sınırı %2.5-%5.0), 50 günlük hareketli ortalama teknik desteği ve nakit kalitesine dayalı somut, anlaşılır yatırımcı tavsiyesi."}, {"q": "Bu hisse yeni başlayan yatırımcı için uygun mu?", "a": "..."}, {"q": "Yatırımcının bilmesi gereken en büyük risk nedir?", "a": "..."}]
 """
 
-SYSTEM_PROMPT_EN = """You are a Financial Educator and Senior Equity Research Analyst.
+SYSTEM_PROMPT_EN = """You are a Financial Educator and Senior Equity Research Analyst writing in a friendly, accessible tone.
 Analyze the provided quantitative financial metrics (Balance Sheet, Income Statement, DuPont, WACC, Piotroski, Altman Z, Beneish M-Score, RSI, SMA50/200, Peer Benchmark).
 Return a valid JSON object containing the exact 27 keys specified below.
 
-WRITING AND STYLE RULES:
-- Keys 1-18 (Technical Analysis): Write concise, professional analysis for financial professionals using concrete metrics.
-- Keys 19-27 (BLOG BRIEFING): Write as a friendly Financial Educator for everyday retail investors. Use plain language, clear everyday business analogies, translate technical jargon immediately into simple terms, and explain clearly "What this means for your money".
-- Fully adhere to JSON format; do NOT wrap in markdown quotes or code blocks.
+WRITING AND STYLE RULES (RETAIL INVESTOR FRIENDLY):
+- Keys 1-18 (Technical Analysis): Write clear, professional analysis using concrete metrics.
+- Keys 19-27 (BLOG BRIEFING): Write as a friendly Financial Educator for everyday retail investors (from 18-year-old beginners to 70-year-old retirees). Use plain language, clear everyday business analogies (e.g., cash reserves as "emergency savings", Altman Z as "financial health checkup", P/S multiple as "price tag per dollar of sales"), and explain clearly "What this means for your money".
+- Adhere strictly to JSON format; do NOT wrap in markdown quotes or code blocks.
 
 REQUIRED JSON KEYS:
 1. "company_name": Full legal company name
@@ -96,7 +102,7 @@ REQUIRED JSON KEYS:
 24. "blog_catalysts_and_risks": Clear, plain-language radar of top growth opportunities and main risk factors to watch out for.
 25. "blog_bull_vs_bear": Simple Bull vs. Bear comparison ending with a 1-sentence "What this means for retail investors" takeaway.
 26. "blog_key_takeaways": A JSON array of 3 plain-language summary bullet strings.
-27. "blog_faqs": A JSON array of 3 plain retail Q&A objects: [{"q": "Is this stock suitable for beginner investors?", "a": "..."}, {"q": "Is the share price currently expensive?", "a": "..."}, {"q": "What is the primary risk to watch out for?", "a": "..."}]
+27. "blog_faqs": A JSON array of 3 plain retail Q&A objects. THE FIRST QUESTION MUST BE EXACTLY: [{"q": "How would I personally approach this stock right now? (Investor Perspective)", "a": "Practical guidance covering position sizing (2.5%-5.0% Kelly limits), key 50-day moving average support, and valuation risk management in plain language."}, {"q": "Is this stock suitable for beginner investors?", "a": "..."}, {"q": "What is the primary risk to watch out for?", "a": "..."}]
 """
 
 
@@ -425,15 +431,15 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
             f"50-day moving average ({curr_sym}{sma50:,.2f}) serves as primary technical support"
         ]
         blog_faqs_val = [
+            {"q": f"How would I personally approach {ticker} right now? (Investor Perspective)", "a": f"If I were managing a portfolio for {company_name}, I would maintain disciplined position sizing within a conservative 2.5% to 5.0% allocation limit. With an Altman Z-Score of Z = {z_score:,.2f} ({z_zone}), the financial health checkup is solid, but the P/S ratio of {ps_ratio:.1f}x means we should closely watch the 50-day moving average ({curr_sym}{sma50:,.2f}) as our key safety net."},
             {"q": f"Is {ticker} stock suitable for beginner investors?", "a": f"{company_name} presents an Altman Z-Score of {z_score:,.2f} ({z_zone}). Beginner investors should consider conservative position sizing (2.5%-5.0%) and follow key support levels."},
-            {"q": f"Is {ticker}'s share price currently expensive?", "a": f"The stock trades at a P/S ratio of {ps_ratio:.1f}x with an implied reverse DCF growth requirement of %{implied_g*100:.2f} per year."},
             {"q": f"What is the primary risk to watch out for in {ticker}?", "a": f"The primary risks center on valuation multiple contraction and market price volatility around key moving averages."}
         ]
     else:
         verdict_text = "DENGELİ MODEL GÖRÜŞÜ (FİNANSAL SAĞLIK VE DEĞERLEME DENGESİ)"
         if net_debt < 0:
-            debt_desc_tr = f"net borçsuz yapısı (net nakit: {curr_sym}{abs(net_debt)/1e6:,.1f}M)"
-            debt_shield_tr = f"Şirketin {curr_sym}{abs(net_debt)/1e6:,.1f}M tutarındaki net nakit pozisyonu yüksek faiz ortamında likidite tamponu sağlamaktadır."
+            debt_desc_tr = f"net borçsuz yapısı (kasadaki acil durum birikimi: {curr_sym}{abs(net_debt)/1e6:,.1f}M net nakit)"
+            debt_shield_tr = f"Şirketin {curr_sym}{abs(net_debt)/1e6:,.1f}M tutarındaki kasadaki nakit birikimi yüksek faiz ortamında likidite tamponu sağlamaktadır."
         else:
             debt_desc_tr = f"net borçlu yapısı (net borç: {curr_sym}{net_debt/1e6:,.1f}M)"
             debt_shield_tr = f"Şirketin {curr_sym}{net_debt/1e6:,.1f}M tutarındaki net borç pozisyonu borç servis oranlarının yakından takibini gerektirmektedir."
@@ -448,7 +454,7 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
         )
         weak = (
             f"{company_name} için temel risk faktörü değerleme seviyeleridir. "
-            f"Fiyat/Satışlar (P/S) çarpanı {ps_ratio:.1f}x seviyesindedir. "
+            f"Fiyat/Satışlar (P/S) etiket fiyatı {ps_ratio:.1f}x seviyesindedir. "
             f"Esas faaliyet kârlılığı (EBIT: {curr_sym}{last_ebit/1e6:,.1f}M) üzerindeki maliyet seyri yakından izlenmelidir."
         )
         risk_disc = (
@@ -505,10 +511,10 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
         else:
             blog_headline_val = f"📰 {company_name} ({ticker}): 360° Finansal Sağlık ve Değerleme Analizi"
         blog_summary_val = f"{company_name} ({ticker}), {debt_desc_tr} ile finansal yapısını korumaktadır. Quant model değerlendirmesinde Piotroski F-Score {pf_score}/9 ve Altman Z-Score Z = {z_score:,.2f} ({z_zone}) olarak hesaplanmıştır."
-        blog_cash_and_health_val = f"{company_name} bilançosu incelendiğinde şirket {debt_desc_tr} ile hareket etmektedir. {debt_shield_tr} Altman Z-Score modelimiz Z = {z_score:,.2f} ile şirketin '{z_zone}' kategorisinde yer aldığını göstermektedir."
-        blog_earnings_quality_val = f"Şirketin kâr kalitesi ve nakit akış performansı Piotroski F-Score modelinde {pf_score}/9 puan olarak ölçülmüştür. Adli bilanço denetiminde Beneish M-Score {bm_score:.2f} ({bm_safe_tr}) seviyesindedir."
-        blog_valuation_dcf_val = f"Değerleme tarafında {ticker}, {ps_ratio:.1f}x Fiyat/Satışlar (P/S) ve {pe_ratio:.1f}x F/K çarpanı ile işlem görmektedir. Ters DCF modelimiz mevcut fiyatın rasyonel karşılanması için yıllık reel %{implied_g*100:.2f} serbest nakit akışı büyümesi gerektirmektedir."
-        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Yeni sektör sözleşmeleri ve operasyonel hacim büyümesi.\n2) Nakit akış kalitesinin korunması.\n\nKritik Riskler:\n1) Çarpan gerilemesi riski.\n2) 50 günlük hareketli ortalama ({curr_sym}{sma50:,.2f}) teknik desteğinin takibi."
+        blog_cash_and_health_val = f"{company_name} bilançosu incelendiğinde şirket {debt_desc_tr} ile hareket etmektedir. {debt_shield_tr} Altman Z-Score modelimiz (borç doktoru) Z = {z_score:,.2f} ile şirketin '{z_zone}' kategorisinde yer aldığını göstermektedir."
+        blog_earnings_quality_val = f"Şirketin kâr kalitesi ve nakit akış performansı Piotroski F-Score (9 maddelik sağlık karnesi) modelinde {pf_score}/9 puan olarak ölçülmüştür. Adli bilanço denetiminde Beneish M-Score {bm_score:.2f} ({bm_safe_tr}) seviyesindedir."
+        blog_valuation_dcf_val = f"Değerleme tarafında {ticker}, {ps_ratio:.1f}x Fiyat/Satışlar (P/S etiket fiyatı) ve {pe_ratio:.1f}x F/K çarpanı ile işlem görmektedir. Ters DCF (hız göstergesi) modelimiz mevcut fiyatın rasyonel karşılanması için yıllık reel %{implied_g*100:.2f} serbest nakit akışı büyümesi gerektirmektedir."
+        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Yeni sektör sözleşmeleri ve operasyonel hacim büyümesi.\n2) Kasadaki acil durum nakit birikiminin korunması.\n\nKritik Riskler:\n1) Çarpan gerilemesi riski.\n2) 50 günlük hareketli ortalama ({curr_sym}{sma50:,.2f}) teknik desteğinin takibi."
         blog_bull_vs_bear_val = f"Boğa Senaryosu: Yüksek Piotroski skoru ({pf_score}/9) ve Altman Z-Score ({z_score:,.2f}) finansal dayanıklılık sağlar.\n\nAyı Senaryosu: {ps_ratio:.1f}x P/S çarpanı sürdürülebilir büyüme gerektirir.\n\nNihai Değerlendirme: Kademeli alım ve stop-loss disiplini korunmalıdır."
         blog_takeaways_val = [
             f"Altman Z-Score skoru Z = {z_score:,.2f} ({z_zone}) ile finansal bünye takibi",
@@ -516,8 +522,8 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
             f"50 günlük ortalama fiyat ({curr_sym}{sma50:,.2f}) ana destek noktası"
         ]
         blog_faqs_val = [
+            {"q": f"Ben olsam {ticker} hissesine şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": f"{company_name} için bir portföy yönetiyor olsaydım, riski dağıtmak adına pozisyon büyüklüğünü %2,5 - %5,0 Kelly limitinde tutardım. Altman Z-Score Z = {z_score:,.2f} ({z_zone}) ile şirketin finansal sağlık karnesi (borç doktoru) güvenli görünse de, {ps_ratio:.1f}x P/S etiket fiyatı nedeniyle 50 günlük hareketli ortalama olan {curr_sym}{sma50:,.2f} seviyesini ana koruma kalkanım olarak takip ederdim."},
             {"q": f"{ticker} hissesi yeni başlayan yatırımcı için uygun mu?", "a": f"{company_name} için Altman Z-Score Z = {z_score:,.2f} ({z_zone}) seviyesindedir. Yeni başlayan yatırımcıların %2,5 - %5,0 gibi küçük pozisyon oranlarıyla hareket etmesi önerilir."},
-            {"q": f"{ticker} hisse fiyatı şu an pahalı mı?", "a": f"Hisse P/S çarpanı {ps_ratio:.1f}x seviyesindedir ve Ters DCF modelinde yıllık %{implied_g*100:.2f} büyüme gereksinimi ölçülmektedir."},
             {"q": f"{ticker} hissesinde en büyük risk nedir?", "a": f"En büyük risk, çarpan gerilemesi ve hareketli ortalamalar etrafındaki fiyat dalgalanmalarıdır."}
         ]
 
