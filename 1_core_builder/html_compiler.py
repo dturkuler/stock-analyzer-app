@@ -1502,8 +1502,17 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     function syncEvInput(val) {{ document.getElementById('evMilyon').value = val; }}
     function syncFcfSlider(val) {{ document.getElementById('fcfSlider').value = val; }}
     function syncFcfInput(val) {{ document.getElementById('fcfMilyon').value = val; }}
-    function syncWaccSlider(val) {{ document.getElementById('waccSlider').value = val; }}
-    function syncWaccInput(val) {{ document.getElementById('waccPct').value = val; }}
+    let dcfModelMode = '1stage';
+    function setDcfModelMode(mode) {{
+      dcfModelMode = mode;
+      const b1 = document.getElementById('dcfModelTab1');
+      const b2 = document.getElementById('dcfModelTab2');
+      if (b1 && b2) {{
+        b1.className = (mode === '1stage') ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline';
+        b2.className = (mode === '2stage') ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline';
+      }}
+      calculateReverseDCF();
+    }}
 
     function calculateReverseDCF() {{
       const evMilyon = parseFloat(document.getElementById('evMilyon').value) || 0;
@@ -1516,6 +1525,37 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       const statusEl = document.getElementById('calcStatusText');
       if (!resultEl || !statusEl) return;
       if (ev <= 0) {{ resultEl.innerText = "N/A"; return; }}
+      
+      const isEn = {"true" if is_en else "false"};
+      
+      if (dcfModelMode === '2stage') {{
+        const g1 = 0.10;
+        const gTerm = 0.025;
+        let fcfT = fcf;
+        let pv1 = 0;
+        for (let t = 1; t <= 5; t++) {{
+          fcfT *= (1 + g1);
+          pv1 += fcfT / Math.pow(1 + wacc, t);
+        }}
+        let pv2 = 0;
+        for (let t = 6; t <= 10; t++) {{
+          let gt = g1 - ((g1 - gTerm) * (t - 5) / 5.0);
+          fcfT *= (1 + gt);
+          pv2 += fcfT / Math.pow(1 + wacc, t);
+        }}
+        const denom = Math.max(0.005, wacc - gTerm);
+        const tv = (fcfT * (1 + gTerm)) / denom;
+        const pvTv = tv / Math.pow(1 + wacc, 10);
+        const impliedEv2 = pv1 + pv2 + pvTv;
+        const evM2 = (impliedEv2 / 1000000).toFixed(1);
+        resultEl.innerText = `₺${{evM2}}M`;
+        resultEl.style.color = "var(--accent-cyan)";
+        statusEl.innerHTML = isEn ? 
+          `🚀 <strong>2-Stage High-Growth Fade Model:</strong> Implied EV = $${{evM2}}M (5-yr 10% High Growth + 5-yr Fade to 2.5% Terminal GDP).` : 
+          `🚀 <strong>2-Aşamalı Kademeli İskonto Modeli:</strong> İmplike Firma Değeri = ₺${{evM2}}M (5 Yıl %10 Yüksek Büyüme + 5 Yıl Kademeli Düşüş).`;
+        return;
+      }}
+      
       const numerator = (ev * wacc) - fcf;
       const denominator = ev + fcf;
       if (denominator === 0) {{ resultEl.innerText = "N/A"; return; }}
@@ -1523,7 +1563,6 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       const gPctVal = (g * 100).toFixed(2);
       const formattedGPct = `%${{gPctVal.replace('.', ',')}}`;
       resultEl.innerText = formattedGPct;
-      const isEn = {"true" if is_en else "false"};
       if (g > 0.15) {{
         statusEl.innerHTML = isEn ? `🔴 <strong>High Growth Implied (${{formattedGPct}}):</strong> Cash flow must grow ${{formattedGPct}} annually.` : `🔴 <strong>Yüksek Büyüme Beklentisi (${{formattedGPct}}):</strong> Fiyatı hak etmek için nakit akışını her yıl ${{formattedGPct}} büyütmesi gerekir.`;
         resultEl.style.color = "var(--accent-rose)";

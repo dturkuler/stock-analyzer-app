@@ -63,8 +63,20 @@ class TestFetchYFinanceModels(unittest.TestCase):
         result = compute_beneish_m_score(self.hist)
         self.assertIn("m_score", result)
         self.assertIn("zone", result)
+        self.assertIn("model_type", result)
         self.assertIn("breakdown", result)
         self.assertIsInstance(result["m_score"], float)
+
+    def test_compute_2stage_dcf(self):
+        from fetch_yfinance import compute_2stage_dcf
+        result = compute_2stage_dcf(recent_fcf=1000000.0, wacc=0.10, g1=0.12, g_term=0.025, net_debt=200000.0)
+        self.assertIn("implied_fair_value", result)
+        self.assertIn("stage1_pv", result)
+        self.assertIn("stage2_pv", result)
+        self.assertIn("terminal_pv", result)
+        self.assertIn("model_type", result)
+        self.assertGreater(result["implied_fair_value"], 0.0)
+        self.assertEqual(result["model_type"], "2-Stage High-Growth Fade")
 
     def test_compute_dupont_analysis(self):
         result = compute_dupont_analysis(self.hist)

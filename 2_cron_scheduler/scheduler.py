@@ -34,7 +34,8 @@ def log_cron(msg: str):
 
 def init_cron_config_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
+    conn.execute("PRAGMA journal_mode=WAL;")
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS cron_config (

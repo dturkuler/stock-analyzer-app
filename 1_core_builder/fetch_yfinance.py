@@ -405,7 +405,13 @@ def compute_beneish_m_score(history_metrics):
     total_accruals0 = op_inc0 - cfo0
     tata = total_accruals0 / asset0 if asset0 > 0 else 0.0
     
-    m_score = round(-4.84 + (0.920 * dsri) + (0.528 * gmi) + (0.404 * aqi) + (0.892 * sgi) + (0.115 * depi) - (0.172 * sgai) + (4.679 * tata) - (0.327 * lvgi), 2)
+    has_full_8var = (sga0 > 0 or sga1 > 0) and (liab0 > 0 or liab1 > 0)
+    if has_full_8var:
+        m_score = round(-4.84 + (0.920 * dsri) + (0.528 * gmi) + (0.404 * aqi) + (0.892 * sgi) + (0.115 * depi) - (0.172 * sgai) + (4.679 * tata) - (0.327 * lvgi), 2)
+        model_type = "Beneish 8-Var Full"
+    else:
+        m_score = round(-4.84 + (0.920 * dsri) + (0.528 * gmi) + (0.404 * aqi) + (0.892 * sgi) + (0.115 * depi), 2)
+        model_type = "Beneish 5-Var Fallback"
     
     if m_score > -1.78:
         zone = "High Manipulation Risk (M > -1.78)"
@@ -415,6 +421,7 @@ def compute_beneish_m_score(history_metrics):
     return {
         "m_score": m_score,
         "zone": zone,
+        "model_type": model_type,
         "breakdown": {
             "dsri": round(dsri, 3),
             "gmi": round(gmi, 3),
@@ -425,6 +432,50 @@ def compute_beneish_m_score(history_metrics):
             "lvgi": round(lvgi, 3),
             "tata": round(tata, 3)
         }
+    }
+
+def compute_2stage_dcf(recent_fcf, wacc, g1=0.10, g_term=0.025, net_debt=0.0):
+    """Calculates 2-Stage DCF Valuation with a 5-year high growth phase + 5-year fade phase + terminal perpetuity."""
+    if not recent_fcf or recent_fcf <= 0:
+        return {"implied_fair_value": 0.0, "stage1_pv": 0.0, "stage2_pv": 0.0, "terminal_pv": 0.0, "model_type": "2-Stage High-Growth Fade"}
+    
+    denom = max(0.005, wacc - g_term)
+    
+    # Stage 1: High growth years 1-5
+    pv_stage1 = 0.0
+    fcf_t = float(recent_fcf)
+    for t in range(1, 6):
+        fcf_t *= (1.0 + g1)
+        pv_stage1 += fcf_t / ((1.0 + wacc) ** t)
+        
+    # Stage 2: Linear fade phase years 6-10
+    pv_stage2 = 0.0
+    for t in range(6, 11):
+        g_t = g1 - ((g1 - g_term) * (t - 5) / 5.0)
+        fcf_t *= (1.0 + g_t)
+        pv_stage2 += fcf_t / ((1.0 + wacc) ** t)
+        
+    # Terminal Value: Year 10 Perpetuity
+    tv_10 = (fcf_t * (1.0 + g_term)) / denom
+    pv_terminal = tv_10 / ((1.0 + wacc) ** 10)
+    
+    implied_ev = pv_stage1 + pv_stage2 + pv_terminal
+    implied_equity_val = implied_ev - net_debt
+    
+    import math
+    def _clean(val):
+        if math.isnan(val) or math.isinf(val):
+            return 0.0
+        return round(val, 2)
+        
+    return {
+        "implied_fair_value": _clean(implied_equity_val),
+        "stage1_pv": _clean(pv_stage1),
+        "stage2_pv": _clean(pv_stage2),
+        "terminal_pv": _clean(pv_terminal),
+        "terminal_growth_used": round(g_term * 100, 2),
+        "high_growth_used": round(g1 * 100, 2),
+        "model_type": "2-Stage High-Growth Fade"
     }
 
 def compute_2d_dcf_sensitivity(recent_fcf, net_debt, shares_outstanding, base_wacc, base_g=0.025):
@@ -860,6 +911,7 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
         "dupont_analysis": dupont,
         "beneish_m_score": beneish_m,
         "dcf_2d_sensitivity": dcf_2d_matrix,
+        "dcf_2stage": compute_2stage_dcf(recent_fcf, wacc, g1=dcf_growth, g_term=terminal_g, net_debt=net_debt),
         "peer_benchmark": peer_benchmark,
         "valuation_parameters": {
             "risk_free_rate": rf,
