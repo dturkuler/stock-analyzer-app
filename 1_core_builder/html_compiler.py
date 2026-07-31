@@ -222,7 +222,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
     dp = metrics.get("dupont_analysis", {})
     bm = metrics.get("beneish_m_score", {})
-    beneish_score = bm.get("m_score", -2.85)
+    beneish_score = bm.get("m_score", 0.0)
     beneish_model = bm.get("model_type", "Beneish 8-Var Full")
     rs = metrics.get("relative_strength", {})
     ti = rs.get("technical_indicators", {})
@@ -235,9 +235,10 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     date_str = datetime.datetime.now().strftime("%d %B %Y")
 
     # Sanitize investment verdict string
-    verdict_raw = commentary.get("investment_verdict", "DENGELİ MODEL GÖRÜŞÜ (MÜKEMMEL BİLANÇO / PAHALI YÜKSEK ÇARPAN DENGESİ)")
+    default_verdict = "BALANCED QUANTITATIVE MODEL OUTLOOK" if is_en else "DENGELİ NICEL MODEL GÖRÜŞÜ"
+    verdict_raw = commentary.get("investment_verdict", default_verdict)
     if "kullanılamıyor" in verdict_raw or "LLM" in verdict_raw or len(verdict_raw) < 10:
-        verdict = "DENGELİ MODEL GÖRÜŞÜ (MÜKEMMEL BİLANÇO / PAHALI YÜKSEK ÇARPAN DENGESİ)"
+        verdict = default_verdict
     else:
         verdict = verdict_raw
 
@@ -978,7 +979,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <div class="guide-title">💡 {"HOW TO READ BALANCE SHEET, INCOME STATEMENT & DUPONT ANALYSIS" if is_en else "BİLANÇO, GELİR TABLOSU VE DUPONT ANALİZİ NASIL OKUNUR & NASIL YORUMLANIR?"}</div>
         <div class="guide-text">
           <p style="margin-bottom:0.5rem;"><strong>{("1. Balance Sheet Overview (Snapshot):" if is_en else "1. Bilanço Nedir? (Şirketin Fotoğrafı):")}</strong><br>
-          {f"The balance sheet reflects assets and liabilities. The key feature of {company_name}'s balance sheet is its {_fmt_try(net_debt, is_en=is_en)} net debt/cash structure. Current ratio of {_fmt_num(hist[0].get('current_ratio', 2.0), is_en=is_en, decimals=2)}x indicates low insolvency risk." if is_en else f"Bilanço, şirketin o günkü mal varlığını ve borçlarını gösterir. {company_name}'in bilançosunda en dikkat çekici unsur <strong>{_fmt_try(net_debt)} Net Borç / Nakit</strong> yapısıdır. Cari Oran {_fmt_num(hist[0].get('current_ratio', 2.0), 2)}x ile borç ödeme riski düşüktür."}</p>
+          {f"The balance sheet reflects assets and liabilities. The key feature of {company_name}'s balance sheet is its {_fmt_try(net_debt, is_en=is_en)} net debt/cash structure. Current ratio of {_fmt_num(hist[0].get('current_ratio', 0.0) if hist else 0.0, is_en=is_en, decimals=2)}x indicates liquidity health." if is_en else f"Bilanço, şirketin o günkü mal varlığını ve borçlarını gösterir. {company_name}'in bilançosunda en dikkat çekici unsur <strong>{_fmt_try(net_debt)} Net Borç / Nakit</strong> yapısıdır. Cari Oran {_fmt_num(hist[0].get('current_ratio', 0.0) if hist else 0.0, 2)}x seviyesindedir."}</p>
 
           <p style="margin-bottom:0.5rem;"><strong>{("2. Income Statement Breakdown (Operating vs Net Income):" if is_en else "2. Gelir Tablosundaki Kritik Detay (Faaliyet Kârı vs Net Kâr):")}</strong><br>
           {f"{company_name} generated {_fmt_try(last_ebit, is_en=is_en)} Operating Income (EBIT) and {_fmt_try(last_ni, is_en=is_en)} Net Income." if is_en else f"{company_name} dönem içerisinde <strong>{_fmt_try(last_ebit)} Faaliyet Kârı/Zararı (EBIT)</strong> yazmasına karşın, finansman ve net kambiyo kârları sayesinde <strong>{_fmt_try(last_ni)} Net Dönem Kârı</strong> açıklamıştır."}</p>
@@ -1279,7 +1280,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       <div class="investor-guide-box">
         <div class="guide-title">{"💡 TECHNICAL INDICATORS & KELLY SIMULATION" if is_en else "💡 TEKNİK GÖSTERGELER, KELLY LİMİTİ VE STOP-LOSS NEDİR?"}</div>
         <div class="guide-text">
-          {"• <strong>RSI (" + _fmt_num(ti.get("rsi_14", 68.4), is_en=is_en, decimals=2) + "):</strong> Measures buying momentum. RSI above 70 indicates overbought conditions." if is_en else f"• <strong>RSI ({_fmt_num(ti.get('rsi_14', 68.4), 2)}):</strong> Hissenin alım hızını ölçer. 70 üstü fiyatın aşırı ısındığını gösterir."}<br>
+          {"• <strong>RSI (" + _fmt_num(ti.get("rsi_14", 50.0), is_en=is_en, decimals=2) + "):</strong> Measures buying momentum. RSI above 70 indicates overbought conditions." if is_en else f"• <strong>RSI ({_fmt_num(ti.get('rsi_14', 50.0), 2)}):</strong> Hissenin alım hızını ölçer. 70 üstü fiyatın aşırı ısındığını gösterir."}<br>
           {"• <strong>SMA 50 (" + _fmt_try(sma50, is_en=is_en) + "):</strong> 50-day moving average. Price above SMA 50 reflects healthy uptrend." if is_en else f"• <strong>SMA 50 ({_fmt_try(sma50)}):</strong> Son 50 günün ortalama fiyatıdır. Fiyat bunun üzerindeyse trend sağlıklıdır."}<br>
           {"• <strong>Theoretical Kelly Allocation (2.5% - 5.0%):</strong> Statistical portfolio risk allocation boundary limit." if is_en else "• <strong>Teorik Kelly Limiti (%2,5 - %5,0):</strong> İstatistiki portföy risk modellerinde azami simülasyon sınırı alanıdır."}<br>
           {"• <strong>Technical Support (" + _fmt_try(sma50, is_en=is_en) + "):</strong> 50-day moving average technical support level." if is_en else f"• <strong>Teknik Destek ({_fmt_try(sma50)}):</strong> Fiyatın 50 günlük hareketli ortalama destek seviyesidir."}

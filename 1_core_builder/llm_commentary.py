@@ -302,18 +302,19 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
     sma50 = mi.get("fifty_day_avg", 0)
 
     vp = metrics.get("valuation_parameters", {})
-    wacc = vp.get("wacc", 0.0138)
+    wacc = vp.get("wacc", 0.0)
     rdcf = metrics.get("reverse_dcf", {})
-    implied_g = rdcf.get("implied_growth_rate_raw", 0.0133)
+    implied_g = rdcf.get("implied_growth_rate_raw", 0.0)
     recent_fcf = rdcf.get("recent_fcf", 0)
 
     pf = metrics.get("piotroski_f_score", {})
-    pf_score = pf.get("score", 4)
+    pf_score = pf.get("score", 0)
 
     az = metrics.get("altman_z_score", {})
-    z_score = az.get("z_score", 1400)
-    z_zone = az.get("zone", "Güvenli Bölge")
+    z_score = az.get("z_score", 0.0)
+    z_zone = az.get("zone", "Normal")
     beneish_m = metrics.get("beneish_m_score", {})
+    bm_score = beneish_m.get("m_score", -2.85) if isinstance(beneish_m, dict) else -2.85
 
     hist = metrics.get("historical_metrics", [])
     last_rev = hist[0].get("revenue", 1) if hist else 1
@@ -347,8 +348,8 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
             f"The 50-day moving average ({curr_sym}{sma50:,.2f}) serves as the primary technical support level."
         )
         scorecard_c = (
-            f"Our 360° Company Scorecard assigns {company_name} a composite score of 7.0 / 10. "
-            f"Financial Health is rated 9.0/10 (Excellent), Cash Quality 8.5/10 (Very Strong), while Valuation Score is 1.0/10 (Overvalued)."
+            f"Our 360° Company Scorecard assigns {company_name} a quantitative rating based on Piotroski ({pf_score}/9) "
+            f"and Altman Z-Score (Z = {z_score:,.2f}, {z_zone}). Valuation P/S ratio is {ps_ratio:.1f}x."
         )
         piotroski_c = (
             f"Piotroski F-Score audit rates the company at {pf_score}/9. Positive net income and operating cash flow "
@@ -387,7 +388,7 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
             f"RSI and MACD support bullish momentum."
         )
         forensic_c = (
-            f"Forensic audit using Beneish M-Score (-2.85) places the company in the safe zone with no earnings manipulation signals."
+            f"Forensic audit using Beneish M-Score ({bm_score:.2f}) evaluates earnings quality and accounting transparency."
         )
         scenario_c = (
             f"Scenario analysis indicates the Base Case target supports current prices, while the Bear Case relies on the {curr_sym}{sma50:,.2f} support line."
