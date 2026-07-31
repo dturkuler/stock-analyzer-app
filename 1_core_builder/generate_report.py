@@ -53,17 +53,17 @@ def generate_report(ticker, lang="TR"):
     report_file = os.path.join(storage_dir, f"{date_str}.html")
     printable_report_file = os.path.join(storage_dir, f"{date_str}_printable.html")
 
-    for path in [report_file, printable_report_file]:
+    workspace_dir = os.path.join(BASE_DIR, "storage", "_workspace")
+    os.makedirs(workspace_dir, exist_ok=True)
+    metrics_path = os.path.join(workspace_dir, f"01_quant_metrics_{ticker}.json")
+    commentary_path = os.path.join(workspace_dir, f"02_llm_commentary_{ticker}.json")
+
+    for path in [report_file, printable_report_file, metrics_path, commentary_path]:
         if os.path.exists(path):
             try:
                 os.remove(path)
             except Exception:
                 pass
-
-    workspace_dir = os.path.join(BASE_DIR, "storage", "_workspace")
-    os.makedirs(workspace_dir, exist_ok=True)
-    metrics_path = os.path.join(workspace_dir, f"01_quant_metrics_{ticker}.json")
-    commentary_path = os.path.join(workspace_dir, f"02_llm_commentary_{ticker}.json")
 
     # ══════════════════════════════════════════════════════════
     # STEP 1: Quantitative Data Sourcing (yfinance)
