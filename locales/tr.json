@@ -1,0 +1,36 @@
+{
+  "nav": {
+    "executive_report": "Executive Report (Özet)",
+    "ai_blog": "AI Finansal Blog & Yatırımcı Bülteni",
+    "scorecard_360": "360° Şirket Karnesi",
+    "hendeks_catalysts": "Hendekler & Katalizörler",
+    "fx_sensitivity": "Ortaklık & FX Duyarlılığı",
+    "sector_peers": "Sektör & Rakip Karşılaştırma",
+    "statements_dupont": "Bilanço & DuPont Analizi",
+    "forward_estimates": "İleri Tahminler (2026E/27E)",
+    "valuation_2d": "Nicel Değerleme & 2D Duyarlılık",
+    "forensic_bubble": "Adli Denetim & Balon",
+    "historical_liquidity": "Tarihsel Finansallar & Likidite",
+    "reverse_dcf": "Ters DCF Hesaplayıcı",
+    "risk_summary": "Algoritmik Risk Modeli Özeti",
+    "ai_commentary": "AI Finansal Analiz Yorumu"
+  },
+  "dcf": {
+    "one_stage_title": "⚡ 1-Aşamalı Sonsuzluk",
+    "two_stage_title": "🚀 2-Aşamalı Kademeli Model",
+    "calc_title": "⚡ İnteraktif Ters DCF Hesaplayıcı",
+    "implied_growth": "Hesaplanan İmplike Büyüme ($g$)"
+  },
+  "disclaimer": "<strong>YASAL UYARI & YAPAY ZEKÂ SORUMLULUK BİLDİRİMİ:</strong> Burada yer alan yatırım bilgi, yorum ve değerlendirmeler yatırım danışmanlığı kapsamında değildir.",
+  "common": {
+    "excellent": "🟢 Mükemmel",
+    "very_strong": "🟢 Çok Güçlü",
+    "strong": "🟢 Güvenilir",
+    "safe": "🟢 Güvenli",
+    "overvalued": "🔴 Aşırı Pahalı",
+    "moderate": "🟡 Makul",
+    "weak": "🔴 Zayıf",
+    "high_risk": "🔴 Yüksek Risk",
+    "warning": "🟡 Uyarı"
+  }
+}

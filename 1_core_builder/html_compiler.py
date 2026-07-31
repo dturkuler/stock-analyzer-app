@@ -18,6 +18,12 @@ Usage:
 import json
 import math
 import datetime
+
+try:
+    from i18n import t
+except ImportError:
+    import importlib
+    t = importlib.import_module("1_core_builder.i18n").t
 import re
 
 
@@ -736,20 +742,20 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     <!-- Collapsible Menu Container -->
     <div id="sidebarMenuNav" class="sidebar-menu-nav">
       <ul class="nav-tabs">
-        <li class="nav-item active" onclick="switchTab('exec')" data-i18n="tab_exec">{"🏛️ Executive Summary" if is_en else "🏛️ Executive Report (Özet)"}</li>
-        <li class="nav-item" onclick="switchTab('blog')" data-i18n="tab_blog">{"📰 AI Stock Market Blog & Investor Briefing" if is_en else "📰 AI Finansal Blog & Yatırımcı Bülteni"}</li>
-        <li class="nav-item" onclick="switchTab('scorecard')" data-i18n="tab_scorecard">{"⭐ 360° Company Scorecard" if is_en else "⭐ 360° Şirket Karnesi"}</li>
-        <li class="nav-item" onclick="switchTab('qual')" data-i18n="tab_qual">{"🛡️ Moats & Catalysts" if is_en else "🛡️ Hendekler & Katalizörler"}</li>
-        <li class="nav-item" onclick="switchTab('ownership')" data-i18n="tab_ownership">{"👥 Ownership & FX Sensitivity" if is_en else "👥 Ortaklık & FX Duyarlılığı"}</li>
-        <li class="nav-item" onclick="switchTab('peer')" data-i18n="tab_peer">{"👥 Industry & Peer Comparison" if is_en else "👥 Sektör & Rakip Karşılaştırma"}</li>
-        <li class="nav-item" onclick="switchTab('statements')" data-i18n="tab_statements">{"📊 Financials & DuPont Analysis" if is_en else "📊 Bilanço & DuPont Analizi"}</li>
-        <li class="nav-item" onclick="switchTab('forward')" data-i18n="tab_forward">{"🔮 Forward Forecasts (2026E/27E)" if is_en else "🔮 İleri Tahminler (2026E/27E)"}</li>
-        <li class="nav-item" onclick="switchTab('quant')" data-i18n="tab_quant">{"🧮 Valuation & 2D Sensitivity" if is_en else "🧮 Nicel Değerleme & 2D Duyarlılık"}</li>
-        <li class="nav-item" onclick="switchTab('forensic')" data-i18n="tab_forensic">🔍 Adli Denetim & Balon</li>
-        <li class="nav-item" onclick="switchTab('ratios')" data-i18n="tab_ratios">📈 Tarihsel Finansallar & Likidite</li>
-        <li class="nav-item" onclick="switchTab('calc')" data-i18n="tab_calc">{"⚡ Reverse DCF Calculator" if is_en else "⚡ Ters DCF Hesaplayıcı"}</li>
-        <li class="nav-item" onclick="switchTab('verdict')" data-i18n="tab_verdict">{"🎯 Algorithmic Risk Model" if is_en else "🎯 Algoritmik Risk Modeli Özeti"}</li>
-        <li class="nav-item" onclick="switchTab('analyst')" data-i18n="tab_analyst">🤖 AI Finansal Analiz Yorumu</li>
+        <li class="nav-item active" onclick="switchTab('exec')" data-i18n="tab_exec">🏛️ {t("nav.executive_report", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('blog')" data-i18n="tab_blog">📰 {t("nav.ai_blog", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('scorecard')" data-i18n="tab_scorecard">⭐ {t("nav.scorecard_360", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('qual')" data-i18n="tab_qual">🛡️ {t("nav.hendeks_catalysts", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('ownership')" data-i18n="tab_ownership">👥 {t("nav.fx_sensitivity", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('peer')" data-i18n="tab_peer">👥 {t("nav.sector_peers", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('statements')" data-i18n="tab_statements">📊 {t("nav.statements_dupont", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('forward')" data-i18n="tab_forward">🔮 {t("nav.forward_estimates", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('quant')" data-i18n="tab_quant">🧮 {t("nav.valuation_2d", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('forensic')" data-i18n="tab_forensic">🔍 {t("nav.forensic_bubble", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('ratios')" data-i18n="tab_ratios">📈 {t("nav.historical_liquidity", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('calc')" data-i18n="tab_calc">⚡ {t("nav.reverse_dcf", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('verdict')" data-i18n="tab_verdict">🎯 {t("nav.risk_summary", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('analyst')" data-i18n="tab_analyst">🤖 {t("nav.ai_commentary", lang=lang)}</li>
       </ul>
     </div>
   </aside>
@@ -969,7 +975,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary.get("peer_comparison", "")}</div></div>
       </div>
       <div class="legal-disclaimer-footer">
-        {"<strong>DISCLAIMER & AI LIABILITY NOTICE:</strong> The information contained herein does not constitute investment advice. Generated using autonomous AI technologies." if is_en else "<strong>YASAL UYARI & YAPAY ZEKÂ SORUMLULUK BİLDİRİMİ:</strong> Burada yer alan yatırım bilgi, yorum ve değerlendirmeler yatırım danışmanlığı kapsamında değildir."}
+        {t("disclaimer", lang=lang)}
       </div>
     </div>
 

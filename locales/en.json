@@ -1,0 +1,36 @@
+{
+  "nav": {
+    "executive_report": "Executive Report",
+    "ai_blog": "AI Financial Blog & Investor Bulletin",
+    "scorecard_360": "360° Company Scorecard",
+    "hendeks_catalysts": "Hendeks & Catalysts",
+    "fx_sensitivity": "Partnership & FX Sensitivity",
+    "sector_peers": "Sector & Peer Benchmark",
+    "statements_dupont": "Balance Sheet & DuPont Analysis",
+    "forward_estimates": "Forward Estimates (2026E/27E)",
+    "valuation_2d": "Valuation & 2D Sensitivity",
+    "forensic_bubble": "Forensic Audit & Bubble",
+    "historical_liquidity": "Historical Financials & Liquidity",
+    "reverse_dcf": "Reverse DCF Calculator",
+    "risk_summary": "Algorithmic Risk Model Summary",
+    "ai_commentary": "AI Financial Analysis Commentary"
+  },
+  "dcf": {
+    "one_stage_title": "⚡ 1-Stage Perpetuity",
+    "two_stage_title": "🚀 2-Stage Fade Model",
+    "calc_title": "⚡ Interactive Reverse DCF Calculator",
+    "implied_growth": "Calculated Implied Growth ($g$)"
+  },
+  "disclaimer": "<strong>DISCLAIMER & AI LIABILITY NOTICE:</strong> The information contained herein does not constitute investment advice. Generated using autonomous AI technologies.",
+  "common": {
+    "excellent": "🟢 Excellent",
+    "very_strong": "🟢 Very Strong",
+    "strong": "🟢 Strong",
+    "safe": "🟢 Safe",
+    "overvalued": "🔴 Overvalued",
+    "moderate": "🟡 Moderate",
+    "weak": "🔴 Weak",
+    "high_risk": "🔴 High Risk",
+    "warning": "🟡 Warning"
+  }
+}
