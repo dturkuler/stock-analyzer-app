@@ -804,7 +804,7 @@ def get_stock_matrix(lang: str = "TR"):
         rs = metrics.get("relative_strength", {})
         rsi = rs.get("technical_indicators", {}).get("rsi_14", 50)
 
-        health_score = 10.0 if ("Safe Zone" in z_zone or z_score > 2.60) else (6.0 if "Grey Zone" in z_zone else 2.0)
+        health_score = 10.0 if ("Safe Zone" in z_zone or (z_score is not None and z_score > 2.60) or "Bank" in z_zone) else (6.0 if "Grey Zone" in z_zone else 2.0)
         cash_score = min(10.0, (pf_score / 9.0) * 10.0)
         growth_score = min(10.0, max(0.0, (dupont_roe / 25.0) * 10.0))
         val_score = 10.0 if (0 < ps_ratio < 3.0) else (6.0 if (0 < ps_ratio < 8.0) else 2.0)
@@ -831,12 +831,12 @@ def get_stock_matrix(lang: str = "TR"):
             "price": price,
             "market_cap": mcap,
             "piotroski_score": pf_score,
-            "altman_z_score": round(z_score, 2),
+            "altman_z_score": round(z_score, 2) if isinstance(z_score, (int, float)) else None,
             "altman_zone": z_zone,
             "beneish_m_score": round(m_score, 2),
             "beneish_safe": is_safe_m,
             "dupont_roe_pct": round(dupont_roe, 2),
-            "implied_growth_pct": round(implied_g * 100, 2),
+            "implied_growth_pct": round(implied_g * 100, 2) if isinstance(implied_g, (int, float)) else None,
             "ps_ratio": round(ps_ratio, 1),
             "pe_ratio": round(pe_ratio, 1),
             "rsi_14": round(rsi, 1),

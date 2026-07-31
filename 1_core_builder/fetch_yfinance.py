@@ -261,9 +261,12 @@ def compute_piotroski_f_score(history_metrics):
     rating = "Strong Financial Health (8-9)" if score >= 8 else ("Moderate Health (5-7)" if score >= 5 else "Weak/Distressed Health (0-4)")
     return {"score": score, "rating": rating, "breakdown": breakdown}
 
-def compute_altman_z_score(history_metrics, market_cap, ticker_symbol=""):
+def compute_altman_z_score(history_metrics, market_cap, ticker_symbol="", is_bank_sector=False):
     """Computes Altman Z-Score using exact balance sheet items.
-    Auto-detects Emerging Market / BIST (.IS) tickers and applies Altman Z''-Score."""
+    Auto-detects Emerging Market / BIST (.IS) tickers and applies Altman Z''-Score.
+    Excludes bank/financial sector firms where deposit liabilities skew Altman models."""
+    if is_bank_sector:
+        return {"z_score": None, "zone": "N/A (Bank Sector)", "model": "Bank Sector Excluded"}
     if not history_metrics:
         return {"z_score": 2.5, "zone": "Grey Zone", "model": "Altman Z (Default)"}
     
@@ -673,6 +676,7 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
         debt_weight = 0.0
         
     wacc = (equity_weight * cost_of_equity) + (debt_weight * cost_of_debt * (1 - tax_rate))
+    wacc = max(0.05, min(0.30, wacc))
     
     history_metrics = []
     for idx in range(len(years)):
@@ -791,15 +795,15 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
     implied_dcf_equity_value = implied_dcf_ev - net_debt
     implied_dcf_share_price = implied_dcf_equity_value / shares_outstanding if shares_outstanding > 0 else 0.0
     
-    implied_g_raw = 0.0
-    implied_g_sbc_adj = 0.0
+    implied_g_raw = None
+    implied_g_sbc_adj = None
     recent_sbc_adj_fcf = float(history_metrics[0]["sbc_adjusted_fcf"]) if len(history_metrics) > 0 else 0.0
     
     if enterprise_value > 0:
         if recent_fcf > 0:
-            implied_g_raw = (enterprise_value * wacc - recent_fcf) / (enterprise_value + recent_fcf)
+            implied_g_raw = round((enterprise_value * wacc - recent_fcf) / (enterprise_value + recent_fcf), 4)
         if recent_sbc_adj_fcf > 0:
-            implied_g_sbc_adj = (enterprise_value * wacc - recent_sbc_adj_fcf) / (enterprise_value + recent_sbc_adj_fcf)
+            implied_g_sbc_adj = round((enterprise_value * wacc - recent_sbc_adj_fcf) / (enterprise_value + recent_sbc_adj_fcf), 4)
             
     recent_rev_growth = growth_rates[0] if len(growth_rates) > 0 else 0.0
     rule_of_40_val = (recent_rev_growth + fcf_margins[0]) * 100.0 if len(fcf_margins) > 0 else 0.0
@@ -828,9 +832,12 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
         kelly = max(0.0, kelly)
         suggested_val = kelly * limit_cap * wacc_penalty
         suggested_weighting[f"{tier}_conviction_pct"] = round(min(limit_cap, suggested_val), 2)
-        
+    sector_str = str(info.get("sector", "") or "").lower()
+    industry_str = str(info.get("industry", "") or "").lower()
+    is_bank_sector = any(kw in sector_str or kw in industry_str for kw in ["bank", "financial", "insurance"])
+
     piotroski = compute_piotroski_f_score(history_metrics)
-    altman_z = compute_altman_z_score(history_metrics, market_cap, ticker_symbol=ticker_symbol)
+    altman_z = compute_altman_z_score(history_metrics, market_cap, ticker_symbol=ticker_symbol, is_bank_sector=is_bank_sector)
     dupont = compute_dupont_analysis(history_metrics)
     beneish_m = compute_beneish_m_score(history_metrics)
     dcf_2d_matrix = compute_2d_dcf_sensitivity(recent_fcf, net_debt, shares_outstanding, wacc)
@@ -872,9 +879,6 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
         "fcf_margin_pct": round(fcf_margin_val * 100.0, 2)
     }
 
-    sector_str = str(info.get("sector", "") or "").lower()
-    industry_str = str(info.get("industry", "") or "").lower()
-    is_bank_sector = any(kw in sector_str or kw in industry_str for kw in ["bank", "financial", "insurance"])
     pb_roe_fair = (bvps_val * (dupont.get("dupont_roe_pct", 15.0) / 100.0) / 0.10) if bvps_val > 0 else (current_price * 1.10)
     bank_valuation = {
         "is_bank_sector": is_bank_sector,

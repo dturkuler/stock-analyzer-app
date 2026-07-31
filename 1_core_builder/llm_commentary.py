@@ -60,7 +60,7 @@ GEREKLİ JSON ANAHTARLARI:
 16. "forensic_audit": Beneish M-Score adli muhasebe, balon uyarısı ve tahta sığlığı yorumu
 17. "scenario_analysis": Sert düşüş, Ayı, Baz ve Boğa senaryoları yorumu
 18. "investment_verdict": DENGELİ MODEL GÖRÜŞÜ ile başlayan nihai yatırım kararı sentezi
-19. "blog_headline": Şirket ve günün tarihine özel, her seviyeden bireysel yatırımcının rahatça anlayabileceği çekici bülten başlığı (örn. 📰 ODINE Analizi: Şirketin Kasası Para Dolu Ama Fiyatı Biraz Pahalı mı?)
+19. "blog_headline": Şirket ve günün tarihine özel, her seviyeden bireysel yatırımcının rahatça anlayabileceği çekici bülten başlığı (örn. 📰 [TICKER] Analizi: Şirketin Kasası Para Dolu Ama Fiyatı Biraz Pahalı mı?)
 20. "blog_summary": Bireysel yatırımcılara yönelik, 1-2 paragraflık sade ve anlaşılır günlük analiz özeti. Ağır finansal terimler kullanma; her terimi halk dilinde açıkla.
 21. "blog_cash_and_health": Şirketin finansal sağlığını ve kasadaki nakit birikimini esnaf/iş yeri benzetmeleriyle anlatan sade makale bölümü.
 22. "blog_earnings_quality": Şirketin kâr kalitesini ve 9 maddelik bilanço güven puanını (Piotroski) sade dille anlatan bölüm.
@@ -85,7 +85,7 @@ WRITING AND STYLE RULES (RETAIL INVESTOR FRIENDLY):
   * P/S Multiple $\rightarrow$ "Price Tag per Dollar of Sales"
   * Reverse DCF $\rightarrow$ "Market Growth Speedometer"
 - For Keys 19-27 (BLOG BRIEFING):
-  * "blog_headline": Catchy, plain-language title (e.g. 📰 ODINE Analysis: Solid Cash Cushion vs. High Price Tag)
+  * "blog_headline": Catchy, plain-language title (e.g. 📰 [TICKER] Analysis: Solid Cash Cushion vs. High Price Tag)
   * "blog_key_takeaways": Array of 3 plain-language summary bullet strings starting with bold labels ("Financial Health Excellent:", "Valuation High:", "Key Support Level:").
   * "blog_faqs": Array of 3 Q&A objects. THE FIRST QUESTION MUST BE EXACTLY: {"q": "❓ How would I personally approach [TICKER] stock right now? (Investor Perspective)", "a": "Concrete advice on position sizing (2.5%-5.0%), key 50-day moving average support, and dollar-cost averaging."}
 - Fully adhere to JSON format; do NOT wrap in markdown quotes or code blocks.
@@ -332,7 +332,8 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
     pf_score = pf.get("score", 0)
 
     az = metrics.get("altman_z_score", {})
-    z_score = az.get("z_score", 0.0)
+    z_score = az.get("z_score")
+    z_score_str = f"Z = {z_score:,.2f}" if isinstance(z_score, (int, float)) else "N/A"
     z_zone = az.get("zone", "Normal")
     beneish_m = metrics.get("beneish_m_score", {})
     bm_score = beneish_m.get("m_score", -2.85) if isinstance(beneish_m, dict) else -2.85
@@ -352,107 +353,67 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
     lang_upper = (lang or "TR").upper()
     is_bank = metrics.get("is_bank_sector", False)
 
+    implied_g_str = f"%{implied_g*100:.2f}" if isinstance(implied_g, (int, float)) else "N/A"
+
     if lang_upper == "EN":
         verdict_text = "BALANCED MODEL OUTLOOK (STRONG BALANCE SHEET / HIGH MULTIPLE BALANCE)"
-        strong = (
-            f"{company_name} ({ticker}) exhibits a robust financial position with net cash reserves "
-            f"(net cash: {curr_sym}{abs(net_debt)/1e6:,.1f}M). The zero-debt profile yields a low WACC of %{wacc*100:.2f}, "
-            f"shielding the company from high interest rate environments. Free Cash Flow (FCF) generation remains active."
-        )
-        weak = (
-            f"The primary risk factor for {company_name} is valuation premium. "
-            f"Price-to-Sales (P/S) ratio stands at {ps_ratio:.1f}x, elevated above industry averages. "
-            f"Cost pressures on operating income (EBIT: {curr_sym}{last_ebit/1e6:,.1f}M) could induce price volatility."
-        )
-        risk_disc = (
-            f"Statistical risk models suggest a position limit of 2.5% - 5.0% (Kelly limit). "
-            f"The 50-day moving average ({curr_sym}{sma50:,.2f}) serves as the primary technical support level."
-        )
-        scorecard_c = (
-            f"Our 360° Company Scorecard assigns {company_name} a quantitative rating based on Piotroski ({pf_score}/9) "
-            f"and Altman Z-Score (Z = {z_score:,.2f}, {z_zone}). Valuation P/S ratio is {ps_ratio:.1f}x."
-        )
-        piotroski_c = (
-            f"Piotroski F-Score audit rates the company at {pf_score}/9. Positive net income and operating cash flow "
-            f"confirm solid earnings quality."
-        )
-        altman_c = (
-            f"Altman Z-Score of Z = {z_score:,.2f} places the company in the Safe Zone ({z_zone}), "
-            f"indicating negligible insolvency risk over a 2-year horizon."
-        )
-        moat_c = (
-            f"{company_name} benefits from high switching costs embedded in its customer infrastructure. "
-            f"Key positive catalysts include upcoming contract renewals and sector tenders over the next 12 months."
-        )
-        ownership_c = (
-            f"The controlling interest structure provides lock-up stability against insider selling. "
-            f"FX-denominated revenue streams provide hedging against currency fluctuations."
-        )
-        peer_c = (
-            f"Compared to sector peers, {company_name} trades at a P/S multiple of {ps_ratio:.1f}x. "
-            f"Strong profit margins and cash conversion speed distinguish the firm from industry competitors."
-        )
-        dupont_c = (
-            f"DuPont 5-Step ROE decomposition highlights tax efficiency and interest burden advantages. "
-            f"Operating margin and asset turnover drive equity return metrics."
-        )
-        forward_c = (
-            f"For 2026E/2027E, revenue and profitability growth are projected to normalize the Forward P/S multiple "
-            f"from {ps_ratio:.1f}x down toward rational market multiples."
-        )
-        dcf_c = (
-            f"Calculated WACC is %{wacc*100:.2f} with a Reverse DCF implied growth rate of %{implied_g*100:.2f}. "
-            f"The company needs to grow annual FCF by a real %{implied_g*100:.2f} to justify current valuation."
-        )
-        tech_c = (
-            f"Technical indicators show price trading above the 50-day moving average ({curr_sym}{sma50:,.2f}). "
-            f"RSI and MACD support bullish momentum."
-        )
-        forensic_c = (
-            f"Forensic audit using Beneish M-Score ({bm_score:.2f}) evaluates earnings quality and accounting transparency."
-        )
-        scenario_c = (
-            f"Scenario analysis indicates the Base Case target supports current prices, while the Bear Case relies on the {curr_sym}{sma50:,.2f} support line."
-        )
-        if is_bank:
-            blog_headline_val = f"📰 {company_name} ({ticker}): Banking ROE & Book Value Valuation Analysis"
-        elif net_debt < 0:
-            blog_headline_val = f"📰 {company_name} ({ticker}): Solid Net Cash Reserves ({curr_sym}{abs(net_debt)/1e6:,.1f}M) vs. Valuation Multiples"
-        elif net_debt > 0 and (debt / max(1, mcap)) > 0.4:
-            blog_headline_val = f"📰 {company_name} ({ticker}): Financial Leverage Audit & Debt Structure Review"
-        elif pf_score >= 7:
-            blog_headline_val = f"📰 {company_name} ({ticker}): High Piotroski F-Score ({pf_score}/9) & Earnings Quality Audit"
-        else:
-            blog_headline_val = f"📰 {company_name} ({ticker}): 360° Financial Health & Valuation Audit"
-        bm_score = beneish_m.get("m_score", -2.85) if isinstance(beneish_m, dict) else -2.85
-        bm_safe = "Safe Zone" if bm_score < -1.78 else "Divergence Warning"
-
-        if net_debt < 0:
-            debt_desc_en = f"holds strong net cash reserves of {curr_sym}{abs(net_debt)/1e6:,.1f}M with zero net debt"
-            debt_shield_en = f"Net cash reserves of {curr_sym}{abs(net_debt)/1e6:,.1f}M provide strong protection against high interest rate environments."
-        else:
-            debt_desc_en = f"operates with net debt of {curr_sym}{net_debt/1e6:,.1f}M"
-            debt_shield_en = f"Total net debt of {curr_sym}{net_debt/1e6:,.1f}M requires continuous cash flow monitoring to maintain debt service coverage."
-
-        net_cash_m = abs(net_debt)/1e6 if net_debt < 0 else debt/1e6
+        net_cash_m = abs(net_debt)/1e6
         net_margin_pct = (hist[0].get('net_margin', hist[0].get('gross_margin', 0.16))*100) if hist else 16.2
 
-        blog_headline_val = f"📰 {ticker} Analysis: Solid Cash Cushion vs. High Price Tag"
-        blog_summary_val = f"{company_name} is one of the rare companies operating completely debt-free. It holds a solid {curr_sym}{net_cash_m:,.1f}M in net cash reserves. While this provides an immense safety shield, the only key thing for investors to watch out for is that the share price remains somewhat high."
-        blog_cash_and_health_val = f"Operating debt-free is a major advantage during periods of high interest rates. {company_name}'s {curr_sym}{net_cash_m:,.1f}M cash cushion acts as a powerful shield against potential market crises. Scoring an exceptionally high Z = {z_score:,.2f} on the Altman Z-Score insolvency safety test proves its financial health is rock solid."
-        blog_earnings_quality_val = f"Examining the company's overall balance sheet report card, it scores {pf_score} out of 9 on the Piotroski scale. Its net profit margin per sale sits at %{net_margin_pct:.1f}. Accounting records show clear and transparent financial reporting with no red flags."
-        blog_valuation_dcf_val = f"This is the main point requiring careful attention. Relative to its annual sales, the share price trades at a high level ({ps_ratio:.1f} times sales). This indicates the market is already pricing in strong future growth expectations, so patience may be wise before opening new positions."
-        blog_catalysts_val = f"Growth Opportunities:\n1) Core business expansion and major new contract signings.\n2) Efficient deployment of cash reserves for growth.\n\nRisk Radar:\n1) Price correction risks due to high valuation multiples.\n2) Breakdown below key technical support at {curr_sym}{sma50:,.2f}."
-        blog_bull_vs_bear_val = f"Bull Case: Debt-free balance sheet with a solid cash cushion provides strength and resilience.\n\nBear Case: High price-to-sales valuation demands sustained strong growth to prevent price pullbacks.\n\nRetail Investor Takeaway: Dollar-cost averaging in small steps (2.5%-5.0% position size) while maintaining stop-loss discipline is a prudent strategy."
-        blog_takeaways_val = [
-            f"Financial Health Excellent: Insolvency risk is practically non-existent with solid cash reserves of {curr_sym}{net_cash_m:,.1f}M.",
-            f"Valuation Tag High: The stock trades at a premium P/S multiple of {ps_ratio:.1f}x relative to sales.",
-            f"Key Support Level: The 50-day moving average at {curr_sym}{sma50:,.2f} serves as the primary safety floor."
-        ]
+        if net_debt < 0:
+            strong = (
+                f"{company_name} ({ticker}) exhibits a robust financial position with net cash reserves "
+                f"({curr_sym}{net_cash_m:,.1f}M). The net cash cushion yields a low WACC of %{wacc*100:.2f}, "
+                f"shielding the company from high interest rate environments."
+            )
+            blog_headline_val = f"📰 {ticker} Analysis: Solid Net Cash Cushion ({curr_sym}{net_cash_m:,.1f}M) vs. Price Tag"
+            blog_summary_val = f"{company_name} is one of the rare companies operating completely debt-free with a net cash position of {curr_sym}{net_cash_m:,.1f}M. While this provides an immense safety shield, investors should monitor its valuation multiple."
+            blog_cash_and_health_val = f"Operating debt-free is a major advantage during periods of high interest rates. {company_name}'s {curr_sym}{net_cash_m:,.1f}M cash cushion acts as a powerful shield against market volatility. Scoring {z_score_str} ({z_zone}) confirms its balance sheet health."
+            blog_bull_vs_bear_val = f"Bull Case: Net cash cushion of {curr_sym}{net_cash_m:,.1f}M provides strength and resilience during high interest rate environments.\n\nBear Case: Elevated valuation multiples require sustained earnings growth to support current stock prices.\n\nRetail Investor Takeaway: Dollar-cost averaging in small steps (2.5%-5.0% position size) while maintaining stop-loss discipline is a prudent strategy."
+            blog_takeaways_val = [
+                f"Financial Health Excellent: Low insolvency risk backed by solid net cash reserves of {curr_sym}{net_cash_m:,.1f}M.",
+                f"Valuation Tag: The stock trades at {ps_ratio:.1f}x Price-to-Sales relative to annual revenue.",
+                f"Key Support Level: The 50-day moving average at {curr_sym}{sma50:,.2f} serves as the primary safety floor."
+            ]
+            faq_ans_en = f"If I were managing a portfolio for {company_name}, I would maintain disciplined position sizing (2.5%-5.0% allocation). The net cash cushion of {curr_sym}{net_cash_m:,.1f}M provides solid downside protection."
+        else:
+            strong = (
+                f"{company_name} ({ticker}) exhibits a financial position with a net debt load of {curr_sym}{net_cash_m:,.1f}M on its balance sheet. "
+                f"Free Cash Flow generation and debt service coverage remain key operational metrics under current interest rates."
+            )
+            blog_headline_val = f"📰 {ticker} Analysis: Balance Sheet Debt Structure & Valuation Audit"
+            blog_summary_val = f"{company_name} carries a net debt position of {curr_sym}{net_cash_m:,.1f}M on its balance sheet. Financial leverage management and operating cash flows will be critical performance drivers over the upcoming quarters."
+            blog_cash_and_health_val = f"{company_name} operates with a net debt load of {curr_sym}{net_cash_m:,.1f}M. Under elevated interest rate environments, maintaining strong operating cash flows and interest coverage is essential."
+            blog_bull_vs_bear_val = f"Bull Case: Sustained operational cash flow growth and debt deleveraging could unlock significant equity upside.\n\nBear Case: High interest expense and debt service burdens could compress net profit margins if revenue slows.\n\nRetail Investor Takeaway: Limit position size to 2.5%-5.0% to manage balance sheet risk and monitor key support at {curr_sym}{sma50:,.2f}."
+            blog_takeaways_val = [
+                f"Debt Monitoring Critical: Net debt load of {curr_sym}{net_cash_m:,.1f}M requires continuous cash flow tracking.",
+                f"Valuation Tag: Stock trades at {ps_ratio:.1f}x Price-to-Sales relative to revenue.",
+                f"Key Support Level: The 50-day moving average at {curr_sym}{sma50:,.2f} serves as the primary technical floor."
+            ]
+            faq_ans_en = f"With {company_name} carrying {curr_sym}{net_cash_m:,.1f}M in net debt, I would restrict position size to 2.5%-5.0% to cap portfolio risk and keep a close eye on the {curr_sym}{sma50:,.2f} 50-day moving average support."
+
+        weak = f"The primary risk factor for {company_name} is valuation premium. Price-to-Sales (P/S) ratio stands at {ps_ratio:.1f}x."
+        risk_disc = f"Statistical risk models suggest a position limit of 2.5% - 5.0% (Kelly limit) with technical support at {curr_sym}{sma50:,.2f}."
+        scorecard_c = f"Our 360° Company Scorecard evaluates {company_name} on Piotroski ({pf_score}/9) and Altman Z ({z_score_str}, {z_zone})."
+        piotroski_c = f"Piotroski F-Score audit rates the company at {pf_score}/9 balance sheet quality."
+        altman_c = f"Altman Z-Score evaluation: {z_score_str} ({z_zone})."
+        moat_c = f"{company_name} benefits from sector infrastructure and contract pipeline catalysts."
+        ownership_c = f"Ownership structure provides stability against liquidity shocks."
+        peer_c = f"Compared to industry peers, {company_name} trades at a P/S multiple of {ps_ratio:.1f}x."
+        dupont_c = f"DuPont 5-Step ROE decomposition highlights operational margins and tax burden."
+        forward_c = f"Forward projections forecast valuation normalization toward historical industry averages."
+        dcf_c = f"Calculated WACC is %{wacc*100:.2f} with Reverse DCF growth tracking ({implied_g_str})."
+        tech_c = f"Technical indicators show 50-day moving average support at {curr_sym}{sma50:,.2f}."
+        forensic_c = f"Forensic audit using Beneish M-Score ({bm_score:.2f}) indicates transparent accounting."
+        scenario_c = f"Scenario analysis sets technical support at {curr_sym}{sma50:,.2f} as the primary Bear Case target."
+
+        blog_earnings_quality_val = f"Examining the balance sheet report card, the company scores {pf_score} out of 9 on the Piotroski scale with a net profit margin of %{net_margin_pct:.1f}."
+        blog_valuation_dcf_val = f"Relative to annual sales, the stock trades at {ps_ratio:.1f}x P/S. The market is pricing in forward growth expectations."
+        blog_catalysts_val = f"Growth Opportunities:\n1) Core business expansion and major new contract renewals.\n2) Deleveraging and cash flow optimization.\n\nRisk Radar:\n1) Interest rate sensitivity on debt service burdens.\n2) Breakdown below key technical support at {curr_sym}{sma50:,.2f}."
         blog_faqs_val = [
-            {"q": f"❓ How would I personally approach {ticker} stock right now? (Investor Perspective)", "a": f"If I were managing a portfolio for {company_name}, I would maintain disciplined position sizing within a 2.5% to 5.0% allocation limit. While the debt-free balance sheet (Altman Z = {z_score:,.2f}) provides a solid safety shield, the {ps_ratio:.1f}x P/S price tag means I would use dollar-cost averaging and keep the 50-day moving average ({curr_sym}{sma50:,.2f}) as my main protection line."},
-            {"q": f"❓ Is {ticker} stock suitable for beginner investors?", "a": f"{company_name} has practically zero insolvency risk (Altman Z = {z_score:,.2f}). However, due to price volatility, beginners should start small with 2.5%-5.0% of their portfolio."},
-            {"q": f"❓ Is {ticker}'s share price currently expensive?", "a": f"Yes, the stock trades at {ps_ratio:.1f}x Price-to-Sales, which is above industry average multiples."}
+            {"q": f"❓ How would I personally approach {ticker} stock right now? (Investor Perspective)", "a": faq_ans_en},
+            {"q": f"❓ Is {ticker} stock suitable for beginner investors?", "a": f"Beginners should start small (2.5%-5.0% allocation limit) and keep track of debt ratios and moving average support."},
+            {"q": f"❓ What is the primary risk factor for {ticker}?", "a": f"The primary risk factor centers around debt servicing under high interest rates and key technical support at {curr_sym}{sma50:,.2f}."}
         ]
     else:
         verdict_text = "DENGELİ MODEL GÖRÜŞÜ (FİNANSAL SAĞLIK VE DEĞERLEME DENGESİ)"
@@ -460,7 +421,6 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
         net_margin_pct = (hist[0].get('net_margin', hist[0].get('gross_margin', 0.16))*100) if hist else 16.2
         debt_desc_tr = f"kasasındaki {curr_sym}{net_cash_m:,.1f}M net nakit birikimi" if net_debt < 0 else f"{curr_sym}{net_cash_m:,.1f}M net borç pozisyonu"
 
-        bm_score = beneish_m.get("m_score", -2.85) if isinstance(beneish_m, dict) else -2.85
         bm_safe_tr = "Güvenli Bölge" if bm_score < -1.78 else "Sapma İkazı"
 
         strong = (
@@ -479,14 +439,14 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
         )
         scorecard_c = (
             f"360° Şirket Karnesi modelimiz {company_name} için finansal veriler doğrultusunda kapsamlı skor üretmektedir. "
-            f"Altman Z-Score Z = {z_score:,.2f} ({z_zone}) ve Piotroski F-Skoru {pf_score}/9 seviyesindedir."
+            f"Altman Z-Score ({z_score_str}, {z_zone}) ve Piotroski F-Skoru {pf_score}/9 seviyesindedir."
         )
         piotroski_c = (
             f"Piotroski F-Score denetiminde şirket {pf_score}/9 puan almıştır. "
             f"Faaliyet nakit akışı ve kârlılık rasyoları nakit kalitesini belirleyen ana faktörlerdir."
         )
         altman_c = (
-            f"Altman Z-Score skoru Z = {z_score:,.2f} ile {z_zone} konumundadır."
+            f"Altman Z-Score değerlendirmesi: {z_score_str} ({z_zone})."
         )
         moat_c = (
             f"{company_name}, kendi sektöründeki müşteri ağı ve operasyonel altyapısı ile faaliyetlerini sürdürmektedir."
@@ -505,7 +465,7 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
             f"{ps_ratio:.1f}x seviyesinden dengelenmesi öngörülmektedir."
         )
         dcf_c = (
-            f"Hesaplanan WACC %{wacc*100:.2f} ve Ters DCF implike büyüme oranı %{implied_g*100:.2f} olarak ölçülmüştür."
+            f"Hesaplanan WACC %{wacc*100:.2f} ve Ters DCF implike büyüme oranı {implied_g_str} olarak ölçülmüştür."
         )
         tech_c = (
             f"Teknik göstergelerde fiyat {curr_sym}{sma50:,.2f} olan 50 günlük hareketli ortalama seviyesindedir."
@@ -534,7 +494,68 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
             blog_headline_val = headline_tr
 
         blog_summary_val = summary_tr
-        blog_cash_and_health_val = f"{cash_health_tr} Şirketlerin batma riskini ölçen Altman Z-Score testinde {z_score:,.2f} puan alması, mali bünyesinin '{z_zone}' kategorisinde değerlendirildiğini gösteriyor."
+        blog_cash_and_health_val = f"{cash_health_tr} Altman Z-Score değerlendirmesi: {z_score_str} ({z_zone})."
+        blog_earnings_quality_val = f"Şirketin genel kârlılık karnesini incelediğimizde 9 üzerinden {pf_score} puan aldığını görüyoruz. Satışlarından elde ettiği kâr oranı %{net_margin_pct:.1f}. Şirket mali tablolarında dürüst ve şeffaf bir çizgi izliyor."
+        blog_valuation_dcf_val = f"Değerleme tarafında hisse fiyatı üretilen satışların {ps_ratio:.1f} katı seviyesinden işlem görüyor (P/S: {ps_ratio:.1f}x). Piyasa geleceğe yönelik büyüme beklentilerini fiyatlamaktadır."
+        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Sektörel iş hacmi büyümesi ve yeni sözleşmeler.\n2) Operasyonel nakit akışlarının güçlenmesi.\n\nKritik Riskler:\n1) Yüksek faiz ve borç maliyetlerinin kârlılık üzerindeki baskısı.\n2) {curr_sym}{sma50:,.2f} seviyesindeki teknik desteğin aşağı yönlü kırılması."
+        blog_bull_vs_bear_val = bull_bear_tr
+        blog_takeaways_val = [
+            takeaway_health_tr,
+            f"Fiyat Etiketi: Satışlarına kıyasla hisse fiyatı şu an ({ps_ratio:.1f} katı) seviyesinden işlem görüyor.",
+            f"Teknik Desteğe Dikkat: {curr_sym}{sma50:,.2f} seviyesindeki 50 günlük ortalama fiyat, takip edilmesi gereken ana sınır."
+        ]
+        blog_faqs_val = [
+            {"q": f"❓ {ticker} hissesine ben olsam şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": faq_ans_tr},
+            {"q": f"❓ {ticker} hissesi yeni başlayan biri için uygun mu?", "a": f"Yeni başlayan yatırımcıların borç yapısını ve dalgalanmaları dikkate alarak portföylerinin %2,5 ile %5,0'lik küçük bir kısmıyla hareket etmesi önerilir."},
+            {"q": f"❓ {ticker} hissesinde en büyük risk nedir?", "a": f"En büyük risk borç yükü, faiz maliyetleri ve hareketli ortalamalar etrafındaki fiyat düzeltmeleridir."}
+        ]
+        moat_c = (
+            f"{company_name}, kendi sektöründeki müşteri ağı ve operasyonel altyapısı ile faaliyetlerini sürdürmektedir."
+        )
+        ownership_c = (
+            f"Ortaklık yapısı ve döviz pozisyonu kur dalgalanmalarına karşı bilanço dengesini etkilemektedir."
+        )
+        peer_c = (
+            f"Sektör rakipleri ile yapılan karşılaştırmada {company_name}, {ps_ratio:.1f}x P/S çarpanı ile değerlendirilmektedir."
+        )
+        dupont_c = (
+            f"DuPont 5-Adım Özsermaye Kârlılığı (ROE) ayrıştırmasında Vergi Yükü, Faiz Yükü ve Faaliyet Marjı öne çıkmaktadır."
+        )
+        forward_c = (
+            f"Gelecek dönem projeksiyonlarında ciro ve kârlılığın artmasıyla birlikte İleri Fiyat/Satışlar (Forward P/S) çarpanının "
+            f"{ps_ratio:.1f}x seviyesinden dengelenmesi öngörülmektedir."
+        )
+        dcf_c = (
+            f"Hesaplanan WACC %{wacc*100:.2f} ve Ters DCF implike büyüme oranı {implied_g_str} olarak ölçülmüştür."
+        )
+        tech_c = (
+            f"Teknik göstergelerde fiyat {curr_sym}{sma50:,.2f} olan 50 günlük hareketli ortalama seviyesindedir."
+        )
+        forensic_c = f"Adli denetimde Beneish M-Score {bm_score:.2f} ile {bm_safe_tr} konumundadır."
+        scenario_c = f"Senaryo analizinde {curr_sym}{sma50:,.2f} teknik desteği ana tampon seviyesidir."
+
+        if net_debt < 0:
+            cash_health_tr = f"Bir şirketin borçsuz olması, yüksek faizlerin hüküm sürdüğü dönemlerde büyük bir avantajdır. {company_name}’in kasasındaki {curr_sym}{net_cash_m:,.1f} milyonluk nakit, şirketi olası krizlere karşı koruyan güçlü bir kalkan görevi görüyor."
+            summary_tr = f"{company_name}, cebinde hiç net borcu olmadan yola devam eden nadir şirketlerden biri. Kasasında tam {curr_sym}{net_cash_m:,.1f} milyon net nakit biriktirmiş durumda. Bu durum şirkete muazzam bir güvenlik kalkanı sağlarken, yatırımcıların dikkat etmesi gereken tek konu hisse fiyatının biraz yüksek kalması."
+            bull_bear_tr = f"Boğa Senaryosu: Şirket borçsuz ve kasası nakit dolu. Bu finansal güç, zorlu ekonomik koşullarda büyük bir avantaj ve büyüme fırsatı sunar.\n\nAyı Senaryosu: Mevcut hisse fiyatı şirketin kârına göre oldukça yüksek. Beklenen hızlı büyüme gelmezse fiyatta geri çekilmeler görülebilir.\n\nKüçük Yatırımcı İçin Tavsiye: Tüm paranızla tek seferde almak yerine, fiyat düştükçe parça parça (kademeli) alım yapmak ve zarar kes (stop-loss) seviyelerine sadık kalmak mantıklı bir strateji olabilir."
+            takeaway_health_tr = f"Finansal Sağlık Mükemmel: Şirketin iflas riski yok denecek kadar az. Kasasındaki nakit ({curr_sym}{net_cash_m:,.1f}M), zor günlerde en büyük güvencesi."
+            faq_ans_tr = f"Şirketin batma riski yok denecek kadar az olsa da (kasada {curr_sym}{net_cash_m:,.1f}M net nakit var) fiyatı biraz pahalı. Bir portföy yönetiyor olsaydım tüm parayla girmek yerine %2,5 ile %5,0'lik küçük bir adımla alım yapar, {curr_sym}{sma50:,.2f} olan 50 günlük ortalamayı koruma kalkanım yapardım."
+            headline_tr = f"📰 {ticker} Analizi: Şirketin Kasası Para Dolu Ama Fiyatı Biraz Pahalı mı?"
+        else:
+            cash_health_tr = f"{company_name}, bilançosunda toplam {curr_sym}{net_cash_m:,.1f} milyon net borç yükü taşımaktadır. Yüksek faiz ortamında borç servis oranları ve işletme nakit akışlarının sürdürülebilirliği yakından takip edilmelidir."
+            summary_tr = f"{company_name}, bilançosunda {curr_sym}{net_cash_m:,.1f} milyon net borç ile faaliyetlerini sürdürmektedir. Finansal borç yönetimi ve nakit akış performansı önümüzdeki dönemde hisse değerlemesi açısından kritik öneme sahiptir."
+            bull_bear_tr = f"Boğa Senaryosu: Borç servis kapasitesinin korunması ve operasyonel nakit akışlarının artması bilançoyu rahatlatabilir.\n\nAyı Senaryosu: Yüksek borç yükü ve faiz maliyetleri kârlılık üzerinde baskı yaratabilir.\n\nKüçük Yatırımcı İçin Tavsiye: Borç yapısı nedeniyle pozisyon büyüklüğü %2,5 - %5,0 ile sınırlandırılmalı ve 50 günlük ortalama seviyesi ({curr_sym}{sma50:,.2f}) yakından izlenmelidir."
+            takeaway_health_tr = f"Borç Yönetimi Kritik: Bilançodaki {curr_sym}{net_cash_m:,.1f}M net borç yükü faiz ortamında yakından izlenmeli."
+            faq_ans_tr = f"Şirketin bilançosunda {curr_sym}{net_cash_m:,.1f}M net borç yükü bulunmaktadır. Bir portföy yönetiyor olsaydım riski sınırlamak adına pozisyon büyüklüğünü %2,5 - %5,0 bandında tutar ve {curr_sym}{sma50:,.2f} teknik desteğine sadık kalırdım."
+            headline_tr = f"📰 {ticker} Analizi: Bilanço Borç Yapısı ve 360° Değerleme Raporu"
+
+        if is_bank:
+            blog_headline_val = f"📰 {ticker} Analizi: Bankacılık Özsermaye Kârlılığı ve Defter Değeri Dengesi"
+        else:
+            blog_headline_val = headline_tr
+
+        blog_summary_val = summary_tr
+        blog_cash_and_health_val = f"{cash_health_tr} Altman Z-Score değerlendirmesi: {z_score_str} ({z_zone})."
         blog_earnings_quality_val = f"Şirketin genel kârlılık karnesini incelediğimizde 9 üzerinden {pf_score} puan aldığını görüyoruz. Satışlarından elde ettiği kâr oranı %{net_margin_pct:.1f}. Şirket mali tablolarında dürüst ve şeffaf bir çizgi izliyor."
         blog_valuation_dcf_val = f"Değerleme tarafında hisse fiyatı üretilen satışların {ps_ratio:.1f} katı seviyesinden işlem görüyor (P/S: {ps_ratio:.1f}x). Piyasa geleceğe yönelik büyüme beklentilerini fiyatlamaktadır."
         blog_catalysts_val = f"Büyüme Fırsatları:\n1) Sektörel iş hacmi büyümesi ve yeni sözleşmeler.\n2) Operasyonel nakit akışlarının güçlenmesi.\n\nKritik Riskler:\n1) Yüksek faiz ve borç maliyetlerinin kârlılık üzerindeki baskısı.\n2) {curr_sym}{sma50:,.2f} seviyesindeki teknik desteğin aşağı yönlü kırılması."

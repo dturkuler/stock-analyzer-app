@@ -214,18 +214,22 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     pf_bd = pf.get("breakdown", {})
 
     az = metrics.get("altman_z_score", {})
-    z_score = az.get("z_score", 0)
-    if is_en:
-        if z_score > 2.99:
+    z_score = az.get("z_score")
+    if z_score is None:
+        z_zone = "N/A (Bank Sector)" if is_en else "N/A (Bankacılık Sektörü)"
+    elif az.get("zone"):
+        z_zone = az.get("zone")
+    elif is_en:
+        if z_score > 2.60:
             z_zone = "Safe Zone (Low Insolvency Risk)"
-        elif z_score >= 1.81:
+        elif z_score >= 1.10:
             z_zone = "Grey Zone (Moderate Insolvency Risk)"
         else:
             z_zone = "Distress Zone (High Insolvency Risk)"
     else:
-        if z_score > 2.99:
+        if z_score > 2.60:
             z_zone = "Güvenli Bölge (Düşük İflas Riski)"
-        elif z_score >= 1.81:
+        elif z_score >= 1.10:
             z_zone = "Gri Bölge (Orta Derece Risk)"
         else:
             z_zone = "Riskli Bölge (Yüksek İflas Riski)"
@@ -273,20 +277,22 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     score_growth = min(10.0, max(1.0, round(min(10.0, (fcf_margin_pct / 2.0) + (dp.get("dupont_roe_pct", 0) / 4.0)), 1)))
     score_moat = min(10.0, max(1.0, round(min(10.0, (last_ebit / last_rev * 20.0) if last_rev > 0 else 5.0), 1)))
     score_forensic = 9.0 if beneish_score <= -1.78 else 3.0
-    if z_score < 1.81:
-        score_forensic = min(score_forensic, 2.0)
-    elif z_score < 2.99:
-        score_forensic = min(score_forensic, 5.0)
+    if z_score is not None:
+        if z_score < 1.10:
+            score_forensic = min(score_forensic, 2.0)
+        elif z_score < 2.60:
+            score_forensic = min(score_forensic, 5.0)
         
     score_val = min(10.0, max(1.0, round(max(1.0, 10.0 - (ps_ratio * 0.8)), 1)))
     score_composite = round((score_health + score_growth + score_moat + score_forensic + score_val) / 5.0, 1)
     volatility_risk_score = int(min(90, max(15, round(ti.get("rsi_14", 50.0) * 0.8 + (20.0 if beta > 1.2 else 5.0)))))
 
-    # Macro shock fair values
-    fair_base = price * 1.10
-    fair_shock1 = price * 0.36
-    fair_shock2 = price * 0.18
-    fair_shock3 = price * 0.08
+    # Beta-adjusted dynamic macro shock fair values
+    eff_beta = max(0.5, min(2.5, beta))
+    fair_base = round(price * 1.10, 2)
+    fair_shock1 = round(price * max(0.35, 1.0 - (0.40 * eff_beta)), 2)
+    fair_shock2 = round(price * max(0.20, 1.0 - (0.60 * eff_beta)), 2)
+    fair_shock3 = round(price * max(0.08, 1.0 - (0.80 * eff_beta)), 2)
 
     # Price differences
     sma50_diff = ((sma50 / price) - 1) * 100 if price > 0 else 0
@@ -1144,7 +1150,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           </div>
           <div style="display:flex; flex-direction:column; gap:0.5rem;">
             <label style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">{"Terminal Growth ($g$):" if is_en else "Terminal Büyüme Oranı ($g$):"} <strong id="growthValLbl" style="color:var(--accent-emerald); font-family:var(--font-mono);">{_fmt_pct(implied_g)}</strong></label>
-            <input type="range" id="growthSlider" min="1.0" max="6.0" step="0.5" value="{round(implied_g*100, 1) if implied_g > 0 else 3.5}" oninput="document.getElementById('growthValLbl').innerText = '%' + this.value;">
+            <input type="range" id="growthSlider" min="1.0" max="6.0" step="0.5" value="{round(implied_g*100, 1) if (isinstance(implied_g, (int, float)) and implied_g > 0) else 3.5}" oninput="document.getElementById('growthValLbl').innerText = '%' + this.value;">
           </div>
         </div>
         <table>{dcf_matrix_html}</table>
