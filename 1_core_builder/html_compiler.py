@@ -1215,7 +1215,13 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       </div>
 
       <div class="calc-box">
-        <h3 class="card-title">{"⚡ Interactive Reverse DCF Calculator" if is_en else "⚡ İnteraktif Ters DCF Hesaplayıcı"}</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
+          <h3 class="card-title" style="margin-bottom:0;">{"⚡ Interactive Reverse DCF Calculator" if is_en else "⚡ İnteraktif Ters DCF Hesaplayıcı"}</h3>
+          <div style="display:flex; gap:0.5rem; background:rgba(20,27,45,0.7); padding:0.25rem; border-radius:8px; border:1px solid var(--panel-border);">
+            <button id="dcfModelTab1" class="btn btn-sm btn-primary" onclick="setDcfModelMode('1stage')" style="padding:0.35rem 0.75rem; font-size:0.8rem;">{"⚡ 1-Stage Perpetuity" if is_en else "⚡ 1-Aşamalı Sonsuzluk"}</button>
+            <button id="dcfModelTab2" class="btn btn-sm btn-outline" onclick="setDcfModelMode('2stage')" style="padding:0.35rem 0.75rem; font-size:0.8rem;">{"🚀 2-Stage Fade Model" if is_en else "🚀 2-Aşamalı Kademeli Model"}</button>
+          </div>
+        </div>
         <div class="grid-3" style="margin-bottom:1rem;">
           <div class="form-group">
             <label>{"Enterprise Value (EV - $ Million)" if is_en else "Firma Değeri (EV - ₺ Milyon)"}</label>
