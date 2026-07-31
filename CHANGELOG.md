@@ -5,6 +5,25 @@ All notable changes to the Stock Analyzer Platform project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-07-31
+
+### 🚀 Major v2 Architectural & UI/UX Redesign
+- **Top Navigation Restructuring**: Replaced mode select dropdown with top-level view buttons (`[ 📈 Single Ticker View ]`, `[ 📄 PDF View ]`, `[ 📊 All-Stocks Matrix ]`, and `[ 🖨️ Export PDF ]`).
+- **Sector-Dynamic Banking Valuation Engine**: Integrated automatic banking sector detection. Financial institution reports dynamically substitute traditional DCF models with Price-to-Book vs. ROE (PB-ROE) regression and Dividend Discount Models (DDM).
+- **Interactive 2D DCF Slider Sandbox**: Added real-time WACC and Growth range sliders above the DCF sensitivity matrix with instant client-side recalculations.
+- **Multilingual i18n System**: Implemented full Turkish and English internationalization (`TR`/`EN`) across navigation headers, modal dialogs, analyst commentary, and iframe views.
+- **Dynamic Metric-Driven AI Blog Engine**: Upgraded `llm_commentary.py` to evaluate ticker metrics dynamically to generate unique, stock-tailored investor bülten headlines and insights.
+
+### 🐛 Bug Fixes & Stability
+- **Admin Log Drawer Isolation**: Fixed HTML template container nesting in `main.py` by isolating `#adminDomainTabLogs` in its own top-level container div.
+- **Console Log Overwrite Cleanup**: Removed `data-i18n="log_loading"` attribute on `#fileConsoleBox` which previously overwrote loaded log text upon language switching.
+- **`jumpToLog` Controller Fix**: Updated `jumpToLog()` function in `main.py` to target the `'logs'` tab instead of `'settings'`.
+- **Pre-Rendered Report Cache Regeneration**: Regenerated all stored HTML reports under `storage/reports/` to refresh pre-compiled files with dynamic headlines.
+- **Multilingual Variable Scoping**: Resolved `UnboundLocalError` in `_fallback_commentary()` by properly scoping `is_bank`, `net_debt`, and `beneish_m` variables.
+- **Blog Net Debt Stat Labeling**: Added dynamic sign evaluation (`net_debt < 0`) to distinguish "Net Nakit Deposu" from "Net Borç Pozisyonu" in blog cards.
+
+---
+
 ## [1.7.2] - 2026-07-30
 
 ### 🧮 Advanced Quantitative Models & Financial Formulas

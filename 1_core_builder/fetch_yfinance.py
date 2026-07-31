@@ -821,9 +821,24 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
         "fcf_margin_pct": round(fcf_margin_val * 100.0, 2)
     }
 
+    sector_str = str(info.get("sector", "") or "").lower()
+    industry_str = str(info.get("industry", "") or "").lower()
+    is_bank_sector = any(kw in sector_str or kw in industry_str for kw in ["bank", "financial", "insurance"])
+    pb_roe_fair = (bvps_val * (dupont.get("dupont_roe_pct", 15.0) / 100.0) / 0.10) if bvps_val > 0 else (current_price * 1.10)
+    bank_valuation = {
+        "is_bank_sector": is_bank_sector,
+        "sector_name": info.get("sector", "Financial Services"),
+        "pb_roe_fair": round(pb_roe_fair, 2),
+        "pb_ratio": round(market_cap / (bvps_val * shares_outstanding) if (bvps_val > 0 and shares_outstanding > 0) else 1.2, 2),
+        "target_pb_ratio": 1.5,
+        "roe_pct": dupont.get("dupont_roe_pct", 0)
+    }
+
     data = {
         "ticker": ticker_symbol,
         "name": c_name,
+        "is_bank_sector": is_bank_sector,
+        "bank_valuation": bank_valuation,
         "market_info": {
             "market_cap": market_cap,
             "enterprise_value": enterprise_value,

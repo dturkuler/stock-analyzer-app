@@ -944,7 +944,7 @@ def get_report(ticker: str, date: str, mode: str = "dashboard"):
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    html_content = """
+    html_content = r"""
     <!DOCTYPE html>
     <html lang="tr">
     <head>
@@ -953,26 +953,31 @@ def index():
         <title>Stock Research Platform & Admin Panel</title>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
         <style>
             :root {
-                --bg-dark: #0b0f19;
-                --panel-bg: #141b2d;
-                --panel-border: rgba(255, 255, 255, 0.1);
-                --accent-cyan: #06b6d4;
+                --bg-dark: #0f172a;
+                --panel-bg: #1e293b;
+                --panel-hover: #334155;
+                --panel-border: #334155;
+                --accent-cyan: #3b82f6;
                 --accent-emerald: #10b981;
                 --accent-amber: #f59e0b;
-                --accent-rose: #f43f5e;
+                --accent-rose: #ef4444;
                 --accent-purple: #8b5cf6;
-                --text-main: #f3f4f6;
-                --text-muted: #9ca3af;
-                --body-bg: #0b0f19;
-                --input-bg: #1a202c;
-                --input-border: #374151;
+                --text-main: #f8fafc;
+                --text-muted: #94a3b8;
+                --body-bg: #0f172a;
+                --input-bg: #0f172a;
+                --input-border: #334155;
+                --font-brand: 'Outfit', sans-serif;
+                --font-body: 'Inter', system-ui, sans-serif;
+                --font-mono: 'Fira Code', monospace;
             }
             [data-theme="light"] {
                 --bg-dark: #f8fafc;
                 --panel-bg: #ffffff;
+                --panel-hover: #f1f5f9;
                 --panel-border: #cbd5e1;
                 --accent-cyan: #0284c7;
                 --accent-emerald: #059669;
@@ -985,6 +990,10 @@ def index():
                 --input-bg: #ffffff;
                 --input-border: #cbd5e1;
             }
+            .metric-val, .table-num, .financial-data, .hud-val {
+                font-family: var(--font-mono);
+                font-variant-numeric: tabular-nums;
+            }
             html, body {
                 margin: 0;
                 padding: 0;
@@ -995,7 +1004,7 @@ def index():
                 position: fixed;
                 top: 0;
                 left: 0;
-                font-family: 'Inter', sans-serif;
+                font-family: var(--font-body);
                 background: var(--bg-dark);
                 color: var(--text-main);
                 display: flex;
@@ -1004,28 +1013,58 @@ def index():
             }
 
             header { background: var(--panel-bg); padding: 0.6rem 1rem; display: flex; gap: 1rem; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--panel-border); flex-shrink: 0; z-index: 1000; width: 100%; box-sizing: border-box; transition: background 0.3s ease; }
-            .header-left { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; flex: 1; min-width: 0; }
-            .brand { font-family: 'Outfit', sans-serif; font-size: 1.2rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; }
+            .header-left { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; flex: 1; min-width: 0; }
+            .brand { font-family: var(--font-brand); font-size: 1.2rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; }
             .brand-badge { background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple)); color: #fff; font-size: 0.65rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 700; }
 
-            .controls { display: flex; align-items: center; gap: 1rem; }
-            .control-group { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
+            .controls { display: flex; align-items: center; gap: 0.75rem; }
+            .control-group { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: var(--text-muted); }
             select, input { background: var(--input-bg); color: var(--text-main); border: 1px solid var(--input-border); padding: 0.45rem 0.8rem; border-radius: 6px; font-size: 0.85rem; outline: none; transition: border-color 0.2s, background-color 0.3s, color 0.3s; }
             select:focus, input:focus { border-color: var(--accent-cyan); }
             
             .btn { background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); color: var(--text-main); padding: 0.45rem 0.9rem; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; transition: all 0.2s; }
-            .btn:hover { background: rgba(6, 182, 212, 0.15); border-color: var(--accent-cyan); color: var(--accent-cyan); }
+            .btn:hover { background: rgba(59, 130, 246, 0.15); border-color: var(--accent-cyan); color: var(--accent-cyan); }
             .btn-primary { background: linear-gradient(135deg, var(--accent-cyan), #0284c7); border: none; color: #fff; }
             .btn-primary:hover { opacity: 0.9; color: #fff; }
-            .btn-danger { background: rgba(244, 63, 94, 0.15); border-color: var(--accent-rose); color: var(--accent-rose); }
+            .btn-danger { background: rgba(239, 68, 68, 0.15); border-color: var(--accent-rose); color: var(--accent-rose); }
             .btn-danger:hover { background: var(--accent-rose); color: #fff; }
 
             #contentFrame { width: 100%; flex: 1 1 0%; min-height: 0; border: none; background: var(--bg-dark); -webkit-overflow-scrolling: touch; transition: background 0.3s ease; }
 
-            /* Modal Overlay */
-            .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); z-index: 1000; justify-content: center; align-items: center; }
+            /* Slide-Over Admin Drawer */
+            .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); z-index: 1000; justify-content: flex-end; align-items: stretch; }
             .modal-backdrop.active { display: flex; }
-            .modal { background: var(--panel-bg); color: var(--text-main); border: 1px solid var(--panel-border); border-radius: 12px; width: 90%; max-width: 1050px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3); transition: background 0.3s ease; }
+            .modal { background: var(--panel-bg); color: var(--text-main); border-left: 1px solid var(--panel-border); width: 520px; max-width: 100vw; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; box-shadow: -10px 0 30px rgba(0,0,0,0.5); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease; border-radius: 0; }
+            .modal-backdrop.active .modal { transform: translateX(0); }
+
+            /* Command Palette Modal Overlay */
+            .cmd-palette-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 2000; justify-content: center; align-items: flex-start; padding-top: 10vh; }
+            .cmd-palette-backdrop.active { display: flex; }
+            .cmd-palette-card { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 12px; width: 90%; max-width: 600px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden; display: flex; flex-direction: column; }
+            .cmd-search-header { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--panel-border); }
+            .cmd-search-header input { flex: 1; background: transparent; border: none; font-size: 1.05rem; color: var(--text-main); outline: none; }
+            .cmd-badge { background: rgba(255,255,255,0.1); color: var(--text-muted); font-family: var(--font-mono); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; }
+            .cmd-results-list { max-height: 340px; overflow-y: auto; padding: 0.5rem; }
+            .cmd-result-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer; transition: background 0.15s ease; }
+            .cmd-result-item:hover, .cmd-result-item.selected { background: rgba(59, 130, 246, 0.15); color: var(--accent-cyan); }
+            .cmd-footer { display: flex; gap: 1rem; padding: 0.6rem 1.25rem; background: rgba(0,0,0,0.2); border-top: 1px solid var(--panel-border); font-size: 0.75rem; color: var(--text-muted); }
+
+            /* Financial Health HUD Cards in Header */
+            .hud-cards-container { display: flex; align-items: center; gap: 0.5rem; overflow-x: auto; margin-left: 0.5rem; }
+            .hud-card { background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); border-radius: 6px; padding: 0.3rem 0.6rem; display: flex; flex-direction: column; gap: 0.1rem; cursor: pointer; transition: border-color 0.2s, background 0.2s; min-width: 75px; }
+            .hud-card:hover { border-color: var(--accent-cyan); background: rgba(59, 130, 246, 0.08); }
+            .hud-title { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+            .hud-val { font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 0.25rem; font-family: var(--font-mono); }
+
+            .piotroski-steps { display: flex; gap: 2px; margin-top: 2px; }
+            .piotroski-step { width: 5px; height: 4px; border-radius: 1px; background: rgba(255,255,255,0.15); }
+            .piotroski-step.active-green { background: #10b981; }
+            .piotroski-step.active-amber { background: #f59e0b; }
+            .piotroski-step.active-red { background: #ef4444; }
+
+            /* Generic Tooltip Popup */
+            #hudTooltip { position: fixed; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.8rem; color: var(--text-main); box-shadow: 0 10px 25px rgba(0,0,0,0.4); z-index: 3000; pointer-events: none; opacity: 0; transition: opacity 0.15s ease; max-width: 280px; line-height: 1.45; }
+            #hudTooltip.active { opacity: 1; }
             .modal-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--panel-border); display: flex; justify-content: space-between; align-items: center; }
             .modal-title { font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
             .close-btn { background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; }
@@ -1207,6 +1246,11 @@ def index():
         <header>
             <div class="header-left">
                 <div class="brand">🏛️ Stock Research Platform</div>
+                <button class="btn" onclick="openCommandPalette()" title="Universal Ticker Search (⌘K / Ctrl+K)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <span style="font-size:0.8rem; margin-right:0.2rem;">Ara / Search</span>
+                    <kbd class="cmd-badge">⌘K</kbd>
+                </button>
                 <div class="control-group">
                     <label for="tickerSelect">📈</label>
                     <select id="tickerSelect" onchange="loadDates()"></select>
@@ -1215,13 +1259,35 @@ def index():
                     <label for="dateSelect">📅</label>
                     <select id="dateSelect" onchange="loadReport()"></select>
                 </div>
-                <div class="control-group">
-                    <label for="modeSelect">👁️</label>
-                    <select id="modeSelect" onchange="loadReport()">
-                        <option value="matrix" data-i18n="opt_matrix" selected>📊 Tüm Hisseler Matrisi</option>
-                        <option value="dashboard" data-i18n="opt_dashboard">📊 İnteraktif</option>
-                        <option value="printable" data-i18n="opt_printable">📄 PDF</option>
-                    </select>
+                <div style="display:flex; gap:0.4rem; align-items:center;">
+                    <button id="navBtnTickerAudit" class="btn btn-primary" onclick="switchToTickerAuditView()" data-i18n="nav_audit">📈 Single Ticker View</button>
+                    <button id="navBtnPdfView" class="btn" onclick="switchToPdfView()" data-i18n="nav_pdf">📄 PDF View</button>
+                    <button id="navBtnMatrix" class="btn" onclick="switchToMatrixView()" data-i18n="nav_matrix">📊 All-Stocks Matrix</button>
+                </div>
+
+                <!-- Financial Health HUD Mini-Cards -->
+                <div id="hudCardsContainer" class="hud-cards-container" style="display:none;">
+                    <div id="hudCardPiotroski" class="hud-card" onmouseenter="showHudTooltip(event, 'piotroski')" onmouseleave="hideHudTooltip()">
+                        <div class="hud-title">Piotroski F</div>
+                        <div id="hudValPiotroski" class="hud-val">-</div>
+                        <div id="piotroskiStepsBar" class="piotroski-steps"></div>
+                    </div>
+                    <div id="hudCardAltman" class="hud-card" onmouseenter="showHudTooltip(event, 'altman')" onmouseleave="hideHudTooltip()">
+                        <div class="hud-title">Altman Z</div>
+                        <div id="hudValAltman" class="hud-val">-</div>
+                    </div>
+                    <div id="hudCardBeneish" class="hud-card" onmouseenter="showHudTooltip(event, 'beneish')" onmouseleave="hideHudTooltip()">
+                        <div class="hud-title">Beneish M</div>
+                        <div id="hudValBeneish" class="hud-val">-</div>
+                    </div>
+                    <div id="hudCardDupont" class="hud-card" onmouseenter="showHudTooltip(event, 'dupont')" onmouseleave="hideHudTooltip()">
+                        <div class="hud-title">DuPont ROE</div>
+                        <div id="hudValDupont" class="hud-val">-</div>
+                    </div>
+                    <div id="hudCardDcf" class="hud-card" onmouseenter="showHudTooltip(event, 'dcf')" onmouseleave="hideHudTooltip()">
+                        <div class="hud-title">DCF Hedef</div>
+                        <div id="hudValDcf" class="hud-val">-</div>
+                    </div>
                 </div>
             </div>
             <div class="icon-tools-group">
@@ -1236,14 +1302,34 @@ def index():
             </div>
         </header>
 
+        <!-- Tooltip Element -->
+        <div id="hudTooltip"></div>
+
+        <!-- COMMAND PALETTE OVERLAY MODAL -->
+        <div id="commandPaletteModal" class="cmd-palette-backdrop" onclick="if(event.target===this) closeCommandPalette()">
+            <div class="cmd-palette-card">
+                <div class="cmd-search-header">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="cmdSearchInput" placeholder="Hisse veya şirket adı ara (Örn: THYAO, AAPL)..." autocomplete="off" oninput="onCommandSearchInput()" onkeydown="onCommandSearchKeydown(event)">
+                    <kbd class="cmd-badge">ESC</kbd>
+                </div>
+                <div id="cmdSearchResults" class="cmd-results-list"></div>
+                <div class="cmd-footer">
+                    <span><kbd>↑</kbd> <kbd>↓</kbd> Gezinme</span>
+                    <span><kbd>↵</kbd> Seçme</span>
+                    <span><kbd>ESC</kbd> Kapat</span>
+                </div>
+            </div>
+        </div>
+
         <iframe id="contentFrame" onload="syncIframeTheme(); notifyIframeLanguage();"></iframe>
         <div id="matrixContainer" style="display:none; flex:1; overflow-y:auto; padding:1.5rem; background:var(--body-bg);"></div>
 
-        <!-- ADMIN MODAL -->
+        <!-- SLIDE-OVER ADMIN DRAWER -->
         <div id="adminModal" class="modal-backdrop">
             <div class="modal">
                 <div class="modal-header">
-                    <div class="modal-title" data-i18n="modal_title">⚙️ Hisse Yönetim, LLM & Sistem Logları Paneli</div>
+                    <div class="modal-title" data-i18n="modal_title">⚙️ Hisse Yönetim & Sistem Paneli</div>
                     <button class="close-btn" onclick="closeAdminModal()">&times;</button>
                 </div>
                 <div class="modal-body">
@@ -1265,6 +1351,7 @@ def index():
                         <div class="admin-nav-bar">
                             <div id="adminNavTabStocks" class="admin-nav-tab active" onclick="switchAdminTab('stocks')" data-i18n="admin_tab_stocks">📈 Hisse Yönetimi</div>
                             <div id="adminNavTabSettings" class="admin-nav-tab" onclick="switchAdminTab('settings')" data-i18n="admin_tab_settings">⚙️ Sistem & LLM Ayarları</div>
+                            <div id="adminNavTabLogs" class="admin-nav-tab" onclick="switchAdminTab('logs')" data-i18n="admin_tab_logs">📜 Log Konsolu</div>
                         </div>
 
                         <!-- DOMAIN TAB 1: STOCKS MANAGEMENT -->
@@ -1308,12 +1395,10 @@ def index():
                                     </table>
                                 </div>
                             </div>
-
                         </div>
 
                         <!-- DOMAIN TAB 2: SYSTEM & LLM SETTINGS -->
                         <div id="adminDomainTabSettings" style="display:none; flex-direction:column; gap:1.5rem;">
-
                             <!-- SECTION 1: LLM & SYSTEM SETTINGS (.ENV EDITOR) -->
                             <div class="admin-card">
                                 <div class="card-heading">
@@ -1323,7 +1408,10 @@ def index():
                                 <div class="settings-grid">
                                     <div class="form-field">
                                         <label data-i18n="lbl_admin_pass">Yönetici Şifresi:</label>
-                                        <input type="password" id="settingAdminPassword" data-i18n-ph="ph_setting_admin_pass" placeholder="Yönetici şifresi">
+                                        <div style="display:flex; gap:0.4rem;">
+                                            <input type="password" id="settingAdminPassword" data-i18n-ph="ph_setting_admin_pass" placeholder="Yönetici şifresi" style="flex:1;">
+                                            <button type="button" class="btn" onclick="togglePasswordVisibility('settingAdminPassword', this)" title="Göster / Gizle">👁️</button>
+                                        </div>
                                     </div>
                                     <div class="form-field">
                                         <label data-i18n="lbl_llm_model">LLM Model Adı:</label>
@@ -1343,7 +1431,10 @@ def index():
                                     </div>
                                     <div class="form-field" style="grid-column: span 2;">
                                         <label data-i18n="lbl_llm_key">LLM API Key:</label>
-                                        <input type="password" id="settingLlmApiKey" data-i18n-ph="ph_setting_llm_key" placeholder="sk-...">
+                                        <div style="display:flex; gap:0.4rem;">
+                                            <input type="password" id="settingLlmApiKey" data-i18n-ph="ph_setting_llm_key" placeholder="sk-..." style="flex:1;">
+                                            <button type="button" class="btn" onclick="togglePasswordVisibility('settingLlmApiKey', this)" title="Göster / Gizle">👁️</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1397,7 +1488,10 @@ def index():
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
+                        <!-- DOMAIN TAB 3: SYSTEM LOGS & CONSOLE -->
+                        <div id="adminDomainTabLogs" style="display:none; flex-direction:column; gap:1.5rem;">
                             <!-- SECTION 2: SYSTEM LOGS & CONSOLE -->
                             <div class="admin-card">
                                 <div class="card-heading">
@@ -1412,9 +1506,8 @@ def index():
                                     <div id="tabAnalysisLog" class="log-tab" onclick="switchLogTab('analysis')" data-i18n="tab_analysis">📊 Analiz Rapor Logları (analysis.log)</div>
                                     <div id="tabLiveLog" class="log-tab" onclick="switchLogTab('live')" data-i18n="tab_live">⚡ Canlı İşlem Çıktısı (Live)</div>
                                 </div>
-                                <div id="fileConsoleBox" class="console-box" data-i18n="log_loading">Loglar yükleniyor...</div>
+                                <div id="fileConsoleBox" class="console-box">Loglar yükleniyor...</div>
                             </div>
-
                         </div>
 
                         <!-- ADMIN MODAL FOOTER VERSION BADGE -->
@@ -1471,6 +1564,10 @@ def index():
 
             const UI_I18N = {
                 TR: {
+                    nav_audit: "📈 Tekil Hisse Görünümü",
+                    nav_pdf: "📄 PDF Görünümü",
+                    nav_matrix: "📊 Tüm Hisseler Matrisi",
+                    btn_export_pdf: "🖨️ PDF İndir / Yazdır",
                     admin_tab_stocks: "📈 Hisse Yönetimi",
                     admin_tab_settings: "⚙️ Sistem & LLM Ayarları",
                     opt_dashboard: "📊 İnteraktif",
@@ -1555,6 +1652,10 @@ def index():
                     col_score: "360° Skoru & Değerlendirme"
                 },
                 EN: {
+                    nav_audit: "📈 Single Ticker View",
+                    nav_pdf: "📄 PDF View",
+                    nav_matrix: "📊 All Stocks Matrix",
+                    btn_export_pdf: "🖨️ Export PDF",
                     admin_tab_stocks: "📈 Stock Management",
                     admin_tab_settings: "⚙️ System & LLM Settings",
                     opt_dashboard: "📊 Interactive",
@@ -1838,20 +1939,70 @@ def index():
             let matrixFilterText = '';
             let matrixFilterCategory = 'ALL';
 
+            let currentMainView = 'audit';
+
+            function switchToTickerAuditView() {
+                currentMainView = 'audit';
+                const btnAudit = document.getElementById('navBtnTickerAudit');
+                const btnPdf = document.getElementById('navBtnPdfView');
+                const btnMatrix = document.getElementById('navBtnMatrix');
+                if (btnAudit) { btnAudit.classList.add('btn-primary'); }
+                if (btnPdf) { btnPdf.classList.remove('btn-primary'); }
+                if (btnMatrix) { btnMatrix.classList.remove('btn-primary'); }
+                
+                const frame = document.getElementById('contentFrame');
+                const matrixBox = document.getElementById('matrixContainer');
+                if (matrixBox) matrixBox.style.display = 'none';
+                if (frame) frame.style.display = 'block';
+                loadReport();
+            }
+
+            function switchToPdfView() {
+                currentMainView = 'pdf';
+                const btnAudit = document.getElementById('navBtnTickerAudit');
+                const btnPdf = document.getElementById('navBtnPdfView');
+                const btnMatrix = document.getElementById('navBtnMatrix');
+                if (btnPdf) { btnPdf.classList.add('btn-primary'); }
+                if (btnAudit) { btnAudit.classList.remove('btn-primary'); }
+                if (btnMatrix) { btnMatrix.classList.remove('btn-primary'); }
+                
+                const frame = document.getElementById('contentFrame');
+                const matrixBox = document.getElementById('matrixContainer');
+                if (matrixBox) matrixBox.style.display = 'none';
+                if (frame) frame.style.display = 'block';
+                loadReport();
+            }
+
+            function switchToMatrixView() {
+                currentMainView = 'matrix';
+                const btnAudit = document.getElementById('navBtnTickerAudit');
+                const btnPdf = document.getElementById('navBtnPdfView');
+                const btnMatrix = document.getElementById('navBtnMatrix');
+                if (btnMatrix) { btnMatrix.classList.add('btn-primary'); }
+                if (btnAudit) { btnAudit.classList.remove('btn-primary'); }
+                if (btnPdf) { btnPdf.classList.remove('btn-primary'); }
+                
+                const frame = document.getElementById('contentFrame');
+                const matrixBox = document.getElementById('matrixContainer');
+                if (frame) frame.style.display = 'none';
+                if (matrixBox) {
+                    matrixBox.style.display = 'block';
+                    loadMatrixView();
+                }
+            }
+
             function loadReport() {
                 try {
                     const selTicker = document.getElementById('tickerSelect');
                     const selDate = document.getElementById('dateSelect');
-                    const selMode = document.getElementById('modeSelect');
-                    if (!selTicker || !selDate || !selMode) return;
+                    if (!selTicker || !selDate) return;
                     const ticker = selTicker.value;
                     const date = selDate.value;
-                    const mode = selMode.value;
 
                     const frame = document.getElementById('contentFrame');
                     const matrixBox = document.getElementById('matrixContainer');
 
-                    if (mode === 'matrix') {
+                    if (currentMainView === 'matrix') {
                         if (frame) frame.style.display = 'none';
                         if (matrixBox) {
                             matrixBox.style.display = 'block';
@@ -1862,8 +2013,24 @@ def index():
                         if (frame) {
                             frame.style.display = 'block';
                             if (ticker && date) {
-                                frame.src = `/api/reports/${encodeURIComponent(ticker)}/${encodeURIComponent(date)}?mode=${encodeURIComponent(mode)}`;
+                                const mode = currentMainView === 'pdf' ? 'printable' : 'dashboard';
+                                frame.src = `/api/reports/${encodeURIComponent(ticker)}/${encodeURIComponent(date)}?mode=${mode}&lang=${encodeURIComponent(currentUiLang)}`;
                             }
+                        }
+                    }
+
+                    if (ticker) {
+                        if (matrixData && matrixData.length > 0) {
+                            const found = matrixData.find(item => item.ticker.toUpperCase() === ticker.toUpperCase());
+                            if (found) updateHudData(found);
+                        } else {
+                            fetch(`/api/v1/matrix?lang=${currentUiLang}`).then(r => r.json()).then(data => {
+                                if (Array.isArray(data)) {
+                                    matrixData = data;
+                                    const found = data.find(item => item.ticker.toUpperCase() === ticker.toUpperCase());
+                                    if (found) updateHudData(found);
+                                }
+                            }).catch(() => {});
                         }
                     }
                 } catch(e) {
@@ -2032,8 +2199,10 @@ def index():
                 document.querySelectorAll('.admin-nav-tab').forEach(t => t.classList.remove('active'));
                 const stocksTab = document.getElementById('adminDomainTabStocks');
                 const settingsTab = document.getElementById('adminDomainTabSettings');
+                const logsTab = document.getElementById('adminDomainTabLogs');
                 if (stocksTab) stocksTab.style.display = 'none';
                 if (settingsTab) settingsTab.style.display = 'none';
+                if (logsTab) logsTab.style.display = 'none';
 
                 if (tabName === 'stocks') {
                     const navTab = document.getElementById('adminNavTabStocks');
@@ -2043,6 +2212,225 @@ def index():
                     const navTab = document.getElementById('adminNavTabSettings');
                     if (navTab) navTab.classList.add('active');
                     if (settingsTab) settingsTab.style.display = 'flex';
+                } else if (tabName === 'logs') {
+                    const navTab = document.getElementById('adminNavTabLogs');
+                    if (navTab) navTab.classList.add('active');
+                    if (logsTab) logsTab.style.display = 'flex';
+                    fetchFileLogs();
+                }
+            }
+
+            // Password Eye Toggle Helper
+            function togglePasswordVisibility(inputId, btn) {
+                const input = document.getElementById(inputId);
+                if (!input) return;
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    if (btn) btn.innerHTML = '🙈';
+                } else {
+                    input.type = 'password';
+                    if (btn) btn.innerHTML = '👁️';
+                }
+            }
+
+            // Command Palette (⌘K) Controller
+            let cmdSelectedIndex = 0;
+            let cmdFilteredTickers = [];
+
+            function openCommandPalette() {
+                const modal = document.getElementById('commandPaletteModal');
+                if (!modal) return;
+                modal.classList.add('active');
+                const input = document.getElementById('cmdSearchInput');
+                if (input) {
+                    input.value = '';
+                    input.focus();
+                }
+                renderCommandSearchResults();
+            }
+
+            function closeCommandPalette() {
+                const modal = document.getElementById('commandPaletteModal');
+                if (modal) modal.classList.remove('active');
+            }
+
+            function onCommandSearchInput() {
+                cmdSelectedIndex = 0;
+                renderCommandSearchResults();
+            }
+
+            function onCommandSearchKeydown(e) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (cmdFilteredTickers.length > 0) {
+                        cmdSelectedIndex = (cmdSelectedIndex + 1) % cmdFilteredTickers.length;
+                        highlightCommandSearchResult();
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (cmdFilteredTickers.length > 0) {
+                        cmdSelectedIndex = (cmdSelectedIndex - 1 + cmdFilteredTickers.length) % cmdFilteredTickers.length;
+                        highlightCommandSearchResult();
+                    }
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (cmdFilteredTickers.length > 0 && cmdFilteredTickers[cmdSelectedIndex]) {
+                        selectCommandTicker(cmdFilteredTickers[cmdSelectedIndex]);
+                    }
+                } else if (e.key === 'Escape') {
+                    closeCommandPalette();
+                }
+            }
+
+            function renderCommandSearchResults() {
+                const input = document.getElementById('cmdSearchInput');
+                const resultsContainer = document.getElementById('cmdSearchResults');
+                if (!resultsContainer) return;
+                const query = (input ? input.value : '').trim().toUpperCase();
+                
+                const sel = document.getElementById('tickerSelect');
+                const allTickers = Array.from(sel ? sel.options : []).map(opt => opt.value);
+                
+                if (query === '') {
+                    let recent = [];
+                    try {
+                        recent = JSON.parse(localStorage.getItem('stock_analyzer_recent_tickers') || '[]');
+                    } catch(e) {}
+                    cmdFilteredTickers = recent.filter(t => allTickers.includes(t));
+                    if (cmdFilteredTickers.length === 0) cmdFilteredTickers = allTickers.slice(0, 10);
+                } else {
+                    cmdFilteredTickers = allTickers.filter(t => t.toUpperCase().includes(query));
+                }
+
+                if (cmdFilteredTickers.length === 0) {
+                    resultsContainer.innerHTML = `<div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">Hisse bulunamadı / No ticker found</div>`;
+                    return;
+                }
+
+                resultsContainer.innerHTML = cmdFilteredTickers.map((t, idx) => `
+                    <div class="cmd-result-item ${idx === cmdSelectedIndex ? 'selected' : ''}" onclick="selectCommandTicker('${escapeHtml(t)}')">
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span style="font-weight:700; font-family:var(--font-mono);">${escapeHtml(t)}</span>
+                        </div>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">↵ Seç / Select</span>
+                    </div>
+                `).join('');
+            }
+
+            function highlightCommandSearchResult() {
+                const items = document.querySelectorAll('.cmd-result-item');
+                items.forEach((item, idx) => {
+                    if (idx === cmdSelectedIndex) {
+                        item.classList.add('selected');
+                        item.scrollIntoView({ block: 'nearest' });
+                    } else {
+                        item.classList.remove('selected');
+                    }
+                });
+            }
+
+            function selectCommandTicker(ticker) {
+                closeCommandPalette();
+                const sel = document.getElementById('tickerSelect');
+                if (sel) {
+                    sel.value = ticker;
+                    loadDates();
+                }
+                try {
+                    let recent = JSON.parse(localStorage.getItem('stock_analyzer_recent_tickers') || '[]');
+                    recent = recent.filter(t => t !== ticker);
+                    recent.unshift(ticker);
+                    if (recent.length > 10) recent = recent.slice(0, 10);
+                    localStorage.setItem('stock_analyzer_recent_tickers', JSON.stringify(recent));
+                } catch(e) {}
+            }
+
+            window.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                    e.preventDefault();
+                    openCommandPalette();
+                } else if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    openCommandPalette();
+                } else if (e.key === 'Escape') {
+                    closeCommandPalette();
+                    closeAdminModal();
+                }
+            });
+
+            // HUD Tooltip Hover System
+            let hudTooltipTimer = null;
+            const HUD_TOOLTIPS = {
+                piotroski: "<strong>Piotroski F-Score (0-9)</strong><br>Bilanço ve kârlılık kalitesini 9 kriterde ölçer. 7-9 Yüksek Kalite, 4-6 Orta Kalite, 0-3 Zayıf.",
+                altman: "<strong>Altman Z-Score</strong><br>İflas riski tahmin modeli. Z > 2.99 Güvenli Bölge, 1.81 - 2.99 Gri Bölge, Z < 1.81 İflas / Risk Bölgesi.",
+                beneish: "<strong>Beneish M-Score</strong><br>Bilanço manipülasyonu / adli muhasebe testi. M < -2.81 Güvenli / Manipülasyonsuz, M > -1.78 Hile Riski.",
+                dupont: "<strong>DuPont ROE %</strong><br>Özsermaye kârlılığını Vergi Yükü × Faiz Yükü × EBIT Marjı × Varlık Hızı × Kaldıraç faktörlerine böler.",
+                dcf: "<strong>DCF Hedef Değer</strong><br>İskontolu nakit akışlarına göre hesaplanan adil hisse fiyatı ve güvenlik marjı."
+            };
+
+            function showHudTooltip(e, key) {
+                if (hudTooltipTimer) clearTimeout(hudTooltipTimer);
+                hudTooltipTimer = setTimeout(() => {
+                    const tt = document.getElementById('hudTooltip');
+                    if (!tt || !HUD_TOOLTIPS[key]) return;
+                    tt.innerHTML = HUD_TOOLTIPS[key];
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    tt.style.top = (rect.bottom + 6) + 'px';
+                    tt.style.left = rect.left + 'px';
+                    tt.classList.add('active');
+                }, 150);
+            }
+
+            function hideHudTooltip() {
+                if (hudTooltipTimer) clearTimeout(hudTooltipTimer);
+                const tt = document.getElementById('hudTooltip');
+                if (tt) tt.classList.remove('active');
+            }
+
+            function updateHudData(data) {
+                const container = document.getElementById('hudCardsContainer');
+                if (!container || !data) return;
+                container.style.display = 'flex';
+
+                const pVal = document.getElementById('hudValPiotroski');
+                const pSteps = document.getElementById('piotroskiStepsBar');
+                if (pVal && pSteps && data.piotroski_score !== undefined) {
+                    const score = data.piotroski_score;
+                    const pClass = score >= 7 ? 'active-green' : (score >= 4 ? 'active-amber' : 'active-red');
+                    pVal.innerHTML = `<span class="${score >= 7 ? 'tag-green' : (score >= 4 ? 'tag-amber' : 'tag-red')}">${score}/9</span>`;
+                    let stepsHtml = '';
+                    for (let i = 1; i <= 9; i++) {
+                        stepsHtml += `<div class="piotroski-step ${i <= score ? pClass : ''}"></div>`;
+                    }
+                    pSteps.innerHTML = stepsHtml;
+                }
+
+                const aVal = document.getElementById('hudValAltman');
+                if (aVal && data.altman_z_score !== undefined) {
+                    const z = data.altman_z_score;
+                    const cls = z > 2.99 ? 'tag-green' : (z >= 1.81 ? 'tag-amber' : 'tag-red');
+                    const label = z > 2.99 ? 'Güvenli' : (z >= 1.81 ? 'Gri' : 'Risk');
+                    aVal.innerHTML = `<span class="${cls}">${z} (${label})</span>`;
+                }
+
+                const bVal = document.getElementById('hudValBeneish');
+                if (bVal && data.beneish_m_score !== undefined) {
+                    const m = data.beneish_m_score;
+                    const isSafe = data.beneish_safe !== undefined ? data.beneish_safe : m < -2.81;
+                    bVal.innerHTML = `<span class="${isSafe ? 'tag-green' : 'tag-red'}">${m}</span>`;
+                }
+
+                const dVal = document.getElementById('hudValDupont');
+                if (dVal && data.dupont_roe_pct !== undefined) {
+                    dVal.innerHTML = `<span style="color:var(--accent-cyan);">%${data.dupont_roe_pct}</span>`;
+                }
+
+                const dcfVal = document.getElementById('hudValDcf');
+                if (dcfVal && data.price !== undefined) {
+                    const fair = data.fair_base || (data.price * 1.10);
+                    const margin = (((fair / data.price) - 1) * 100).toFixed(1);
+                    const cls = margin >= 10 ? 'tag-green' : (margin >= 0 ? 'tag-amber' : 'tag-red');
+                    dcfVal.innerHTML = `<span class="${cls}">${fair.toFixed(1)} (${margin > 0 ? '+' : ''}${margin}%)</span>`;
                 }
             }
 
@@ -2260,13 +2648,27 @@ def index():
                 if (activeLogType === 'live') return;
                 const t = UI_I18N[currentUiLang] || UI_I18N.TR;
                 const endpoint = activeLogType === 'cron' ? '/api/logs/cron' : '/api/logs/analysis';
-                const res = await fetch(endpoint, { headers: getAdminHeaders() });
-                if (res.ok) {
-                    const data = await res.json();
+                try {
+                    const res = await fetch(endpoint, { headers: getAdminHeaders() });
                     const box = document.getElementById('fileConsoleBox');
-                    const logTxt = (data.log !== undefined && data.log !== null) ? data.log : "";
-                    box.innerText = logTxt.trim().length > 0 ? logTxt : (t.log_cleared || "Loglar temizlendi.");
-                    box.scrollTop = box.scrollHeight;
+                    if (!box) return;
+                    if (res.ok) {
+                        const data = await res.json();
+                        const logTxt = (data.log !== undefined && data.log !== null) ? data.log : "";
+                        box.innerText = logTxt.trim().length > 0 ? logTxt : (t.log_cleared || "Loglar temizlendi.");
+                        box.scrollTop = box.scrollHeight;
+                    } else {
+                        const errData = await res.json().catch(() => ({}));
+                        if (res.status === 401) {
+                            box.innerText = "🔒 Lütfen Yönetici Paneli girişinden şifrenizi giriniz / Please login with admin password.";
+                        } else {
+                            box.innerText = `🔴 Log okuma hatası (${res.status}): ${errData.detail || res.statusText || 'Bilinmeyen Hata'}`;
+                        }
+                    }
+                } catch(e) {
+                    console.error('Error fetching file logs:', e);
+                    const box = document.getElementById('fileConsoleBox');
+                    if (box) box.innerText = `🔴 Log yükleme hatası: ${e.message}`;
                 }
             }
 
@@ -2288,7 +2690,7 @@ def index():
             let isBatchExecuting = false;
 
             function jumpToLog(ticker) {
-                switchAdminTab('settings');
+                switchAdminTab('logs');
                 switchLogTab('live');
                 if (ticker && ticker !== '_BATCH_') {
                     startSseStream(ticker);

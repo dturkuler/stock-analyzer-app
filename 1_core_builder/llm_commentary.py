@@ -313,6 +313,7 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
     az = metrics.get("altman_z_score", {})
     z_score = az.get("z_score", 1400)
     z_zone = az.get("zone", "Güvenli Bölge")
+    beneish_m = metrics.get("beneish_m_score", {})
 
     hist = metrics.get("historical_metrics", [])
     last_rev = hist[0].get("revenue", 1) if hist else 1
@@ -327,6 +328,7 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
     company_name = mi.get("short_name", ticker)
     curr_sym = mi.get("currency_symbol", "₺")
     lang_upper = (lang or "TR").upper()
+    is_bank = metrics.get("is_bank_sector", False)
 
     if lang_upper == "EN":
         verdict_text = "BALANCED MODEL OUTLOOK (STRONG BALANCE SHEET / HIGH MULTIPLE BALANCE)"
@@ -390,109 +392,132 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
         scenario_c = (
             f"Scenario analysis indicates the Base Case target supports current prices, while the Bear Case relies on the {curr_sym}{sma50:,.2f} support line."
         )
-        blog_headline_val = f"📰 {company_name} ({ticker}): Solid Net Cash Reserves vs. Market Valuation Heat"
-        blog_summary_val = f"{company_name} ({ticker}) holds strong net cash reserves of {curr_sym}{abs(net_debt)/1e6:,.1f}M in its bank accounts. Think of it as a solid shopkeeper with significant savings in the bank, giving the firm strong protection against rising interest rates. However, the share price trades at a premium relative to revenue, requiring disciplined risk management."
-        blog_cash_and_health_val = f"Looking under the hood of {company_name}'s balance sheet, the firm holds a substantial cash cushion of {curr_sym}{abs(net_debt)/1e6:,.1f}M with virtually zero long-term bank debt. In simple terms, think of the company as a wealthy merchant who keeps a large emergency fund in the bank. According to our Altman Z-Score model (Z = {z_score:,.2f}), the company sits comfortably in the 'Safe Zone' with virtually zero risk of bankruptcy over the next two years. High interest rates in the economy actually work in favor of cash-rich companies like {ticker}, generating risk-free interest income while competitors struggle with high borrowing costs."
-        blog_earnings_quality_val = f"Examining earnings quality and profit margins reveals an interesting operational picture. The company generates positive cash from operations, meaning real money is flowing into bank accounts after paying suppliers and employee salaries. In our 9-point Piotroski F-Score audit, {ticker} scores {pf_score}/9, confirming solid profitability and cash flow backing. However, investors must monitor gross margin trends closely: while historical gross margins reached high levels, recent margin compression indicates rising input costs or changing product mix that requires sustained revenue growth to offset."
-        blog_valuation_dcf_val = f"On the valuation front, {ticker} trades at a Price-to-Sales (P/S) ratio of {ps_ratio:.1f}x and a P/E of {pe_ratio:.1f}x, which places it at a premium compared to broader industry peers. Our Reverse DCF model measures what annual real free cash flow growth rate the market price is demanding: it calculates an implied growth rate of %{implied_g*100:.2f} per year. In plain language, for the current stock price to be justified, the business needs to expand its cash flow steadily by %{implied_g*100:.2f} annually. If sales growth accelerates through new software contracts, this premium can be absorbed over time; otherwise, valuation multiple pullbacks remain a key risk."
-        blog_catalysts_val = f"Growth Opportunities:\n1) New corporate contract renewals and software tender wins represent positive growth drivers.\n2) High net cash reserves ({curr_sym}{abs(net_debt)/1e6:,.1f}M) provide strong capacity for strategic tech investments.\n\nRisk Radar:\n1) Share price trades at a premium relative to revenue.\n2) Technical momentum overheated; pullbacks toward the 50-day average line are possible."
-        blog_bull_vs_bear_val = f"Bull Case: Zero net debt and steady cash production provide defensive armor against interest rate shocks.\n\nBear Case: High share price multiples expose the stock to profit-taking pullbacks.\n\nTakeaway: The company is financially healthy, but buying at current levels requires patience and stop-loss discipline."
+        if is_bank:
+            blog_headline_val = f"📰 {company_name} ({ticker}): Banking ROE & Book Value Valuation Analysis"
+        elif net_debt < 0:
+            blog_headline_val = f"📰 {company_name} ({ticker}): Solid Net Cash Reserves ({curr_sym}{abs(net_debt)/1e6:,.1f}M) vs. Valuation Multiples"
+        elif net_debt > 0 and (debt / max(1, mcap)) > 0.4:
+            blog_headline_val = f"📰 {company_name} ({ticker}): Financial Leverage Audit & Debt Structure Review"
+        elif pf_score >= 7:
+            blog_headline_val = f"📰 {company_name} ({ticker}): High Piotroski F-Score ({pf_score}/9) & Earnings Quality Audit"
+        else:
+            blog_headline_val = f"📰 {company_name} ({ticker}): 360° Financial Health & Valuation Audit"
+        bm_score = beneish_m.get("m_score", -2.85) if isinstance(beneish_m, dict) else -2.85
+        bm_safe = "Safe Zone" if bm_score < -1.78 else "Divergence Warning"
+
+        if net_debt < 0:
+            debt_desc_en = f"holds strong net cash reserves of {curr_sym}{abs(net_debt)/1e6:,.1f}M with zero net debt"
+            debt_shield_en = f"Net cash reserves of {curr_sym}{abs(net_debt)/1e6:,.1f}M provide strong protection against high interest rate environments."
+        else:
+            debt_desc_en = f"operates with net debt of {curr_sym}{net_debt/1e6:,.1f}M"
+            debt_shield_en = f"Total net debt of {curr_sym}{net_debt/1e6:,.1f}M requires continuous cash flow monitoring to maintain debt service coverage."
+
+        blog_summary_val = f"{company_name} ({ticker}) {debt_desc_en}. According to our quantitative models, Piotroski F-Score stands at {pf_score}/9 and Altman Z-Score is at Z = {z_score:,.2f} ({z_zone}). Valuation metrics show a P/S ratio of {ps_ratio:.1f}x."
+        blog_cash_and_health_val = f"Looking under the hood of {company_name}'s balance sheet, the firm {debt_desc_en}. According to our Altman Z-Score model (Z = {z_score:,.2f}), the company sits in the '{z_zone}' category. {debt_shield_en}"
+        blog_earnings_quality_val = f"Examining earnings quality and profit margins reveals an operational picture backed by an overall Piotroski F-Score of {pf_score}/9. Beneish M-Score stands at {bm_score:.2f} ({bm_safe}). Investors should monitor operating cash flow backing and gross margin trends across upcoming earnings releases."
+        blog_valuation_dcf_val = f"On the valuation front, {ticker} trades at a Price-to-Sales (P/S) ratio of {ps_ratio:.1f}x and a P/E of {pe_ratio:.1f}x. Our Reverse DCF model calculates an implied annual growth rate of %{implied_g*100:.2f} required to justify current market pricing given a WACC of %{wacc*100:.2f}."
+        blog_catalysts_val = f"Growth Opportunities:\n1) Core business expansion and customer contract renewals.\n2) Capital efficiency and cash flow optimization.\n\nRisk Radar:\n1) Valuation multiple contraction sensitivity.\n2) Technical price support at the 50-day moving average ({curr_sym}{sma50:,.2f})."
+        blog_bull_vs_bear_val = f"Bull Case: High Piotroski score ({pf_score}/9) and Z-Score ({z_score:,.2f}) provide financial health backing.\n\nBear Case: Valuation multiples ({ps_ratio:.1f}x P/S) demand sustained high earnings growth.\n\nTakeaway: Maintain disciplined position sizing and monitor key technical support levels."
         blog_takeaways_val = [
-            f"Solid net cash reserves ({curr_sym}{abs(net_debt)/1e6:,.1f}M) act as a strong shield against rising interest rates",
-            f"Share price trades at a premium multiple relative to annual sales",
-            f"50-day moving average ({curr_sym}{sma50:,.2f}) acts as key technical price support"
+            f"Financial health backed by Altman Z-Score of Z = {z_score:,.2f} ({z_zone})",
+            f"Piotroski F-Score stands at {pf_score}/9 with P/S multiple at {ps_ratio:.1f}x",
+            f"50-day moving average ({curr_sym}{sma50:,.2f}) serves as primary technical support"
         ]
         blog_faqs_val = [
-            {"q": f"Is {ticker} stock suitable for beginner investors?", "a": f"{company_name} has strong financial health with net cash reserves. However, because its share price is trading at a premium, beginner investors should keep position sizes small (2.5%-5.0%) and follow key support levels."},
-            {"q": f"Is {ticker}'s share price currently expensive?", "a": f"Compared to historic industry averages, the stock trades at a premium multiple relative to annual revenue. Strong earnings growth is required to maintain this valuation level over the long term."},
-            {"q": f"What is the primary risk to watch out for in {ticker}?", "a": f"The main risks are sudden price pullbacks due to valuation multiple contraction and trading volume volatility."}
+            {"q": f"Is {ticker} stock suitable for beginner investors?", "a": f"{company_name} presents an Altman Z-Score of {z_score:,.2f} ({z_zone}). Beginner investors should consider conservative position sizing (2.5%-5.0%) and follow key support levels."},
+            {"q": f"Is {ticker}'s share price currently expensive?", "a": f"The stock trades at a P/S ratio of {ps_ratio:.1f}x with an implied reverse DCF growth requirement of %{implied_g*100:.2f} per year."},
+            {"q": f"What is the primary risk to watch out for in {ticker}?", "a": f"The primary risks center on valuation multiple contraction and market price volatility around key moving averages."}
         ]
     else:
-        verdict_text = "DENGELİ MODEL GÖRÜŞÜ (MÜKEMMEL BİLANÇO / YÜKSEK ÇARPAN DENGESİ)"
+        verdict_text = "DENGELİ MODEL GÖRÜŞÜ (FİNANSAL SAĞLIK VE DEĞERLEME DENGESİ)"
+        if net_debt < 0:
+            debt_desc_tr = f"net borçsuz yapısı (net nakit: {curr_sym}{abs(net_debt)/1e6:,.1f}M)"
+            debt_shield_tr = f"Şirketin {curr_sym}{abs(net_debt)/1e6:,.1f}M tutarındaki net nakit pozisyonu yüksek faiz ortamında likidite tamponu sağlamaktadır."
+        else:
+            debt_desc_tr = f"net borçlu yapısı (net borç: {curr_sym}{net_debt/1e6:,.1f}M)"
+            debt_shield_tr = f"Şirketin {curr_sym}{net_debt/1e6:,.1f}M tutarındaki net borç pozisyonu borç servis oranlarının yakından takibini gerektirmektedir."
+
+        bm_score = beneish_m.get("m_score", -2.85) if isinstance(beneish_m, dict) else -2.85
+        bm_safe_tr = "Güvenli Bölge" if bm_score < -1.78 else "Sapma İkazı"
+
         strong = (
-            f"{company_name} ({ticker}), finansal bünye açısından net borçsuz yapısı (net nakit: {curr_sym}{abs(net_debt)/1e6:,.1f}M) "
-            f"ile piyasanın en likit bilançolarından birine sahiptir. Şirketin sıfıra yakın borçluluğu, %{wacc*100:.2f} "
-            f"gibi düşük bir sermaye maliyeti (WACC) sağlamakta ve yüksek faiz ortamında finansman yükü riskinden korumaktadır. "
-            f"Serbest Nakit Akışı (FCF) üretimi aktiftir ve operasyonel nakit girişi bilanço kalitesini desteklemektedir."
+            f"{company_name} ({ticker}), finansal bünye açısından {debt_desc_tr} "
+            f"ile dikkat çekmektedir. %{wacc*100:.2f} "
+            f"seviyesindeki sermaye maliyeti (WACC) ve Piotroski {pf_score}/9 skoru operasyonel yapıyı desteklemektedir."
         )
         weak = (
-            f"{company_name} için en temel risk faktörü değerleme çarpanlarındaki aşırı primdir. "
-            f"Fiyat/Satışlar (P/S) çarpanı {ps_ratio:.1f}x seviyesindedir ve sektör ortalamalarının üzerindedir. "
-            f"Şirketin esas faaliyet kârlılığı (EBIT: {curr_sym}{last_ebit/1e6:,.1f}M) üzerindeki maliyet baskıları ve sığ tahta "
-            f"yapısı ani kâr realizasyonu dalgalanmalarına yol açabilir."
+            f"{company_name} için temel risk faktörü değerleme seviyeleridir. "
+            f"Fiyat/Satışlar (P/S) çarpanı {ps_ratio:.1f}x seviyesindedir. "
+            f"Esas faaliyet kârlılığı (EBIT: {curr_sym}{last_ebit/1e6:,.1f}M) üzerindeki maliyet seyri yakından izlenmelidir."
         )
         risk_disc = (
             f"İstatistiki risk modellerinde pozisyon büyüklüğü için teorik Kelly limiti %2,5 - %5,0 bandında önerilmektedir. "
-            f"Fiyatın 50 günlük hareketli ortalaması ({curr_sym}{sma50:,.2f}) ana teknik destek noktası olarak takip edilmeli, "
-            f"bu seviye altındaki olası sarkmalarda stop-loss ve risk yönetimi disiplini korunmalıdır."
+            f"Fiyatın 50 günlük hareketli ortalaması ({curr_sym}{sma50:,.2f}) ana teknik destek noktası olarak takip edilmelidir."
         )
         scorecard_c = (
-            f"360° Şirket Karnesi modelimiz {company_name} için 7,0 / 10 bileşik skor üretmektedir. "
-            f"Finansal Sağlık 9,0/10 ile Mükemmel, Kâr Nakit Kalitesi 8,5/10 ile Çok Güçlü puanlanırken, "
-            f"Değerleme Ucuzluğu Skoru 1,0/10 ile Aşırı Pahalı olarak değerlendirilmektedir."
+            f"360° Şirket Karnesi modelimiz {company_name} için finansal veriler doğrultusunda kapsamlı skor üretmektedir. "
+            f"Altman Z-Score Z = {z_score:,.2f} ({z_zone}) ve Piotroski F-Skoru {pf_score}/9 seviyesindedir."
         )
         piotroski_c = (
-            f"Piotroski F-Score denetiminde şirket {pf_score}/9 puan almıştır. Net kâr ve faaliyet nakit akışının pozitifliği "
-            f"ve CFO'nun net kârdan yüksek olması nakit kalitesini kanıtlamaktadır. Borçluluk ve marj iyileşmesi göstergeleri "
-            f"nötr seyretmektedir."
+            f"Piotroski F-Score denetiminde şirket {pf_score}/9 puan almıştır. "
+            f"Faaliyet nakit akışı ve kârlılık rasyoları nakit kalitesini belirleyen ana faktörlerdir."
         )
         altman_c = (
-            f"Altman Z-Score skoru Z = {z_score:,.2f} ile yüksek Güvenli Bölgededir ({z_zone}). "
-            f"Net borçsuzluk yapısı ve likidite tamponu şirketi önümüzdeki 2 yıllık dönemde mali çöküş veya iflas riskinden tamamen uzak tutmaktadır."
+            f"Altman Z-Score skoru Z = {z_score:,.2f} ile {z_zone} konumundadır."
         )
         moat_c = (
-            f"{company_name}, müşteri altyapılarına entegre olan yazılım ve hizmet çözümleri sayesinde yüksek geçiş maliyetine (Switching Costs) "
-            f"sahiptir. Önümüzdeki 12 aylık dönemde olası SPK sermaye artırımları, yeni sektör ihale ve lisans anlaşmaları "
-            f"hisse fiyatı üzerinde ana pozitif katalizör görevi görecektir."
+            f"{company_name}, kendi sektöründeki müşteri ağı ve operasyonel altyapısı ile faaliyetlerini sürdürmektedir."
         )
         ownership_c = (
-            f"Hakim ortakların %55,0 imtiyazlı kilitli pay (Lock-Up) taahhüdü patron hisse satışı riskini engellemektedir. "
-            f"Şirketin döviz bazlı gelir yapısı, kur artışlarında net kambiyo ve kur farkı geliri yazılmasını sağlamaktadır."
+            f"Ortaklık yapısı ve döviz pozisyonu kur dalgalanmalarına karşı bilanço dengesini etkilemektedir."
         )
         peer_c = (
-            f"Sektör rakipleri ile yapılan karşılaştırmada {company_name}, {ps_ratio:.1f}x P/S çarpanı ile "
-            f"göreceli olarak primli fiyatlanmaktadır. Ancak net kâr marjı ve nakit üretim hızı ile sektörde öne çıkmaktadır."
+            f"Sektör rakipleri ile yapılan karşılaştırmada {company_name}, {ps_ratio:.1f}x P/S çarpanı ile değerlendirilmektedir."
         )
         dupont_c = (
-            f"DuPont 5-Adım Özsermaye Kârlılığı (ROE) ayrıştırmasında Vergi Yükü ve borçsuzluktan gelen Faiz Yükü avantajı görülmektedir. "
-            f"Faaliyet marjı ve varlık devir hızı özsermaye kârlılığını belirleyen ana değişkenlerdir."
+            f"DuPont 5-Adım Özsermaye Kârlılığı (ROE) ayrıştırmasında Vergi Yükü, Faiz Yükü ve Faaliyet Marjı öne çıkmaktadır."
         )
         forward_c = (
-            f"2026E ve 2027E projeksiyonlarında ciro ve kârlılığın artmasıyla birlikte İleri Fiyat/Satışlar (Forward P/S) çarpanının "
-            f"{ps_ratio:.1f}x seviyesinden {ps_ratio/2.25:.1f}x seviyesine gerileyerek rasyonel dengesine yaklaşması öngörülmektedir."
+            f"Gelecek dönem projeksiyonlarında ciro ve kârlılığın artmasıyla birlikte İleri Fiyat/Satışlar (Forward P/S) çarpanının "
+            f"{ps_ratio:.1f}x seviyesinden dengelenmesi öngörülmektedir."
         )
         dcf_c = (
-            f"Hesaplanan WACC %{wacc*100:.2f} ve Ters DCF implike büyüme oranı %{implied_g*100:.2f} olarak ölçülmüştür. "
-            f"Mevcut firma değerinin rasyonel karşılanması için şirketin serbest nakit akışını yıllık reel %{implied_g*100:.2f} büyütmesi yeterlidir."
+            f"Hesaplanan WACC %{wacc*100:.2f} ve Ters DCF implike büyüme oranı %{implied_g*100:.2f} olarak ölçülmüştür."
         )
         tech_c = (
-            f"Teknik göstergelerde fiyat {curr_sym}{sma50:,.2f} olan 50 günlük hareketli ortalamanın üzerindedir. RSI ve MACD boğa momentumunu desteklemekte, "
-            f"{curr_sym}{sma50:,.2f} seviyesi kritik destek noktası konumunu korumaktadır."
+            f"Teknik göstergelerde fiyat {curr_sym}{sma50:,.2f} olan 50 günlük hareketli ortalama seviyesindedir."
         )
         forensic_c = (
-            f"Adli denetimde Beneish M-Score -2,85 ile güvenli bölgededir; bilançoda herhangi bir sahtecilik veya muhasebe manipülasyonu bulunmamaktadır. "
-            f"Ancak sığ tahta yapısı (78/100 risk skoru) nedeniyle tahtada oynaklık yüksektir."
+            f"Adli denetimde Beneish M-Score {bm_score:.2f} ile {bm_safe_tr} konumundadır."
         )
         scenario_c = (
-            f"Senaryo analizinde Baz Senaryo fiyat hedefi mevcut seviyeyi desteklerken, makro faiz ve enflasyon şoklarında (Ayı Senaryosu) "
-            f"{curr_sym}{sma50:,.2f} teknik desteği ana tampon seviyesidir."
+            f"Senaryo analizinde {curr_sym}{sma50:,.2f} teknik desteği ana tampon seviyesidir."
         )
-        blog_headline_val = f"📰 {company_name} ({ticker}): Kasadaki {curr_sym}{abs(net_debt)/1e6:,.1f}M Nakit ile Yüksek Borsa Fiyatlaması Karşı Karşıya"
-        blog_summary_val = f"{company_name} ({ticker}), banka hesaplarında tuttuğu {curr_sym}{abs(net_debt)/1e6:,.1f} milyon TL net nakit ile son derece güçlü bir finansal birikime sahiptir. Tıpkı bankada parası olan ama bu ay dükkan kârı düşen bir esnaf gibi, şirketin borçsuz yapısı yüksek faiz döneminde koruma sağlamaktadır. Ancak hisse fiyatı şirket satışlarına kıyasla yüksek seyrettiği için temkinli olmakta fayda var."
-        blog_cash_and_health_val = f"{company_name} bilançosunu incelediğimizde en dikkat çekici unsur, şirketin {curr_sym}{abs(net_debt)/1e6:,.1f} milyon TL tutarındaki devasa net nakit birikimidir. Şirketin banka borcunun sıfıra yakın olması, faizlerin yüksek seyrettiği mevcut ekonomik ortamda devasa bir avantaj sağlamaktadır. Tıpkı kriz döneminde bankada birikmiş parası olan ve faiz gideri ödemeyen tüccar gibi, şirket mali açıdan tam koruma altındadır. Altman Z-Score iflas risk modelimiz Z = {z_score:,.2f} ile şirketin 'Güvenli Bölge'de olduğunu ve önümüzdeki 2 yılda mali çöküş riskinin sıfıra yakın olduğunu doğrulamaktadır."
-        blog_earnings_quality_val = f"Şirketin kâr kalitesi ve nakit üretim performansına baktığımızda, faaliyetlerden elde edilen nakit akışının pozitif olduğu görülüyor. Ay sonu tüm tedarikçi ödemeleri ve personel maaşları yapıldıktan sonra kasaya net nakit girmesi bilanço kalitesini kanıtlıyor. 9 maddelik Piotroski F-Score denetimimizde şirket {pf_score}/9 puan alarak nakit kârlılığını tescillemiştir. Ancak yatırımcıların dikkat etmesi gereken nokta brüt kâr marjındaki seyirdir: Şirketin brüt marjı geçmiş dönemdeki %50 seviyelerinden %16 bandına gerilemiştir. Bu durum, girdi maliyetlerinin arttığını ve şirketin ciro hacmini büyüterek bu marj baskısını telafi etmesi gerektiğini göstermektedir."
-        blog_valuation_dcf_val = f"Değerleme cephesinde ise {ticker}, {ps_ratio:.1f}x Fiyat/Satışlar (P/S) ve {pe_ratio:.1f}x F/K çarpanı ile borsa ortalamalarına göre primli fiyatlanmaktadır. Ters DCF (İndirgenmiş Nakit Akımı) modelimiz, mevcut hisse fiyatının rasyonel karşılanması için piyasanın şirketten yıllık net %{implied_g*100:.2f} oranında reel serbest nakit akışı büyümesi beklediğini ölçmektedir. Halk diliyle ifade etmek gerekirse: Şirket her yıl serbest nakit akışını %{implied_g*100:.2f} büyütmeyi başarırsa mevcut fiyat rasyonel bir zemine oturacaktır. Aksi takdirde yüksek çarpanlar nedeniyle teknik düzeltmeler yaşanabilir."
-        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Önümüzdeki 12 ayda yeni sektör ihaleleri ve lisans anlaşmaları taze gelir ivmesi yaratabilir.\n2) Kasadaki {curr_sym}{abs(net_debt)/1e6:,.1f}M net nakit ile stratejik yatırım veya şirket satın alma kapasitesi yüksek.\n\nKritik Riskler:\n1) Hisse fiyatının yıllık şirket satışlarına kıyasla yüksek seviyede kalması kâr realizasyonu riski yaratıyor.\n2) Grafik momentumundaki aşırı alım nedeniyle 50 günlük ortalamaya doğru teknik düzeltmeler yaşanabilir."
-        blog_bull_vs_bear_val = f"Boğa Senaryosu: Sıfıra yakın borçluluk ve güçlü nakit akışı ekonomik çalkantılara karşı kalkan sağlar.\n\nAyı Senaryosu: Yüksek fiyat çarpanları kar realizasyonu ve fiyat dalgalanması riskini artırır.\n\nNihai Değerlendirme: Şirket mali açıdan son derece sağlam ancak yüksek fiyat nedeniyle kademeli alım ve stop-loss disiplini şarttır."
+        if is_bank:
+            blog_headline_val = f"📰 {company_name} ({ticker}): Bankacılık Sektörü Özsermaye Kârlılığı (ROE) ve Defter Değeri Analizi"
+        elif net_debt < 0:
+            blog_headline_val = f"📰 {company_name} ({ticker}): Kasadaki {curr_sym}{abs(net_debt)/1e6:,.1f}M Nakit Tamponu vs. Piyasa Çarpanı Dengesi"
+        elif net_debt > 0 and (debt / max(1, mcap)) > 0.4:
+            blog_headline_val = f"📰 {company_name} ({ticker}): Bilanço Borç Yapısı ve Finansal Kaldıraç Denetimi"
+        elif pf_score >= 7:
+            blog_headline_val = f"📰 {company_name} ({ticker}): Yüksek Piotroski Skoru ({pf_score}/9) ile Güçlü Nakit Kalitesi"
+        else:
+            blog_headline_val = f"📰 {company_name} ({ticker}): 360° Finansal Sağlık ve Değerleme Analizi"
+        blog_summary_val = f"{company_name} ({ticker}), {debt_desc_tr} ile finansal yapısını korumaktadır. Quant model değerlendirmesinde Piotroski F-Score {pf_score}/9 ve Altman Z-Score Z = {z_score:,.2f} ({z_zone}) olarak hesaplanmıştır."
+        blog_cash_and_health_val = f"{company_name} bilançosu incelendiğinde şirket {debt_desc_tr} ile hareket etmektedir. {debt_shield_tr} Altman Z-Score modelimiz Z = {z_score:,.2f} ile şirketin '{z_zone}' kategorisinde yer aldığını göstermektedir."
+        blog_earnings_quality_val = f"Şirketin kâr kalitesi ve nakit akış performansı Piotroski F-Score modelinde {pf_score}/9 puan olarak ölçülmüştür. Adli bilanço denetiminde Beneish M-Score {bm_score:.2f} ({bm_safe_tr}) seviyesindedir."
+        blog_valuation_dcf_val = f"Değerleme tarafında {ticker}, {ps_ratio:.1f}x Fiyat/Satışlar (P/S) ve {pe_ratio:.1f}x F/K çarpanı ile işlem görmektedir. Ters DCF modelimiz mevcut fiyatın rasyonel karşılanması için yıllık reel %{implied_g*100:.2f} serbest nakit akışı büyümesi gerektirmektedir."
+        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Yeni sektör sözleşmeleri ve operasyonel hacim büyümesi.\n2) Nakit akış kalitesinin korunması.\n\nKritik Riskler:\n1) Çarpan gerilemesi riski.\n2) 50 günlük hareketli ortalama ({curr_sym}{sma50:,.2f}) teknik desteğinin takibi."
+        blog_bull_vs_bear_val = f"Boğa Senaryosu: Yüksek Piotroski skoru ({pf_score}/9) ve Altman Z-Score ({z_score:,.2f}) finansal dayanıklılık sağlar.\n\nAyı Senaryosu: {ps_ratio:.1f}x P/S çarpanı sürdürülebilir büyüme gerektirir.\n\nNihai Değerlendirme: Kademeli alım ve stop-loss disiplini korunmalıdır."
         blog_takeaways_val = [
-            f"Banka hesaplarındaki {curr_sym}{abs(net_debt)/1e6:,.1f}M net nakit birikimi faiz artışlarına karşı kalkan oluşturuyor",
-            f"Hisse fiyatı yıllık şirket satışlarına kıyasla yüksek seviyede seyrediyor",
-            f"50 günlük ortalama fiyat ({curr_sym}{sma50:,.2f}) ana destek noktası olarak izlenmeli"
+            f"Altman Z-Score skoru Z = {z_score:,.2f} ({z_zone}) ile finansal bünye takibi",
+            f"Piotroski F-Score {pf_score}/9 ve P/S çarpanı {ps_ratio:.1f}x seviyesinde",
+            f"50 günlük ortalama fiyat ({curr_sym}{sma50:,.2f}) ana destek noktası"
         ]
         blog_faqs_val = [
-            {"q": f"{ticker} hissesi yeni başlayan yatırımcı için uygun mu?", "a": f"{company_name} borçsuz ve güçlü nakdi olan sağlam bir şirket. Ancak fiyatı primli olduğu için küçük yatırımcıların tüm parayla girmek yerine %2,5 - %5,0 gibi küçük oranlarla hareket etmesi önerilir."},
-            {"q": f"{ticker} hisse fiyatı şu an pahalı mı?", "a": f"Geçmiş sektör ortalamalarına kıyasla hisse fiyatı yıllık satışlara göre primli seviyede. Fiyatın bu seviyelerde kalması için şirketin önümüzdeki dönemde kârını artırmaya devam etmesi gerekiyor."},
-            {"q": f"{ticker} hissesinde küçük yatırımcının bilmesi gereken en büyük risk nedir?", "a": f"En büyük risk, yüksek fiyattan kaynaklanabilecek ani kâr satışları ve fiyat dalgalanmalarıdır."}
+            {"q": f"{ticker} hissesi yeni başlayan yatırımcı için uygun mu?", "a": f"{company_name} için Altman Z-Score Z = {z_score:,.2f} ({z_zone}) seviyesindedir. Yeni başlayan yatırımcıların %2,5 - %5,0 gibi küçük pozisyon oranlarıyla hareket etmesi önerilir."},
+            {"q": f"{ticker} hisse fiyatı şu an pahalı mı?", "a": f"Hisse P/S çarpanı {ps_ratio:.1f}x seviyesindedir ve Ters DCF modelinde yıllık %{implied_g*100:.2f} büyüme gereksinimi ölçülmektedir."},
+            {"q": f"{ticker} hissesinde en büyük risk nedir?", "a": f"En büyük risk, çarpan gerilemesi ve hareketli ortalamalar etrafındaki fiyat dalgalanmalarıdır."}
         ]
 
     return {

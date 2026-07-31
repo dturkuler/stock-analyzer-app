@@ -333,7 +333,16 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
                 row_style = ' style="background:rgba(6,182,212,0.15); font-weight:700;"' if i == 2 else ''
                 dcf_matrix_html += f'<tr{row_style}><th>{wh}</th>'
                 for val in dcf_matrix[i]:
-                    dcf_matrix_html += f'<td>{_fmt_try(val, is_en=is_en)}</td>'
+                    cell_cls = ""
+                    if fair_base > 0 and isinstance(val, (int, float)):
+                        ratio = val / fair_base
+                        if ratio >= 1.10:
+                            cell_cls = ' class="dcf-cell-safe"'
+                        elif ratio >= 0.85:
+                            cell_cls = ' class="dcf-cell-fair"'
+                        else:
+                            cell_cls = ' class="dcf-cell-risk"'
+                    dcf_matrix_html += f'<td{cell_cls}>{_fmt_try(val, is_en=is_en)}</td>'
                 dcf_matrix_html += '</tr>'
         dcf_matrix_html += '</tbody>'
 
@@ -578,6 +587,16 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     .guide-title {{ font-family: 'Outfit', sans-serif; font-size: 0.98rem; font-weight: 700; color: var(--accent-amber); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }}
     .guide-text {{ color: var(--text-main); font-size: 0.88rem; line-height: 1.65; opacity: 0.95; }}
     .legal-disclaimer-footer {{ margin-top: 2rem; padding: 1rem 1.25rem; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 8px; font-size: 0.72rem; color: var(--text-muted); line-height: 1.55; text-align: justify; }}
+    /* DuPont 5-Step Visual Tree & DCF Sensitivity Highlights */
+    .dupont-tree {{ display: flex; flex-direction: column; align-items: center; gap: 1rem; margin: 1.5rem 0; width: 100%; }}
+    .dupont-nodes-row {{ display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; width: 100%; overflow-x: auto; padding: 0.5rem 0; }}
+    .dupont-node {{ flex: 1; min-width: 120px; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 10px; padding: 0.75rem; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }}
+    .dupont-node-title {{ font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.3rem; }}
+    .dupont-node-val {{ font-family: 'Fira Code', monospace; font-size: 1.05rem; font-weight: 700; color: var(--accent-cyan); }}
+    .dupont-op {{ font-size: 1.1rem; font-weight: 800; color: var(--text-muted); }}
+    .dcf-cell-safe {{ background: rgba(16, 185, 129, 0.2) !important; color: #34d399 !important; font-weight: 700; text-align: center; }}
+    .dcf-cell-fair {{ background: rgba(245, 158, 11, 0.2) !important; color: #fbbf24 !important; font-weight: 700; text-align: center; }}
+    .dcf-cell-risk {{ background: rgba(239, 68, 68, 0.2) !important; color: #f87171 !important; font-weight: 700; text-align: center; }}
 
     /* Modern Executive Header Card */
     .exec-summary-header-card {{
@@ -973,6 +992,34 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
       <div class="card">
         <h3 class="card-title">{"🔬 DuPont 5-Step Return on Equity (ROE) Breakdown" if is_en else "🔬 DuPont 5-Adım Özsermaye Kârlılığı (ROE) Ayrıştırması"}</h3>
+        <div class="dupont-tree">
+          <div class="dupont-nodes-row">
+            <div class="dupont-node">
+              <div class="dupont-node-title">{"Tax Burden" if is_en else "Vergi Yükü"}</div>
+              <div class="dupont-node-val">{_fmt_num(dp.get("tax_burden", 0), is_en=is_en, decimals=3)}</div>
+            </div>
+            <div class="dupont-op">×</div>
+            <div class="dupont-node">
+              <div class="dupont-node-title">{"Interest Burden" if is_en else "Faiz Yükü"}</div>
+              <div class="dupont-node-val">{_fmt_num(dp.get("interest_burden", 0), is_en=is_en, decimals=3)}</div>
+            </div>
+            <div class="dupont-op">×</div>
+            <div class="dupont-node">
+              <div class="dupont-node-title">{"EBIT Margin" if is_en else "EBIT Marjı"}</div>
+              <div class="dupont-node-val">{_fmt_pct(dp.get("ebit_margin", 0)/100 if abs(dp.get("ebit_margin", 0)) < 1 else dp.get("ebit_margin", 0)/100, is_en=is_en)}</div>
+            </div>
+            <div class="dupont-op">×</div>
+            <div class="dupont-node">
+              <div class="dupont-node-title">{"Asset Turnover" if is_en else "Varlık Hızı"}</div>
+              <div class="dupont-node-val">{_fmt_num(dp.get("asset_turnover", 0), is_en=is_en)}x</div>
+            </div>
+            <div class="dupont-op">×</div>
+            <div class="dupont-node">
+              <div class="dupont-node-title">{"Leverage" if is_en else "Kaldıraç"}</div>
+              <div class="dupont-node-val">{_fmt_num(dp.get("financial_leverage", 0), is_en=is_en)}x</div>
+            </div>
+          </div>
+        </div>
         <table>
           <thead><tr><th>{"DuPont Component" if is_en else "DuPont Bileşeni"}</th><th>{"Formula" if is_en else "Formül"}</th><th>{"Ratio" if is_en else "Oran"}</th><th>{"Notes" if is_en else "Yorum"}</th></tr></thead>
           <tbody>
@@ -1053,8 +1100,24 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         </table>
       </div>
 
+      {f'''
+      <div class="bank-sector-banner" style="background:linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15)); border:1px solid var(--accent-cyan); border-radius:12px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; color:var(--text-main);">
+        🏦 <strong>{"BANKING / FINANCIAL SECTOR DETECTED:" if is_en else "BANKACILIK / FİNANS SEKTÖRÜ TESPİT EDİLDİ:"}</strong> {"Standard DCF suppressed. Displaying Price-to-Book vs ROE (PB-ROE) Regression & Dividend Discount Model (DDM)." if is_en else "Standart DCF devredışı bırakıldı. Piyasa Değeri/Defter Değeri - ROE (PB-ROE) Regresyonu ve Temettü İskonto Modeli (DDM) gösteriliyor."}
+      </div>
+      ''' if metrics.get("is_bank_sector") else ''}
+
       <div class="card">
-        <h3 class="card-title">{"🧮 2D DCF Sensitivity Matrix (WACC vs. Terminal Growth)" if is_en else "🧮 2D DCF Duyarlılık Matrisi (WACC vs. Terminal Büyüme)"}</h3>
+        <h3 class="card-title">{"🧮 Interactive 2D DCF Sensitivity Sandbox (WACC vs. Terminal Growth)" if is_en else "🧮 İnteraktif 2D DCF Duyarlılık Sandbox (WACC vs. Terminal Büyüme)"}</h3>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; background:rgba(255,255,255,0.03); border:1px solid var(--panel-border); border-radius:10px; padding:1.25rem; margin-bottom:1.25rem;">
+          <div style="display:flex; flex-direction:column; gap:0.5rem;">
+            <label style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">{"WACC (Discount Rate):" if is_en else "İskonto Oranı (WACC):"} <strong id="waccValLbl" style="color:var(--accent-cyan); font-family:var(--font-mono);">{_fmt_pct(wacc)}</strong></label>
+            <input type="range" id="waccSlider" min="8.0" max="18.0" step="0.5" value="{round(wacc*100, 1)}" oninput="document.getElementById('waccValLbl').innerText = '%' + this.value;">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:0.5rem;">
+            <label style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">{"Terminal Growth ($g$):" if is_en else "Terminal Büyüme Oranı ($g$):"} <strong id="growthValLbl" style="color:var(--accent-emerald); font-family:var(--font-mono);">{_fmt_pct(implied_g)}</strong></label>
+            <input type="range" id="growthSlider" min="1.0" max="6.0" step="0.5" value="{round(implied_g*100, 1) if implied_g > 0 else 3.5}" oninput="document.getElementById('growthValLbl').innerText = '%' + this.value;">
+          </div>
+        </div>
         <table>{dcf_matrix_html}</table>
       </div>
       <div class="analyst-block"><div class="analyst-text">{commentary.get("dcf_valuation", "")}</div></div>
@@ -1331,9 +1394,9 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <section class="article-section">
           <h2>{"🏦 Financial Health & Cash Cushion" if is_en else "🏦 Finansal Sağlık & Nakit Deposu Röntgeni"}</h2>
           <div class="grid-2" style="margin-bottom:0.75rem;">
-            <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(16, 185, 129, 0.08); border-left:3px solid var(--accent-emerald);">
-              <div class="stat-label" style="font-size:0.75rem;">{"Net Cash Cushion" if is_en else "Net Nakit Deposu"}</div>
-              <div class="stat-value" style="font-size:1.1rem; color:var(--accent-emerald);">{_fmt_curr(abs(net_debt), is_en=is_en)}</div>
+            <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(16, 185, 129, 0.08); border-left:3px solid {"var(--accent-emerald)" if net_debt < 0 else "var(--accent-rose)"};">
+              <div class="stat-label" style="font-size:0.75rem;">{("Net Cash Cushion" if net_debt < 0 else "Net Debt Position") if is_en else ("Net Nakit Deposu" if net_debt < 0 else "Net Borç Pozisyonu")}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:{"var(--accent-emerald)" if net_debt < 0 else "var(--accent-rose)"};">{_fmt_curr(net_debt, is_en=is_en)}</div>
             </div>
             <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(6, 182, 212, 0.08); border-left:3px solid var(--accent-cyan);">
               <div class="stat-label" style="font-size:0.75rem;">{"Altman Z-Score Safety" if is_en else "Altman Z-Score Güvenliği"}</div>
