@@ -510,37 +510,44 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
         tech_c = (
             f"Teknik göstergelerde fiyat {curr_sym}{sma50:,.2f} olan 50 günlük hareketli ortalama seviyesindedir."
         )
-        forensic_c = (
-            f"Adli denetimde Beneish M-Score {bm_score:.2f} ile {bm_safe_tr} konumundadır."
-        )
-        scenario_c = (
-            f"Senaryo analizinde {curr_sym}{sma50:,.2f} teknik desteği ana tampon seviyesidir."
-        )
-        if is_bank:
-            blog_headline_val = f"📰 {company_name} ({ticker}): Bankacılık Sektörü Özsermaye Kârlılığı (ROE) ve Defter Değeri Analizi"
-        elif net_debt < 0:
-            blog_headline_val = f"📰 {ticker} Analizi: Şirketin Kasası Para Dolu Ama Fiyatı Biraz Pahalı mı?"
-        elif net_debt > 0 and (debt / max(1, mcap)) > 0.4:
-            blog_headline_val = f"📰 {company_name} ({ticker}): Bilanço Borç Yapısı ve Finansal Kaldıraç Denetimi"
-        elif pf_score >= 7:
-            blog_headline_val = f"📰 {company_name} ({ticker}): Yüksek Piotroski Skoru ({pf_score}/9) ile Güçlü Nakit Kalitesi"
+        forensic_c = f"Adli denetimde Beneish M-Score {bm_score:.2f} ile {bm_safe_tr} konumundadır."
+        scenario_c = f"Senaryo analizinde {curr_sym}{sma50:,.2f} teknik desteği ana tampon seviyesidir."
+
+        if net_debt < 0:
+            cash_health_tr = f"Bir şirketin borçsuz olması, yüksek faizlerin hüküm sürdüğü dönemlerde büyük bir avantajdır. {company_name}’in kasasındaki {curr_sym}{net_cash_m:,.1f} milyonluk nakit, şirketi olası krizlere karşı koruyan güçlü bir kalkan görevi görüyor."
+            summary_tr = f"{company_name}, cebinde hiç net borcu olmadan yola devam eden nadir şirketlerden biri. Kasasında tam {curr_sym}{net_cash_m:,.1f} milyon net nakit biriktirmiş durumda. Bu durum şirkete muazzam bir güvenlik kalkanı sağlarken, yatırımcıların dikkat etmesi gereken tek konu hisse fiyatının biraz yüksek kalması."
+            bull_bear_tr = f"Boğa Senaryosu: Şirket borçsuz ve kasası nakit dolu. Bu finansal güç, zorlu ekonomik koşullarda büyük bir avantaj ve büyüme fırsatı sunar.\n\nAyı Senaryosu: Mevcut hisse fiyatı şirketin kârına göre oldukça yüksek. Beklenen hızlı büyüme gelmezse fiyatta geri çekilmeler görülebilir.\n\nKüçük Yatırımcı İçin Tavsiye: Tüm paranızla tek seferde almak yerine, fiyat düştükçe parça parça (kademeli) alım yapmak ve zarar kes (stop-loss) seviyelerine sadık kalmak mantıklı bir strateji olabilir."
+            takeaway_health_tr = f"Finansal Sağlık Mükemmel: Şirketin iflas riski yok denecek kadar az. Kasasındaki nakit ({curr_sym}{net_cash_m:,.1f}M), zor günlerde en büyük güvencesi."
+            faq_ans_tr = f"Şirketin batma riski yok denecek kadar az olsa da (kasada {curr_sym}{net_cash_m:,.1f}M net nakit var) fiyatı biraz pahalı. Bir portföy yönetiyor olsaydım tüm parayla girmek yerine %2,5 ile %5,0'lik küçük bir adımla alım yapar, {curr_sym}{sma50:,.2f} olan 50 günlük ortalamayı koruma kalkanım yapardım."
+            headline_tr = f"📰 {ticker} Analizi: Şirketin Kasası Para Dolu Ama Fiyatı Biraz Pahalı mı?"
         else:
-            blog_headline_val = f"📰 {company_name} ({ticker}): 360° Finansal Sağlık ve Değerleme Analizi"
-        blog_summary_val = f"{company_name}, cebinde hiç borcu olmadan yola devam eden nadir şirketlerden biri. Kasasında tam {curr_sym}{net_cash_m:,.1f} milyon net nakit biriktirmiş durumda. Bu durum şirkete muazzam bir güvenlik kalkanı sağlarken, yatırımcıların dikkat etmesi gereken tek konu hisse fiyatının biraz yüksek kalması."
-        blog_cash_and_health_val = f"Bir şirketin borçsuz olması, yüksek faizlerin hüküm sürdüğü dönemlerde büyük bir avantajdır. {company_name}’in kasasındaki {curr_sym}{net_cash_m:,.1f} milyonluk nakit, şirketi olası krizlere karşı koruyan güçlü bir kalkan görevi görüyor. Şirketlerin batma riskini ölçen Altman Z-Score testinde {z_score:,.2f} gibi son derece yüksek bir puan alması, finansal bünyesinin son derece sağlam olduğunu kanıtlıyor."
-        blog_earnings_quality_val = f"Şirketin genel kârlılık karnesini incelediğimizde 9 üzerinden {pf_score} puan aldığını görüyoruz. Satışlarından elde ettiği kâr oranı %{net_margin_pct:.1f}. Şirket mali tablolarında dürüst ve şeffaf bir çizgi izliyor, yani muhasebe tarafında kafa karıştıracak bir durum tespit edilmedi."
-        blog_valuation_dcf_val = f"İşte en çok dikkat etmemiz gereken nokta burası. Şirketin ürettiği satışa kıyasla hisse fiyatı oldukça yüksek bir seviyede bulunuyor (Satışlarının {ps_ratio:.1f} katı fiyattan işlem görüyor). Bu durum, piyasanın geleceğe yönelik çok büyük beklentileri önceden fiyatladığını gösteriyor. Dolayısıyla yeni alım yaparken acele etmemek faydalı olabilir."
-        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Sektörde imzalanacak yeni dev anlaşmalar ve iş hacmi artışı.\n2) Güçlü nakit yapısının korunarak yatırımlara dönüştürülmesi.\n\nKritik Riskler:\n1) Pahalı çarpanlar nedeniyle yaşanabilecek fiyat düzeltmeleri.\n2) {curr_sym}{sma50:,.2f} seviyesindeki teknik desteğin aşağı yönlü kırılması."
-        blog_bull_vs_bear_val = f"Boğa Senaryosu: Şirket borçsuz ve kasası nakit dolu. Bu finansal güç, zorlu ekonomik koşullarda büyük bir avantaj ve büyüme fırsatı sunar.\n\nAyı Senaryosu: Mevcut hisse fiyatı şirketin kârına göre oldukça yüksek. Beklenen hızlı büyüme gelmezse fiyatta geri çekilmeler görülebilir.\n\nKüçük Yatırımcı İçin Tavsiye: Tüm paranızla tek seferde almak yerine, fiyat düştükçe parça parça (kademeli) alım yapmak ve zarar kes (stop-loss) seviyelerine sadık kalmak mantıklı bir strateji olabilir."
+            cash_health_tr = f"{company_name}, bilançosunda toplam {curr_sym}{net_cash_m:,.1f} milyon net borç yükü taşımaktadır. Yüksek faiz ortamında borç servis oranları ve işletme nakit akışlarının sürdürülebilirliği yakından takip edilmelidir."
+            summary_tr = f"{company_name}, bilançosunda {curr_sym}{net_cash_m:,.1f} milyon net borç ile faaliyetlerini sürdürmektedir. Finansal borç yönetimi ve nakit akış performansı önümüzdeki dönemde hisse değerlemesi açısından kritik öneme sahiptir."
+            bull_bear_tr = f"Boğa Senaryosu: Borç servis kapasitesinin korunması ve operasyonel nakit akışlarının artması bilançoyu rahatlatabilir.\n\nAyı Senaryosu: Yüksek borç yükü ve faiz maliyetleri kârlılık üzerinde baskı yaratabilir.\n\nKüçük Yatırımcı İçin Tavsiye: Borç yapısı nedeniyle pozisyon büyüklüğü %2,5 - %5,0 ile sınırlandırılmalı ve 50 günlük ortalama seviyesi ({curr_sym}{sma50:,.2f}) yakından izlenmelidir."
+            takeaway_health_tr = f"Borç Yönetimi Kritik: Bilançodaki {curr_sym}{net_cash_m:,.1f}M net borç yükü faiz ortamında yakından izlenmeli."
+            faq_ans_tr = f"Şirketin bilançosunda {curr_sym}{net_cash_m:,.1f}M net borç yükü bulunmaktadır. Bir portföy yönetiyor olsaydım riski sınırlamak adına pozisyon büyüklüğünü %2,5 - %5,0 bandında tutar ve {curr_sym}{sma50:,.2f} teknik desteğine sadık kalırdım."
+            headline_tr = f"📰 {ticker} Analizi: Bilanço Borç Yapısı ve 360° Değerleme Raporu"
+
+        if is_bank:
+            blog_headline_val = f"📰 {ticker} Analizi: Bankacılık Özsermaye Kârlılığı ve Defter Değeri Dengesi"
+        else:
+            blog_headline_val = headline_tr
+
+        blog_summary_val = summary_tr
+        blog_cash_and_health_val = f"{cash_health_tr} Şirketlerin batma riskini ölçen Altman Z-Score testinde {z_score:,.2f} puan alması, mali bünyesinin '{z_zone}' kategorisinde değerlendirildiğini gösteriyor."
+        blog_earnings_quality_val = f"Şirketin genel kârlılık karnesini incelediğimizde 9 üzerinden {pf_score} puan aldığını görüyoruz. Satışlarından elde ettiği kâr oranı %{net_margin_pct:.1f}. Şirket mali tablolarında dürüst ve şeffaf bir çizgi izliyor."
+        blog_valuation_dcf_val = f"Değerleme tarafında hisse fiyatı üretilen satışların {ps_ratio:.1f} katı seviyesinden işlem görüyor (P/S: {ps_ratio:.1f}x). Piyasa geleceğe yönelik büyüme beklentilerini fiyatlamaktadır."
+        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Sektörel iş hacmi büyümesi ve yeni sözleşmeler.\n2) Operasyonel nakit akışlarının güçlenmesi.\n\nKritik Riskler:\n1) Yüksek faiz ve borç maliyetlerinin kârlılık üzerindeki baskısı.\n2) {curr_sym}{sma50:,.2f} seviyesindeki teknik desteğin aşağı yönlü kırılması."
+        blog_bull_vs_bear_val = bull_bear_tr
         blog_takeaways_val = [
-            f"Finansal Sağlık Mükemmel: Şirketin iflas riski yok denecek kadar az. Kasasındaki nakit ({curr_sym}{net_cash_m:,.1f}M), zor günlerde en büyük güvencesi.",
-            f"Fiyat Etiketi Yüksek: Satışlarına kıyasla hisse fiyatı şu an ({ps_ratio:.1f} katı) oldukça pahalı bir seviyeden işlem görüyor.",
-            f"Teknik Desteğe Dikkat: {curr_sym}{sma50:,.2f} seviyesindeki 50 günlük ortalama fiyat, takip edilmesi gereken en kritik sınır."
+            takeaway_health_tr,
+            f"Fiyat Etiketi: Satışlarına kıyasla hisse fiyatı şu an ({ps_ratio:.1f} katı) seviyesinden işlem görüyor.",
+            f"Teknik Desteğe Dikkat: {curr_sym}{sma50:,.2f} seviyesindeki 50 günlük ortalama fiyat, takip edilmesi gereken ana sınır."
         ]
         blog_faqs_val = [
-            {"q": f"❓ {ticker} hissesine ben olsam şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": f"Şirketin batma riski yok denecek kadar az olsa da fiyatı biraz pahalı. Bir portföy yönetiyor olsaydım tüm parayla girmek yerine %2,5 ile %5,0'lik küçük bir adımla alım yapar, {curr_sym}{sma50:,.2f} olan 50 günlük ortalamayı koruma kalkanım yapardım."},
-            {"q": f"❓ {ticker} hissesi yeni başlayan biri için uygun mu?", "a": f"Şirketin batma riski yok denecek kadar az olsa da fiyatı dalgalı olabilir. Yeni başlayanların tüm birikimleriyle değil, portföylerinin %2,5 ile %5,0'lik küçük bir kısmıyla deneme yapması daha güvenlidir."},
-            {"q": f"❓ {ticker} hissesi şu an pahalı mı?", "a": f"Evet, şirketin mevcut satışlarına ve kârlılığına kıyasla hisse fiyatı ortalamaların üzerindedir (Satışlarının {ps_ratio:.1f} katı)."}
+            {"q": f"❓ {ticker} hissesine ben olsam şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": faq_ans_tr},
+            {"q": f"❓ {ticker} hissesi yeni başlayan biri için uygun mu?", "a": f"Yeni başlayan yatırımcıların borç yapısını ve dalgalanmaları dikkate alarak portföylerinin %2,5 ile %5,0'lik küçük bir kısmıyla hareket etmesi önerilir."},
+            {"q": f"❓ {ticker} hissesinde en büyük risk nedir?", "a": f"En büyük risk borç yükü, faiz maliyetleri ve hareketli ortalamalar etrafındaki fiyat düzeltmeleridir."}
         ]
 
     return {
