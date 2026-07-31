@@ -191,6 +191,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     ev = mi.get("enterprise_value", 0)
     sma50 = mi.get("fifty_day_avg", 0)
     sma200 = mi.get("two_hundred_day_avg", 0)
+    beta = mi.get("beta", 1.0)
 
     vp = metrics.get("valuation_parameters", {})
     wacc = vp.get("wacc", 0)
@@ -255,6 +256,20 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     net_debt = debt - cash
     ps_ratio = mcap / last_rev if last_rev > 0 else 0
     pe_ratio = mcap / last_ni if last_ni > 0 else 0
+
+    # Dynamic 360 Scorecard Calculations
+    score_health = min(10.0, max(1.0, round((pf_score / 9.0) * 10.0, 1)))
+    score_growth = min(10.0, max(1.0, round(min(10.0, (fcf_margin_pct / 2.0) + (dp.get("dupont_roe_pct", 0) / 4.0)), 1)))
+    score_moat = min(10.0, max(1.0, round(min(10.0, (last_ebit / last_rev * 20.0) if last_rev > 0 else 5.0), 1)))
+    score_forensic = 9.0 if beneish_score <= -1.78 else 3.0
+    if z_score < 1.81:
+        score_forensic = min(score_forensic, 2.0)
+    elif z_score < 2.99:
+        score_forensic = min(score_forensic, 5.0)
+        
+    score_val = min(10.0, max(1.0, round(max(1.0, 10.0 - (ps_ratio * 0.8)), 1)))
+    score_composite = round((score_health + score_growth + score_moat + score_forensic + score_val) / 5.0, 1)
+    volatility_risk_score = int(min(90, max(15, round(ti.get("rsi_14", 50.0) * 0.8 + (20.0 if beta > 1.2 else 5.0)))))
 
     # Macro shock fair values
     fair_base = price * 1.10
@@ -815,7 +830,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
             <tr><td><strong>{"FCF Margin (%)" if is_en else "FCF Marjı (% FCF Margin)"}</strong></td><td><strong>{_fmt_pct(fcf_margin_pct/100, is_en=is_en, decimals=1)}</strong></td><td>> 10.0%</td><td><span class="{"tag-green" if fcf_margin_pct >= 10 else "tag-amber"}">{("🟢 High FCF Generation" if fcf_margin_pct >= 10 else "🟡 Limited Cash Generation") if is_en else ("🟢 Yüksek Serbest Nakit Üretimi" if fcf_margin_pct >= 10 else "🟡 Sınırlı Nakit Üretimi")}</span></td></tr>
             <tr><td><strong>{"Beneish M-Score" if is_en else "Beneish M-Score (Hile Skoru)"}</strong></td><td><strong>{_fmt_num(beneish_score, is_en=is_en)}</strong></td><td>< -1.78</td><td><span class="{"tag-red" if beneish_score > -1.78 else "tag-green"}">{("🔴 High Risk (" + beneish_model + ")" if beneish_score > -1.78 else "🟢 Safe Zone (" + beneish_model + ")") if is_en else ("🔴 Yüksek Risk (" + beneish_model + ")" if beneish_score > -1.78 else "🟢 Güvenli Bölge (" + beneish_model + ")")}</span></td></tr>
             <tr><td><strong>{"Free Cash Flow (FCF)" if is_en else "Serbest Nakit Akışı (FCF)"}</strong></td><td><strong>{_fmt_try(recent_fcf, is_en=is_en)}</strong></td><td>> 0</td><td><span class="{"tag-green" if recent_fcf > 0 else "tag-red"}">{("🟢 Positive Cash Flow" if recent_fcf > 0 else "🔴 Negative Cash Flow") if is_en else ("🟢 Pozitif Nakit Akışı" if recent_fcf > 0 else "🔴 Negatif Nakit Akışı")}</span></td></tr>
-            <tr><td><strong>{"Liquidity Risk & Order Book" if is_en else "Tahta Sığlığı & Likidite Riski"}</strong></td><td><strong>78 / 100</strong></td><td>< 40</td><td><span class="tag-red">{"🔴 High Liquidity & Tight Order Book" if is_en else "🔴 Yüksek Likidite & Sığ Tahta Sıkışması"}</span></td></tr>
+            <tr><td><strong>{"Liquidity Risk & Order Book" if is_en else "Tahta Sığlığı & Likidite Riski"}</strong></td><td><strong>{volatility_risk_score} / 100</strong></td><td>< 40</td><td><span class="{"tag-red" if volatility_risk_score > 60 else "tag-green"}">{("🔴 High Volatility & Tight Order Book" if volatility_risk_score > 60 else "🟢 Low Volatility & Healthy Liquidity") if is_en else ("🔴 Yüksek Likidite & Sığ Tahta Sıkışması" if volatility_risk_score > 60 else "🟢 Düşük Oynaklık & Yüksek Likidite")}</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -841,12 +856,12 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <table>
           <thead><tr><th>{"Evaluation Dimension" if is_en else "Değerlendirme Boyutu"}</th><th>{"Score (1-10)" if is_en else "Skor (1-10)"}</th><th>{"Rating" if is_en else "Derece"}</th><th>{"Description" if is_en else "Açıklama"}</th></tr></thead>
           <tbody>
-            <tr><td>{"1. Financial Health & Liquidity" if is_en else "1. Finansal Sağlık & Likidite"}</td><td><strong>9.0 / 10</strong></td><td><span class="tag-green">{"🟢 Excellent" if is_en else "🟢 Mükemmel"}</span></td><td>{"Net cash position, strong liquidity buffer." if is_en else "Net borçsuz yapı, likidite tamponu."}</td></tr>
-            <tr><td>{"2. Growth & Quality of Earnings" if is_en else "2. Büyüme & Kâr Kalitesi"}</td><td><strong>8.5 / 10</strong></td><td><span class="tag-green">{"🟢 Very Strong" if is_en else "🟢 Çok Güçlü"}</span></td><td>{"High cash flow conversion quality." if is_en else "Nakit akışı dönüşüm kalitesi."}</td></tr>
-            <tr><td>{"3. Competitive Moat" if is_en else "3. Rekabet Gücü (Moat)"}</td><td><strong>8.0 / 10</strong></td><td><span class="tag-green">{"🟢 Strong" if is_en else "🟢 Güçlü"}</span></td><td>{"High switching cost market position." if is_en else "Yüksek geçiş maliyetli pazar konumu."}</td></tr>
-            <tr><td>{"4. Forensic Accounting & Governance Safety" if is_en else "4. Adli Muhasebe & AML Güvenliği"}</td><td><strong>8,5 / 10</strong></td><td><span class="tag-green">{"🟢 Safe" if is_en else "🟢 Güvenli"}</span></td><td>{"Beneish M-Score in safe zone." if is_en else "Beneish M-Score güvenli bölgede."}</td></tr>
-            <tr><td>{"5. Valuation & Pricing" if is_en else "5. Değerleme & Fiyat Ucuzluğu"}</td><td><strong>1.0 / 10</strong></td><td><span class="tag-red">{"🔴 Overvalued" if is_en else "🔴 Aşırı Pahalı"}</span></td><td>{"Multiples above industry average." if is_en else "Çarpanlar sektör ortalamasının üzerinde."}</td></tr>
-            <tr style="background:rgba(255,255,255,0.03);"><td><strong>{"COMPOSITE SCORECARD RATING" if is_en else "BİLEŞİK ŞİRKET KARNESİ SKORU"}</strong></td><td><strong>7.0 / 10</strong></td><td><span class="tag-amber">🟡 YÜKSEK POTANSİYEL - PAHALI</span></td><td>Finansal yapı sağlam, fiyatlama çarpanı yüksek.</td></tr>
+            <tr><td>{"1. Financial Health & Liquidity" if is_en else "1. Finansal Sağlık & Likidite"}</td><td><strong>{_fmt_num(score_health, is_en=is_en, decimals=1)} / 10</strong></td><td><span class="{"tag-green" if score_health >= 7 else ("tag-amber" if score_health >= 5 else "tag-red")}">{("🟢 Excellent" if score_health >= 7 else ("🟡 Moderate" if score_health >= 5 else "🔴 Weak")) if is_en else ("🟢 Mükemmel" if score_health >= 7 else ("🟡 Makul" if score_health >= 5 else "🔴 Zayıf"))}</span></td><td>{"Piotroski balance sheet health & liquidity buffer." if is_en else "Piotroski bilanço sağlığı & likidite tamponu."}</td></tr>
+            <tr><td>{"2. Growth & Quality of Earnings" if is_en else "2. Büyüme & Kâr Kalitesi"}</td><td><strong>{_fmt_num(score_growth, is_en=is_en, decimals=1)} / 10</strong></td><td><span class="{"tag-green" if score_growth >= 7 else ("tag-amber" if score_growth >= 5 else "tag-red")}">{("🟢 Very Strong" if score_growth >= 7 else ("🟡 Moderate" if score_growth >= 5 else "🔴 Weak")) if is_en else ("🟢 Çok Güçlü" if score_growth >= 7 else ("🟡 Makul" if score_growth >= 5 else "🔴 Zayıf"))}</span></td><td>{"Free cash flow generation & ROE profitability." if is_en else "Serbest nakit akışı üretimi & ROE kârlılığı."}</td></tr>
+            <tr><td>{"3. Competitive Moat" if is_en else "3. Rekabet Gücü (Moat)"}</td><td><strong>{_fmt_num(score_moat, is_en=is_en, decimals=1)} / 10</strong></td><td><span class="{"tag-green" if score_moat >= 7 else ("tag-amber" if score_moat >= 5 else "tag-red")}">{("🟢 Strong" if score_moat >= 7 else ("🟡 Moderate" if score_moat >= 5 else "🔴 Weak")) if is_en else ("🟢 Güvenilir" if score_moat >= 7 else ("🟡 Orta" if score_moat >= 5 else "🔴 Zayıf"))}</span></td><td>{"Operating margin & market position moat." if is_en else "Faaliyet marjı & pazar konumu hendek kalitesi."}</td></tr>
+            <tr><td>{"4. Forensic Accounting & Governance Safety" if is_en else "4. Adli Muhasebe & AML Güvenliği"}</td><td><strong>{_fmt_num(score_forensic, is_en=is_en, decimals=1)} / 10</strong></td><td><span class="{"tag-green" if score_forensic >= 7 else ("tag-amber" if score_forensic >= 5 else "tag-red")}">{("🟢 Safe" if score_forensic >= 7 else ("🟡 Warning" if score_forensic >= 5 else "🔴 High Risk")) if is_en else ("🟢 Güvenli" if score_forensic >= 7 else ("🟡 Uyarı" if score_forensic >= 5 else "🔴 Yüksek Risk"))}</span></td><td>{"Beneish M-Score & Altman insolvency audit." if is_en else "Beneish M-Score & Altman iflas riski denetimi."}</td></tr>
+            <tr><td>{"5. Valuation & Pricing" if is_en else "5. Değerleme & Fiyat Ucuzluğu"}</td><td><strong>{_fmt_num(score_val, is_en=is_en, decimals=1)} / 10</strong></td><td><span class="{"tag-green" if score_val >= 7 else ("tag-amber" if score_val >= 5 else "tag-red")}">{("🟢 Fair Valuation" if score_val >= 7 else ("🟡 Premium" if score_val >= 5 else "🔴 Overvalued")) if is_en else ("🟢 Makul Fiyat" if score_val >= 7 else ("🟡 Primli" if score_val >= 5 else "🔴 Aşırı Pahalı"))}</span></td><td>{"P/S and P/E valuation multiples." if is_en else "P/S ve F/K değerleme çarpanları seviyesi."}</td></tr>
+            <tr style="background:rgba(255,255,255,0.03);"><td><strong>{"COMPOSITE SCORECARD RATING" if is_en else "BİLEŞİK ŞİRKET KARNESİ SKORU"}</strong></td><td><strong>{_fmt_num(score_composite, is_en=is_en, decimals=1)} / 10</strong></td><td><span class="{"tag-green" if score_composite >= 7 else ("tag-amber" if score_composite >= 5 else "tag-red")}">{("🟢 HIGH QUALITY" if score_composite >= 7 else ("🟡 BALANCED / FAIR" if score_composite >= 5 else "🔴 HIGH RISK")) if is_en else ("🟢 YÜKSEK KALİTE" if score_composite >= 7 else ("🟡 DENGELİ / MAKUL" if score_composite >= 5 else "🔴 YÜKSEK RİSK"))}</span></td><td>{"Weighted 360 degree quantitative rating." if is_en else "Ağırlıklı 360 derece nicel derece özeti."}</td></tr>
           </tbody>
         </table>
       </div>
@@ -1141,7 +1156,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           {f"Measures price relative to revenue. Average P/S is 2.5x, {company_name} P/S is {_fmt_num(ps_ratio, is_en=is_en, decimals=1)}x." if is_en else f"• <em>Nedir?:</em> Hisse fiyatının şirketin ürettiği gerçek ciroya oranını ölçer.<br>• <em>Nasıl Yorumlanır?:</em> Ortalama P/S çarpanı <strong>2,5x</strong> iken, {company_name}'in çarpanı <strong>{_fmt_num(ps_ratio, 1)}x</strong> seviyesindedir. Fiyatın ciroya göre primli seyrettiğini gösterir."}</p>
 
           <p><strong>{("3. Order Book & Liquidity Risk:" if is_en else "3. Fiyat Manipülasyonu Riski (Sığ Tahta & Hacim Sapması):")}</strong><br>
-          {("Measures order book tightness and trading volume volatility." if is_en else "• <em>Nedir?:</em> Piyasadaki hisse adedinin az olması durumunda (sığ tahta), küçük paralarla hisse fiyatının suni olarak sürülebilme riskidir.<br>• <em>Nasıl Yorumlanır?:</em> Sığlık riski <strong>78 / 100</strong> seviyesindedir. Hacim daraldığında tahta oynaklığa açıktır.")}</p>
+          {("Measures order book tightness and trading volume volatility." if is_en else f"• <em>Nedir?:</em> Piyasadaki hisse adedinin az olması durumunda (sığ tahta), küçük paralarla hisse fiyatının suni olarak sürülebilme riskidir.<br>• <em>Nasıl Yorumlanır?:</em> Sığlık riski <strong>{volatility_risk_score} / 100</strong> seviyesindedir. Hacim daraldığında tahta oynaklığa açıktır.")}</p>
         </div>
       </div>
 
@@ -1154,7 +1169,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
             <tr><td><strong>{"Altman Z-Score (Insolvency Risk)" if is_en else "Altman Z-Score (İflas Riski)"}</strong></td><td><strong>{_fmt_num(z_score, is_en=is_en)}</strong></td><td>> 2.99</td><td><span class="tag-green">{"🟢 SAFE (" + z_zone + ")" if is_en else "🟢 GÜVENLİ (" + z_zone + ")"}</span></td></tr>
             <tr><td><strong>{"P/S Multiple (Valuation Risk)" if is_en else "P/S Ciro Çarpanı (Balon Riski)"}</strong></td><td><strong>{_fmt_num(ps_ratio, is_en=is_en, decimals=1)}x</strong></td><td>{"2.5x" if is_en else "2,5x"}</td><td><span class="{"tag-red" if ps_ratio > 10 else "tag-green"}">{("🔴 HIGHLY SPECULATIVE / OVERVALUED" if ps_ratio > 10 else "🟢 Fair Multiple") if is_en else ("🔴 AŞIRI SPEKÜLATİF / PAHALI" if ps_ratio > 10 else "🟢 Makul Çarpan")}</span></td></tr>
             <tr><td><strong>{"Operating Profitability (EBIT)" if is_en else "Esas Faaliyet Kârlılığı (EBIT)"}</strong></td><td><strong>{_fmt_try(last_ebit, is_en=is_en)}</strong></td><td>> 0</td><td><span class="{"tag-green" if last_ebit > 0 else "tag-red"}">{("🟢 POSITIVE OPERATING PROFIT" if last_ebit > 0 else "🔴 OPERATING LOSS") if is_en else ("🟢 FAALİYET KÂRI POZİTİF" if last_ebit > 0 else "🔴 FAALİYET ZARARI")}</span></td></tr>
-            <tr><td><strong>{"Order Book & Volatility Risk" if is_en else "Tahta Sığlık & Manipülasyon Skoru"}</strong></td><td><strong>78 / 100</strong></td><td>< 40</td><td><span class="tag-red">{"🔴 HIGH VOLATILITY & LIQUIDITY RISK" if is_en else "🔴 YÜKSEK MANİPÜLASYON & OYNAKLIK RİSKİ"}</span></td></tr>
+            <tr><td><strong>{"Order Book & Volatility Risk" if is_en else "Tahta Sığlık & Manipülasyon Skoru"}</strong></td><td><strong>{volatility_risk_score} / 100</strong></td><td>< 40</td><td><span class="{"tag-red" if volatility_risk_score > 60 else "tag-green"}">{("🔴 HIGH VOLATILITY & LIQUIDITY RISK" if volatility_risk_score > 60 else "🟢 LOW VOLATILITY & HEALTHY LIQUIDITY") if is_en else ("🔴 YÜKSEK MANİPÜLASYON & OYNAKLIK RİSKİ" if volatility_risk_score > 60 else "🟢 DÜŞÜK OYNAKLIK & SAĞLIKLI LİKİDİTE")}</span></td></tr>
           </tbody>
         </table>
         <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary.get("forensic_audit", "")}</div></div>
