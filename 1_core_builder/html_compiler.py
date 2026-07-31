@@ -1393,7 +1393,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           <div class="investor-guide-box" style="margin-bottom:1rem;">
             <div class="guide-title">{"💡 WHAT IS MODULE 13 INVESTOR BRIEFING?" if is_en else "💡 MODÜL 13 YATIRIMCI BÜLTENİ NEDİR?"}</div>
             <div class="guide-text">
-              {"An automated, blog-style reporting feature aggregating quantitative models 1 to 12 into an actionable daily equity research briefing." if is_en else "1 ila 12 arasındaki tüm nicel ve adli modül çıktılarını birleştiren, günün tarihine özel yapay zekâ destekli günlük yatırımcı bültenidir."}
+              {"An automated, blog-style reporting feature aggregating quantitative models 1 to 12 into an actionable daily equity research briefing." if is_en else "Şirketin tüm finansal verilerini, borç durumunu ve piyasa hareketlerini tek bir çatı altında toplayıp anlaşılır bir dille sunan günlük yatırım rehberinizdir."}
             </div>
           </div>
 
@@ -1406,7 +1406,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
             <span>•</span>
             <span>📅 {today_disp}</span>
             <span>•</span>
-            <span data-i18n="author_label">✍️ {"AI Senior Analyst" if is_en else "Yapay Zekâ Kıdemli Analisti"}</span>
+            <span data-i18n="author_label">✍️ {"Finans Analisti" if is_en else "Finans Analisti"}</span>
             <span>•</span>
             <span class="brand-badge">{ticker}</span>
           </div>
@@ -1420,22 +1420,23 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           </div>
         </header>
 
+        <!-- SECTION 1: OVERVIEW -->
         <section class="article-section">
-          <h2>{"📰 Executive Summary & Daily Thesis" if is_en else "📰 Yönetici Özeti & Günlük Analiz Tezi"}</h2>
+          <h2>{"📰 Overview: How is " + ticker + " Doing?" if is_en else "📰 Özet Bakış: " + ticker + " Ne Durumda?"}</h2>
           <div class="analyst-text">{format_analyst_text(blog_summary, is_en=is_en)}</div>
         </section>
 
         <!-- SECTION 2: FINANCIAL HEALTH & CASH CUSHION -->
         <section class="article-section">
-          <h2>{"🏦 Financial Health & Cash Cushion" if is_en else "🏦 Finansal Sağlık & Nakit Deposu Röntgeni"}</h2>
+          <h2>{"🏦 Financial Health & Cash Cushion" if is_en else "🏦 Şirketin Sağlık Durumu & Kasa Gücü"}</h2>
           <div class="grid-2" style="margin-bottom:0.75rem;">
             <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(16, 185, 129, 0.08); border-left:3px solid {"var(--accent-emerald)" if net_debt < 0 else "var(--accent-rose)"};">
-              <div class="stat-label" style="font-size:0.75rem;">{("Net Cash Cushion" if net_debt < 0 else "Net Debt Position") if is_en else ("Net Nakit Deposu" if net_debt < 0 else "Net Borç Pozisyonu")}</div>
-              <div class="stat-value" style="font-size:1.1rem; color:{"var(--accent-emerald)" if net_debt < 0 else "var(--accent-rose)"};">{_fmt_curr(net_debt, is_en=is_en)}</div>
+              <div class="stat-label" style="font-size:0.75rem;">{("Net Cash Cushion" if net_debt < 0 else "Net Debt Position") if is_en else ("Kasada Bulunan Net Nakit" if net_debt < 0 else "Net Borç Pozisyonu")}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:{"var(--accent-emerald)" if net_debt < 0 else "var(--accent-rose)"};">{_fmt_curr(abs(net_debt), is_en=is_en)}</div>
             </div>
             <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(6, 182, 212, 0.08); border-left:3px solid var(--accent-cyan);">
-              <div class="stat-label" style="font-size:0.75rem;">{"Altman Z-Score Safety" if is_en else "Altman Z-Score Güvenliği"}</div>
-              <div class="stat-value" style="font-size:1.1rem; color:var(--accent-cyan);">{_fmt_num(z_score, is_en=is_en, decimals=2)} ({z_zone.split(' ')[0]})</div>
+              <div class="stat-label" style="font-size:0.75rem;">{"Insolvency Risk Test (Altman Z)" if is_en else "İflas Riski Testi (Altman Z)"}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:var(--accent-cyan);">{_fmt_num(z_score, is_en=is_en, decimals=2)} ({"Safe" if is_en else "Tamamen Güvenli"})</div>
             </div>
           </div>
           <div class="analyst-text">{format_analyst_text(commentary.get("blog_cash_and_health", commentary.get("altman_z_commentary", commentary.get("strong_points", ""))), is_en=is_en)}</div>
@@ -1443,15 +1444,15 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
         <!-- SECTION 3: EARNINGS QUALITY & DUPONT ROE -->
         <section class="article-section">
-          <h2>{"📊 Earnings Quality & Piotroski Balance Sheet Audit" if is_en else "📊 Kâr Kalitesi & Piotroski Bilanço Denetimi"}</h2>
+          <h2>{"📊 Earnings Quality & Profitability" if is_en else "📊 Kârlılık Kalitesi & Karnesi"}</h2>
           <div class="grid-2" style="margin-bottom:0.75rem;">
             <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(139, 92, 246, 0.08); border-left:3px solid #8b5cf6;">
-              <div class="stat-label" style="font-size:0.75rem;">{"Piotroski F-Score" if is_en else "Piotroski F-Skoru"}</div>
-              <div class="stat-value" style="font-size:1.1rem; color:#8b5cf6;">{pf_score}/9</div>
+              <div class="stat-label" style="font-size:0.75rem;">{"Balance Sheet Trust Score (Piotroski)" if is_en else "Bilanço Güven Puanı (Piotroski)"}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:#8b5cf6;">{pf_score} / 9 ({"Solid" if is_en else ("Orta Şeker" if pf_score < 7 else "Güçlü")})</div>
             </div>
             <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(244, 63, 94, 0.08); border-left:3px solid var(--accent-rose);">
-              <div class="stat-label" style="font-size:0.75rem;">{"Gross Margin Trend" if is_en else "Brüt Kâr Marjı Seviyesi"}</div>
-              <div class="stat-value" style="font-size:1.1rem; color:var(--accent-rose);">{_fmt_pct(hist[0].get("gross_margin", 0), is_en=is_en) if hist else "N/A"}</div>
+              <div class="stat-label" style="font-size:0.75rem;">{"Net Profit Margin per Sale" if is_en else "Satış Başına Kâr Oranı"}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:var(--accent-rose);">{_fmt_pct(hist[0].get("net_margin", hist[0].get("gross_margin", 0)), is_en=is_en) if hist else "N/A"}</div>
             </div>
           </div>
           <div class="analyst-text">{format_analyst_text(commentary.get("blog_earnings_quality", commentary.get("piotroski_commentary", commentary.get("dupont_analysis", ""))), is_en=is_en)}</div>
@@ -1459,14 +1460,14 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
         <!-- SECTION 4: VALUATION REALITY & REVERSE DCF -->
         <section class="article-section">
-          <h2>{"💰 Valuation Reality Check & Reverse DCF Story" if is_en else "💰 Değerleme Gerçekliği & Ters DCF Hikayesi"}</h2>
+          <h2>{"💰 Valuation Assessment: Expensive or Cheap?" if is_en else "💰 Fiyat Değerlendirmesi: Pahalı mı, Ucuz mu?"}</h2>
           <div class="grid-2" style="margin-bottom:0.75rem;">
             <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(245, 158, 11, 0.08); border-left:3px solid #f59e0b;">
-              <div class="stat-label" style="font-size:0.75rem;">{"P/S Multiple" if is_en else "Fiyat / Satışlar (P/S)"}</div>
-              <div class="stat-value" style="font-size:1.1rem; color:#f59e0b;">{_fmt_num(ps_ratio, is_en=is_en, decimals=1)}x</div>
+              <div class="stat-label" style="font-size:0.75rem;">{"Price / Sales Ratio (P/S)" if is_en else "Fiyat / Satış Oranı (P/S)"}</div>
+              <div class="stat-value" style="font-size:1.1rem; color:#f59e0b;">{_fmt_num(ps_ratio, is_en=is_en, decimals=1)}x ({"High" if ps_ratio > 10 else ("Fair" if ps_ratio > 3 else "Cheap")})</div>
             </div>
             <div class="stat-box" style="padding:0.6rem 0.8rem; background:rgba(6, 182, 212, 0.08); border-left:3px solid var(--accent-cyan);">
-              <div class="stat-label" style="font-size:0.75rem;">{"Implied Growth Rate (g)" if is_en else "Piyasa İmplike Büyüme Beklentisi (%g)"}</div>
+              <div class="stat-label" style="font-size:0.75rem;">{"Market Growth Requirement" if is_en else "Piyasanın Büyüme Beklentisi"}</div>
               <div class="stat-value" style="font-size:1.1rem; color:var(--accent-cyan);">{_fmt_pct(implied_g, is_en=is_en)}</div>
             </div>
           </div>
@@ -1475,7 +1476,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
         <!-- SECTION 5: TECHNICAL MOMENTUM & 4 SCENARIO PRICE TARGETS -->
         <section class="article-section">
-          <h2>{"📈 Technical Momentum & 4 Price Target Scenarios" if is_en else "📈 Grafik Momentum & 4 Senaryolu Hedef Fiyat"}</h2>
+          <h2>{"📈 Chart Status & 4 Price Target Scenarios" if is_en else "📈 Grafik Durumu & 4 Farklı Fiyat Senaryosu"}</h2>
           <div class="analyst-text" style="margin-bottom:0.75rem;">{format_analyst_text(commentary.get("technical_analysis", commentary.get("scenario_analysis", "")), is_en=is_en)}</div>
 
           <!-- 4 SCENARIO TARGET PRICE VISUAL GRID -->
@@ -1485,15 +1486,15 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
               <div style="font-size:1.1rem; font-weight:750; margin-top:0.2rem; color:var(--text-main);">{_fmt_curr(scenarios.get("severe_downside", price*0.5), is_en=is_en)}</div>
             </div>
             <div class="card" style="padding:0.6rem 0.8rem; text-align:center; background:rgba(245, 158, 11, 0.08); border-top:3px solid #f59e0b;">
-              <div style="font-size:0.75rem; color:#f59e0b; font-weight:600;">🟡 {"Bear Target" if is_en else "Ayı Senaryosu"}</div>
+              <div style="font-size:0.75rem; color:#f59e0b; font-weight:600;">🟡 {"Bear Case" if is_en else "Kötümser Senaryo"}</div>
               <div style="font-size:1.1rem; font-weight:750; margin-top:0.2rem; color:var(--text-main);">{_fmt_curr(scenarios.get("bear_target", price*0.7), is_en=is_en)}</div>
             </div>
             <div class="card" style="padding:0.6rem 0.8rem; text-align:center; background:rgba(6, 182, 212, 0.08); border-top:3px solid var(--accent-cyan);">
-              <div style="font-size:0.75rem; color:var(--accent-cyan); font-weight:600;">🔵 {"Base Target" if is_en else "Baz Senaryo"}</div>
+              <div style="font-size:0.75rem; color:var(--accent-cyan); font-weight:600;">🔵 {"Base Expectation" if is_en else "Makul Beklenti"}</div>
               <div style="font-size:1.1rem; font-weight:750; margin-top:0.2rem; color:var(--text-main);">{_fmt_curr(scenarios.get("base_target", price*1.1), is_en=is_en)}</div>
             </div>
             <div class="card" style="padding:0.6rem 0.8rem; text-align:center; background:rgba(16, 185, 129, 0.08); border-top:3px solid var(--accent-emerald);">
-              <div style="font-size:0.75rem; color:var(--accent-emerald); font-weight:600;">🟢 {"Bull Target" if is_en else "Boğa Senaryosu"}</div>
+              <div style="font-size:0.75rem; color:var(--accent-emerald); font-weight:600;">🟢 {"Bull Case" if is_en else "İyimser Senaryo"}</div>
               <div style="font-size:1.1rem; font-weight:750; margin-top:0.2rem; color:var(--text-main);">{_fmt_curr(scenarios.get("bull_target", price*1.3), is_en=is_en)}</div>
             </div>
           </div>
@@ -1501,13 +1502,13 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
         <!-- SECTION 6: CATALYSTS & RISK RADAR -->
         <section class="article-section">
-          <h2>{"⚡ Risk Radar & Upcoming Catalysts" if is_en else "⚡ Risk Faktörleri & Katalizör Radarı"}</h2>
+          <h2>{"⚡ Opportunities & Risks Radar" if is_en else "⚡ Şanslar ve Riskler Radarımızda"}</h2>
           <div class="analyst-text">{format_analyst_text(commentary.get("blog_catalysts_and_risks", commentary.get("moat_and_catalysts", "")), is_en=is_en)}</div>
         </section>
 
         <!-- SECTION 7: BULL VS BEAR & ACTION PLAN -->
         <section class="article-section">
-          <h2>{"⚖️ Bull vs. Bear Verdict & Retail Action Plan" if is_en else "⚖️ Boğa vs. Ayı Senaryo & Yatırımcı Eylem Planı"}</h2>
+          <h2>{"⚖️ Bullish vs. Bearish Outlook & Strategy" if is_en else "⚖️ İyimser vs. Kötümser Görüş & Yatırım Stratejisi"}</h2>
           <div class="analyst-text">{format_analyst_text(commentary.get("blog_bull_vs_bear", commentary.get("weak_points", "")), is_en=is_en)}</div>
         </section>
 
