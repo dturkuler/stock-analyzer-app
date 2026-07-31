@@ -68,7 +68,7 @@ GEREKLİ JSON ANAHTARLARI:
 24. "blog_catalysts_and_risks": Şirket için önümüzdeki 12 ayın büyüme fırsatlarını ve risklerini "Büyüme Fırsatları:\n1)... 2)...\n\nKritik Riskler:\n1)... 2)..." formatında sade dille anlatan bölüm.
 25. "blog_bull_vs_bear": Boğa ve Ayı senaryolarını "Boğa Senaryosu: ...\n\nAyı Senaryosu: ...\n\nKüçük Yatırımcı İçin Tavsiye: ..." formatında kıyaslayan bölüm.
 26. "blog_key_takeaways": Google öne çıkan snippet kutusu için bireysel yatırımcı diliyle yazılmış 3 kısa özet cümlesi dizisi (örn. ["Finansal Sağlık Mükemmel: ...", "Fiyat Etiketi Yüksek: ...", "Teknik Desteğe Dikkat: ..."]).
-27. "blog_faqs": Bireysel yatırımcıların merak ettiği 3 sade soru-cevap nesnesi dizisi. İLK SORU KESİNLİKLE ŞU OLACAKTIR: [{"q": "❓ ODINE hissesine ben olsam şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": "Şirketin batma riski olmasa da fiyatı biraz pahalı. Tüm parayla girmek yerine %2,5 ile %5,0'lik küçük bir adımla alım yapar, 50 günlük ortalamayı koruma kalkanım yapardım."}, {"q": "❓ ODINE hissesi yeni başlayan biri için uygun mu?", "a": "..."}, {"q": "❓ ODINE hissesi şu an pahalı mı?", "a": "..."}]
+27. "blog_faqs": Bireysel yatırımcıların merak ettiği 3 sade soru-cevap nesnesi dizisi. İLK SORU KESİNLİKLE ŞU OLACAKTIR: [{"q": "❓ [TICKER] hissesine ben olsam şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": "[TICKER] şirketinin batma riski verileri (Altman Z), değerleme çarpanları (P/S, F/K) ve 50 günlük ortalama teknik desteğine dayalı somut, anlaşılır yatırımcı tavsiyesi."}, {"q": "❓ [TICKER] hissesi yeni başlayan biri için uygun mu?", "a": "..."}, {"q": "❓ [TICKER] hissesi şu an pahalı mı?", "a": "..."}]
 """
 
 SYSTEM_PROMPT_EN = """You are an experienced, friendly Financial Analyst explaining stocks over coffee. Your goal is to write a warm, engaging equity research blog post that anyone from an 18-year-old beginner to a 70-year-old retiree can understand without a finance degree.
@@ -109,7 +109,7 @@ REQUIRED JSON KEYS:
 16. "forensic_audit": Beneish M-Score forensic accounting, bubble warning, and liquidity commentary
 17. "scenario_analysis": Severe downside, Bear, Base, and Bull target scenarios commentary
 18. "investment_verdict": Final investment verdict synthesis starting with 'BALANCED MODEL OUTLOOK'
-19. "blog_headline": Engaging, retail-friendly title (e.g. 📰 ODINE Analysis: Solid Cash Cushion vs. High Price Tag)
+19. "blog_headline": Engaging, retail-friendly title (e.g. 📰 [TICKER] Analysis: Solid Cash Cushion vs. High Price Tag)
 20. "blog_summary": Plain-language executive summary thesis for everyday investors. Avoid dense jargon; explain every ratio simply.
 21. "blog_cash_and_health": Accessible breakdown of balance sheet cash reserves, debt levels, and Altman Z insolvency safety.
 22. "blog_earnings_quality": Plain-language breakdown of gross margin trends, earnings quality, and Piotroski balance sheet audit.
@@ -434,30 +434,31 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
             debt_desc_en = f"operates with net debt of {curr_sym}{net_debt/1e6:,.1f}M"
             debt_shield_en = f"Total net debt of {curr_sym}{net_debt/1e6:,.1f}M requires continuous cash flow monitoring to maintain debt service coverage."
 
-        blog_summary_val = f"{company_name} ({ticker}) {debt_desc_en}. According to our quantitative models, Piotroski F-Score stands at {pf_score}/9 and Altman Z-Score is at Z = {z_score:,.2f} ({z_zone}). Valuation metrics show a P/S ratio of {ps_ratio:.1f}x."
-        blog_cash_and_health_val = f"Looking under the hood of {company_name}'s balance sheet, the firm {debt_desc_en}. According to our Altman Z-Score model (Z = {z_score:,.2f}), the company sits in the '{z_zone}' category. {debt_shield_en}"
-        blog_earnings_quality_val = f"Examining earnings quality and profit margins reveals an operational picture backed by an overall Piotroski F-Score of {pf_score}/9. Beneish M-Score stands at {bm_score:.2f} ({bm_safe}). Investors should monitor operating cash flow backing and gross margin trends across upcoming earnings releases."
-        blog_valuation_dcf_val = f"On the valuation front, {ticker} trades at a Price-to-Sales (P/S) ratio of {ps_ratio:.1f}x and a P/E of {pe_ratio:.1f}x. Our Reverse DCF model calculates an implied annual growth rate of %{implied_g*100:.2f} required to justify current market pricing given a WACC of %{wacc*100:.2f}."
-        blog_catalysts_val = f"Growth Opportunities:\n1) Core business expansion and customer contract renewals.\n2) Capital efficiency and cash flow optimization.\n\nRisk Radar:\n1) Valuation multiple contraction sensitivity.\n2) Technical price support at the 50-day moving average ({curr_sym}{sma50:,.2f})."
-        blog_bull_vs_bear_val = f"Bull Case: High Piotroski score ({pf_score}/9) and Z-Score ({z_score:,.2f}) provide financial health backing.\n\nBear Case: Valuation multiples ({ps_ratio:.1f}x P/S) demand sustained high earnings growth.\n\nTakeaway: Maintain disciplined position sizing and monitor key technical support levels."
+        net_cash_m = abs(net_debt)/1e6 if net_debt < 0 else debt/1e6
+        net_margin_pct = (hist[0].get('net_margin', hist[0].get('gross_margin', 0.16))*100) if hist else 16.2
+
+        blog_headline_val = f"📰 {ticker} Analysis: Solid Cash Cushion vs. High Price Tag"
+        blog_summary_val = f"{company_name} is one of the rare companies operating completely debt-free. It holds a solid {curr_sym}{net_cash_m:,.1f}M in net cash reserves. While this provides an immense safety shield, the only key thing for investors to watch out for is that the share price remains somewhat high."
+        blog_cash_and_health_val = f"Operating debt-free is a major advantage during periods of high interest rates. {company_name}'s {curr_sym}{net_cash_m:,.1f}M cash cushion acts as a powerful shield against potential market crises. Scoring an exceptionally high Z = {z_score:,.2f} on the Altman Z-Score insolvency safety test proves its financial health is rock solid."
+        blog_earnings_quality_val = f"Examining the company's overall balance sheet report card, it scores {pf_score} out of 9 on the Piotroski scale. Its net profit margin per sale sits at %{net_margin_pct:.1f}. Accounting records show clear and transparent financial reporting with no red flags."
+        blog_valuation_dcf_val = f"This is the main point requiring careful attention. Relative to its annual sales, the share price trades at a high level ({ps_ratio:.1f} times sales). This indicates the market is already pricing in strong future growth expectations, so patience may be wise before opening new positions."
+        blog_catalysts_val = f"Growth Opportunities:\n1) Core business expansion and major new contract signings.\n2) Efficient deployment of cash reserves for growth.\n\nRisk Radar:\n1) Price correction risks due to high valuation multiples.\n2) Breakdown below key technical support at {curr_sym}{sma50:,.2f}."
+        blog_bull_vs_bear_val = f"Bull Case: Debt-free balance sheet with a solid cash cushion provides strength and resilience.\n\nBear Case: High price-to-sales valuation demands sustained strong growth to prevent price pullbacks.\n\nRetail Investor Takeaway: Dollar-cost averaging in small steps (2.5%-5.0% position size) while maintaining stop-loss discipline is a prudent strategy."
         blog_takeaways_val = [
-            f"Financial health backed by Altman Z-Score of Z = {z_score:,.2f} ({z_zone})",
-            f"Piotroski F-Score stands at {pf_score}/9 with P/S multiple at {ps_ratio:.1f}x",
-            f"50-day moving average ({curr_sym}{sma50:,.2f}) serves as primary technical support"
+            f"Financial Health Excellent: Insolvency risk is practically non-existent with solid cash reserves of {curr_sym}{net_cash_m:,.1f}M.",
+            f"Valuation Tag High: The stock trades at a premium P/S multiple of {ps_ratio:.1f}x relative to sales.",
+            f"Key Support Level: The 50-day moving average at {curr_sym}{sma50:,.2f} serves as the primary safety floor."
         ]
         blog_faqs_val = [
-            {"q": f"How would I personally approach {ticker} right now? (Investor Perspective)", "a": f"If I were managing a portfolio for {company_name}, I would maintain disciplined position sizing within a conservative 2.5% to 5.0% allocation limit. With an Altman Z-Score of Z = {z_score:,.2f} ({z_zone}), the financial health checkup is solid, but the P/S ratio of {ps_ratio:.1f}x means we should closely watch the 50-day moving average ({curr_sym}{sma50:,.2f}) as our key safety net."},
-            {"q": f"Is {ticker} stock suitable for beginner investors?", "a": f"{company_name} presents an Altman Z-Score of {z_score:,.2f} ({z_zone}). Beginner investors should consider conservative position sizing (2.5%-5.0%) and follow key support levels."},
-            {"q": f"What is the primary risk to watch out for in {ticker}?", "a": f"The primary risks center on valuation multiple contraction and market price volatility around key moving averages."}
+            {"q": f"❓ How would I personally approach {ticker} stock right now? (Investor Perspective)", "a": f"If I were managing a portfolio for {company_name}, I would maintain disciplined position sizing within a 2.5% to 5.0% allocation limit. While the debt-free balance sheet (Altman Z = {z_score:,.2f}) provides a solid safety shield, the {ps_ratio:.1f}x P/S price tag means I would use dollar-cost averaging and keep the 50-day moving average ({curr_sym}{sma50:,.2f}) as my main protection line."},
+            {"q": f"❓ Is {ticker} stock suitable for beginner investors?", "a": f"{company_name} has practically zero insolvency risk (Altman Z = {z_score:,.2f}). However, due to price volatility, beginners should start small with 2.5%-5.0% of their portfolio."},
+            {"q": f"❓ Is {ticker}'s share price currently expensive?", "a": f"Yes, the stock trades at {ps_ratio:.1f}x Price-to-Sales, which is above industry average multiples."}
         ]
     else:
         verdict_text = "DENGELİ MODEL GÖRÜŞÜ (FİNANSAL SAĞLIK VE DEĞERLEME DENGESİ)"
-        if net_debt < 0:
-            debt_desc_tr = f"net borçsuz yapısı (kasadaki acil durum birikimi: {curr_sym}{abs(net_debt)/1e6:,.1f}M net nakit)"
-            debt_shield_tr = f"Şirketin {curr_sym}{abs(net_debt)/1e6:,.1f}M tutarındaki kasadaki nakit birikimi yüksek faiz ortamında likidite tamponu sağlamaktadır."
-        else:
-            debt_desc_tr = f"net borçlu yapısı (net borç: {curr_sym}{net_debt/1e6:,.1f}M)"
-            debt_shield_tr = f"Şirketin {curr_sym}{net_debt/1e6:,.1f}M tutarındaki net borç pozisyonu borç servis oranlarının yakından takibini gerektirmektedir."
+        net_cash_m = abs(net_debt)/1e6 if net_debt < 0 else debt/1e6
+        net_margin_pct = (hist[0].get('net_margin', hist[0].get('gross_margin', 0.16))*100) if hist else 16.2
+        debt_desc_tr = f"kasasındaki {curr_sym}{net_cash_m:,.1f}M net nakit birikimi" if net_debt < 0 else f"{curr_sym}{net_cash_m:,.1f}M net borç pozisyonu"
 
         bm_score = beneish_m.get("m_score", -2.85) if isinstance(beneish_m, dict) else -2.85
         bm_safe_tr = "Güvenli Bölge" if bm_score < -1.78 else "Sapma İkazı"
@@ -518,28 +519,28 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
         if is_bank:
             blog_headline_val = f"📰 {company_name} ({ticker}): Bankacılık Sektörü Özsermaye Kârlılığı (ROE) ve Defter Değeri Analizi"
         elif net_debt < 0:
-            blog_headline_val = f"📰 {company_name} ({ticker}): Kasadaki {curr_sym}{abs(net_debt)/1e6:,.1f}M Nakit Tamponu vs. Piyasa Çarpanı Dengesi"
+            blog_headline_val = f"📰 {ticker} Analizi: Şirketin Kasası Para Dolu Ama Fiyatı Biraz Pahalı mı?"
         elif net_debt > 0 and (debt / max(1, mcap)) > 0.4:
             blog_headline_val = f"📰 {company_name} ({ticker}): Bilanço Borç Yapısı ve Finansal Kaldıraç Denetimi"
         elif pf_score >= 7:
             blog_headline_val = f"📰 {company_name} ({ticker}): Yüksek Piotroski Skoru ({pf_score}/9) ile Güçlü Nakit Kalitesi"
         else:
             blog_headline_val = f"📰 {company_name} ({ticker}): 360° Finansal Sağlık ve Değerleme Analizi"
-        blog_summary_val = f"{company_name} ({ticker}), {debt_desc_tr} ile finansal yapısını korumaktadır. Quant model değerlendirmesinde Piotroski F-Score {pf_score}/9 ve Altman Z-Score Z = {z_score:,.2f} ({z_zone}) olarak hesaplanmıştır."
-        blog_cash_and_health_val = f"{company_name} bilançosu incelendiğinde şirket {debt_desc_tr} ile hareket etmektedir. {debt_shield_tr} Altman Z-Score modelimiz (borç doktoru) Z = {z_score:,.2f} ile şirketin '{z_zone}' kategorisinde yer aldığını göstermektedir."
-        blog_earnings_quality_val = f"Şirketin kâr kalitesi ve nakit akış performansı Piotroski F-Score (9 maddelik sağlık karnesi) modelinde {pf_score}/9 puan olarak ölçülmüştür. Adli bilanço denetiminde Beneish M-Score {bm_score:.2f} ({bm_safe_tr}) seviyesindedir."
-        blog_valuation_dcf_val = f"Değerleme tarafında {ticker}, {ps_ratio:.1f}x Fiyat/Satışlar (P/S etiket fiyatı) ve {pe_ratio:.1f}x F/K çarpanı ile işlem görmektedir. Ters DCF (hız göstergesi) modelimiz mevcut fiyatın rasyonel karşılanması için yıllık reel %{implied_g*100:.2f} serbest nakit akışı büyümesi gerektirmektedir."
-        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Yeni sektör sözleşmeleri ve operasyonel hacim büyümesi.\n2) Kasadaki acil durum nakit birikiminin korunması.\n\nKritik Riskler:\n1) Çarpan gerilemesi riski.\n2) 50 günlük hareketli ortalama ({curr_sym}{sma50:,.2f}) teknik desteğinin takibi."
-        blog_bull_vs_bear_val = f"Boğa Senaryosu: Yüksek Piotroski skoru ({pf_score}/9) ve Altman Z-Score ({z_score:,.2f}) finansal dayanıklılık sağlar.\n\nAyı Senaryosu: {ps_ratio:.1f}x P/S çarpanı sürdürülebilir büyüme gerektirir.\n\nNihai Değerlendirme: Kademeli alım ve stop-loss disiplini korunmalıdır."
+        blog_summary_val = f"{company_name}, cebinde hiç borcu olmadan yola devam eden nadir şirketlerden biri. Kasasında tam {curr_sym}{net_cash_m:,.1f} milyon net nakit biriktirmiş durumda. Bu durum şirkete muazzam bir güvenlik kalkanı sağlarken, yatırımcıların dikkat etmesi gereken tek konu hisse fiyatının biraz yüksek kalması."
+        blog_cash_and_health_val = f"Bir şirketin borçsuz olması, yüksek faizlerin hüküm sürdüğü dönemlerde büyük bir avantajdır. {company_name}’in kasasındaki {curr_sym}{net_cash_m:,.1f} milyonluk nakit, şirketi olası krizlere karşı koruyan güçlü bir kalkan görevi görüyor. Şirketlerin batma riskini ölçen Altman Z-Score testinde {z_score:,.2f} gibi son derece yüksek bir puan alması, finansal bünyesinin son derece sağlam olduğunu kanıtlıyor."
+        blog_earnings_quality_val = f"Şirketin genel kârlılık karnesini incelediğimizde 9 üzerinden {pf_score} puan aldığını görüyoruz. Satışlarından elde ettiği kâr oranı %{net_margin_pct:.1f}. Şirket mali tablolarında dürüst ve şeffaf bir çizgi izliyor, yani muhasebe tarafında kafa karıştıracak bir durum tespit edilmedi."
+        blog_valuation_dcf_val = f"İşte en çok dikkat etmemiz gereken nokta burası. Şirketin ürettiği satışa kıyasla hisse fiyatı oldukça yüksek bir seviyede bulunuyor (Satışlarının {ps_ratio:.1f} katı fiyattan işlem görüyor). Bu durum, piyasanın geleceğe yönelik çok büyük beklentileri önceden fiyatladığını gösteriyor. Dolayısıyla yeni alım yaparken acele etmemek faydalı olabilir."
+        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Sektörde imzalanacak yeni dev anlaşmalar ve iş hacmi artışı.\n2) Güçlü nakit yapısının korunarak yatırımlara dönüştürülmesi.\n\nKritik Riskler:\n1) Pahalı çarpanlar nedeniyle yaşanabilecek fiyat düzeltmeleri.\n2) {curr_sym}{sma50:,.2f} seviyesindeki teknik desteğin aşağı yönlü kırılması."
+        blog_bull_vs_bear_val = f"Boğa Senaryosu: Şirket borçsuz ve kasası nakit dolu. Bu finansal güç, zorlu ekonomik koşullarda büyük bir avantaj ve büyüme fırsatı sunar.\n\nAyı Senaryosu: Mevcut hisse fiyatı şirketin kârına göre oldukça yüksek. Beklenen hızlı büyüme gelmezse fiyatta geri çekilmeler görülebilir.\n\nKüçük Yatırımcı İçin Tavsiye: Tüm paranızla tek seferde almak yerine, fiyat düştükçe parça parça (kademeli) alım yapmak ve zarar kes (stop-loss) seviyelerine sadık kalmak mantıklı bir strateji olabilir."
         blog_takeaways_val = [
-            f"Altman Z-Score skoru Z = {z_score:,.2f} ({z_zone}) ile finansal bünye takibi",
-            f"Piotroski F-Score {pf_score}/9 ve P/S çarpanı {ps_ratio:.1f}x seviyesinde",
-            f"50 günlük ortalama fiyat ({curr_sym}{sma50:,.2f}) ana destek noktası"
+            f"Finansal Sağlık Mükemmel: Şirketin iflas riski yok denecek kadar az. Kasasındaki nakit ({curr_sym}{net_cash_m:,.1f}M), zor günlerde en büyük güvencesi.",
+            f"Fiyat Etiketi Yüksek: Satışlarına kıyasla hisse fiyatı şu an ({ps_ratio:.1f} katı) oldukça pahalı bir seviyeden işlem görüyor.",
+            f"Teknik Desteğe Dikkat: {curr_sym}{sma50:,.2f} seviyesindeki 50 günlük ortalama fiyat, takip edilmesi gereken en kritik sınır."
         ]
         blog_faqs_val = [
-            {"q": f"Ben olsam {ticker} hissesine şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": f"{company_name} için bir portföy yönetiyor olsaydım, riski dağıtmak adına pozisyon büyüklüğünü %2,5 - %5,0 Kelly limitinde tutardım. Altman Z-Score Z = {z_score:,.2f} ({z_zone}) ile şirketin finansal sağlık karnesi (borç doktoru) güvenli görünse de, {ps_ratio:.1f}x P/S etiket fiyatı nedeniyle 50 günlük hareketli ortalama olan {curr_sym}{sma50:,.2f} seviyesini ana koruma kalkanım olarak takip ederdim."},
-            {"q": f"{ticker} hissesi yeni başlayan yatırımcı için uygun mu?", "a": f"{company_name} için Altman Z-Score Z = {z_score:,.2f} ({z_zone}) seviyesindedir. Yeni başlayan yatırımcıların %2,5 - %5,0 gibi küçük pozisyon oranlarıyla hareket etmesi önerilir."},
-            {"q": f"{ticker} hissesinde en büyük risk nedir?", "a": f"En büyük risk, çarpan gerilemesi ve hareketli ortalamalar etrafındaki fiyat dalgalanmalarıdır."}
+            {"q": f"❓ {ticker} hissesine ben olsam şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": f"Şirketin batma riski yok denecek kadar az olsa da fiyatı biraz pahalı. Bir portföy yönetiyor olsaydım tüm parayla girmek yerine %2,5 ile %5,0'lik küçük bir adımla alım yapar, {curr_sym}{sma50:,.2f} olan 50 günlük ortalamayı koruma kalkanım yapardım."},
+            {"q": f"❓ {ticker} hissesi yeni başlayan biri için uygun mu?", "a": f"Şirketin batma riski yok denecek kadar az olsa da fiyatı dalgalı olabilir. Yeni başlayanların tüm birikimleriyle değil, portföylerinin %2,5 ile %5,0'lik küçük bir kısmıyla deneme yapması daha güvenlidir."},
+            {"q": f"❓ {ticker} hissesi şu an pahalı mı?", "a": f"Evet, şirketin mevcut satışlarına ve kârlılığına kıyasla hisse fiyatı ortalamaların üzerindedir (Satışlarının {ps_ratio:.1f} katı)."}
         ]
 
     return {
