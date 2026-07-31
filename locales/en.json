@@ -19,10 +19,21 @@
     "one_stage_title": "⚡ 1-Stage Perpetuity",
     "two_stage_title": "🚀 2-Stage Fade Model",
     "calc_title": "⚡ Interactive Reverse DCF Calculator",
-    "implied_growth": "Calculated Implied Growth ($g$)"
+    "implied_growth": "Calculated Implied Growth ($g$)",
+    "wacc_growth_header": "WACC \\ Terminal Growth ($g$)"
+  },
+  "analyst": {
+    "catalysts_title": "🚀 Growth Opportunities & Catalysts",
+    "risks_title": "🔴 Risk Factors & Radar",
+    "bull_title": "🟢 Bull Case Scenario",
+    "bear_title": "🔴 Bear Case Scenario",
+    "retail_takeaway": "💡 Retail Investor Takeaway & Verdict:"
   },
   "disclaimer": "<strong>DISCLAIMER & AI LIABILITY NOTICE:</strong> The information contained herein does not constitute investment advice. Generated using autonomous AI technologies.",
   "common": {
+    "passed": "🟢 Passed (+1)",
+    "neutral": "🟡 Neutral (0)",
+    "failed": "🔴 Failed (0)",
     "excellent": "🟢 Excellent",
     "very_strong": "🟢 Very Strong",
     "strong": "🟢 Strong",
@@ -31,6 +42,7 @@
     "moderate": "🟡 Moderate",
     "weak": "🔴 Weak",
     "high_risk": "🔴 High Risk",
-    "warning": "🟡 Warning"
+    "warning": "🟡 Warning",
+    "target": "Target"
   }
 }

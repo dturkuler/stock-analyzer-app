@@ -19,10 +19,21 @@
     "one_stage_title": "⚡ 1-Aşamalı Sonsuzluk",
     "two_stage_title": "🚀 2-Aşamalı Kademeli Model",
     "calc_title": "⚡ İnteraktif Ters DCF Hesaplayıcı",
-    "implied_growth": "Hesaplanan İmplike Büyüme ($g$)"
+    "implied_growth": "Hesaplanan İmplike Büyüme ($g$)",
+    "wacc_growth_header": "WACC \\ Terminal Büyüme ($g$)"
+  },
+  "analyst": {
+    "catalysts_title": "🚀 Büyüme Fırsatları & Katalizörler",
+    "risks_title": "🔴 Kritik Riskler & Risk Radarı",
+    "bull_title": "🟢 Boğa Senaryosu (İyimser)",
+    "bear_title": "🔴 Ayı Senaryosu (Kötümser)",
+    "retail_takeaway": "Küçük Yatırımcı İçin Sonuç:"
   },
   "disclaimer": "<strong>YASAL UYARI & YAPAY ZEKÂ SORUMLULUK BİLDİRİMİ:</strong> Burada yer alan yatırım bilgi, yorum ve değerlendirmeler yatırım danışmanlığı kapsamında değildir.",
   "common": {
+    "passed": "🟢 Başarılı (+1)",
+    "neutral": "🟡 Nötr (0)",
+    "failed": "🔴 Başarısız (0)",
     "excellent": "🟢 Mükemmel",
     "very_strong": "🟢 Çok Güçlü",
     "strong": "🟢 Güvenilir",
@@ -31,6 +42,7 @@
     "moderate": "🟡 Makul",
     "weak": "🔴 Zayıf",
     "high_risk": "🔴 Yüksek Risk",
-    "warning": "🟡 Uyarı"
+    "warning": "🟡 Uyarı",
+    "target": "Hedef"
   }
 }

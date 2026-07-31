@@ -12,17 +12,27 @@ class I18nManager:
     def _ensure_loaded(cls):
         if cls._initialized:
             return
-        locales_dir = Path(__file__).parent.parent / "locales"
-        if not locales_dir.exists():
-            locales_dir.mkdir(parents=True, exist_ok=True)
 
-        for lang_file in locales_dir.glob("*.json"):
-            lang = lang_file.stem.upper()
-            try:
-                with open(lang_file, "r", encoding="utf-8") as f:
-                    cls._catalogs[lang] = json.load(f)
-            except Exception as e:
-                logger.error(f"Failed to load locale file {lang_file}: {e}")
+        project_root = Path(__file__).parent.parent
+        search_dirs = [
+            project_root / "locales",
+            project_root / "1_core_builder" / "locales",
+            project_root / "3_web_server" / "locales",
+        ]
+
+        for locales_dir in search_dirs:
+            if locales_dir.exists():
+                for lang_file in locales_dir.glob("*.json"):
+                    lang = lang_file.stem.upper()
+                    if lang not in cls._catalogs:
+                        cls._catalogs[lang] = {}
+                    try:
+                        with open(lang_file, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                            cls._catalogs[lang].update(data)
+                    except Exception as e:
+                        logger.error(f"Failed to load locale file {lang_file}: {e}")
+
         cls._initialized = True
 
     @classmethod

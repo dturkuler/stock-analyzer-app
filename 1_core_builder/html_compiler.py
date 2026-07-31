@@ -72,22 +72,24 @@ def _fmt_num(val, is_en=False, decimals=2):
 
 def _piotroski_row(label, value, is_en=False):
     """Generate a Piotroski test result table row."""
+    lang = "EN" if is_en else "TR"
     if value == 1:
-        pass_txt = "🟢 Passed (+1)" if is_en else "🟢 Başarılı (+1)"
+        pass_txt = t("common.passed", lang=lang)
         return f'<tr><td>{label}</td><td><span class="tag-green">{pass_txt}</span></td></tr>'
     else:
-        neut_txt = "🟡 Neutral (0)" if is_en else "🟡 Nötr (0)"
+        neut_txt = t("common.neutral", lang=lang)
         return f'<tr><td>{label}</td><td><span class="tag-amber">{neut_txt}</span></td></tr>'
 
 
 def _peer_row(peer, is_target=False, is_en=False):
     """Generate peer comparison table row."""
+    lang = "EN" if is_en else "TR"
     style = ' style="background: rgba(6, 182, 212, 0.15); font-weight: 700;"' if is_target else ''
     tag_class = "tag-red" if is_target else "tag-green"
-    if is_en:
-        tag_text = "🔴 Target Stock (Premium)" if is_target else "🟢 Peer"
+    if is_target:
+        tag_text = f"🔴 {peer.get('ticker', '')} ({t('common.target', lang=lang)})"
     else:
-        tag_text = "🔴 Hedef Hisse (Primli)" if is_target else "🟢 Rakip"
+        tag_text = "🟢 Peer" if is_en else "🟢 Rakip"
     mcap = _fmt_curr(peer.get("market_cap", 0), is_en=is_en)
     ps = _fmt_num(peer.get("ps_ratio", 0), is_en=is_en, decimals=1) + "x"
     pe = _fmt_num(peer.get("pe_ratio", 0), is_en=is_en, decimals=1) + "x"
@@ -98,6 +100,7 @@ def _peer_row(peer, is_target=False, is_en=False):
 
 def format_analyst_text(text, is_en=False):
     """Format raw analyst text, converting embedded lists, subheaders, and scenario blocks into visual HTML cards & bullets."""
+    lang = "EN" if is_en else "TR"
     if not text:
         return ""
     text_str = str(text).strip()
@@ -124,8 +127,8 @@ def format_analyst_text(text, is_en=False):
             cat_html = _parse_bullets(cat_part)
             risk_html = _parse_bullets(risk_part)
 
-            cat_title = "🚀 Growth Opportunities & Catalysts" if is_en else "🚀 Büyüme Fırsatları & Katalizörler"
-            risk_title = "🔴 Risk Factors & Radar" if is_en else "🔴 Kritik Riskler & Risk Radarı"
+            cat_title = t("analyst.catalysts_title", lang=lang)
+            risk_title = t("analyst.risks_title", lang=lang)
 
             return f'''<div class="grid-2" style="margin-bottom:0.5rem;">
                 <div class="analyst-subcard analyst-subcard-emerald">
@@ -150,8 +153,8 @@ def format_analyst_text(text, is_en=False):
         bear_text = bear_match.group(1).strip() if bear_match else ""
         verdict_text = verdict_match.group(1).strip() if verdict_match else ""
 
-        bull_title = "🟢 Bull Case Scenario" if is_en else "🟢 Boğa Senaryosu (İyimser)"
-        bear_title = "🔴 Bear Case Scenario" if is_en else "🔴 Ayı Senaryosu (Kötümser)"
+        bull_title = t("analyst.bull_title", lang=lang)
+        bear_title = t("analyst.bear_title", lang=lang)
 
         out_html = f'''<div class="grid-2" style="margin-bottom:0.5rem;">
             <div class="analyst-subcard analyst-subcard-emerald">
@@ -166,8 +169,9 @@ def format_analyst_text(text, is_en=False):
 
         if verdict_text:
             out_html += f'''<div class="analyst-takeaway-banner">
-                <strong>💡 {"Retail Investor Takeaway & Verdict:" if is_en else "Küçük Yatırımcı İçin Sonuç:"}</strong> {verdict_text}
+                <strong>💡 {t("analyst.retail_takeaway", lang=lang)}</strong> {verdict_text}
             </div>'''
+        return out_html
         return out_html
 
     if re.search(r'(?:\b\d+\)|\b\d+\.(?=\s|$)|(?:^\s*|\n\s*)[\-\•]\s*)', text_str):
