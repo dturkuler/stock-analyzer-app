@@ -6,9 +6,9 @@ This document outlines the architecture, HTTP request handlers, SQLite database 
 
 ## 🏛️ Architecture Overview
 
-The web server is built using standard Python HTTP server modules (`http.server.HTTPServer` / `BaseHTTPRequestHandler`), eliminating heavy external dependencies while guaranteeing high performance.
+The web server is built using **FastAPI** and **Uvicorn**, providing asynchronous request routing, JSON validation, and high-performance HTML/REST API responses.
 
-- **Port**: `8000` (mapped in `docker-compose.yml`)
+- **Port**: `6031` (mapped in `docker-compose.yml`)
 - **Database**: SQLite database stored at `storage/app.db`
 - **Config Storage**: Environment variables loaded from `.env`
 
@@ -22,9 +22,14 @@ The web server is built using standard Python HTTP server modules (`http.server.
 | `GET` | `/api/watchlist` | No | Returns array of tracked tickers in SQLite database. |
 | `POST` | `/api/watchlist` | Yes (`X-Admin-Password`) | Adds a new ticker to watchlist and queues analysis. |
 | `DELETE` | `/api/watchlist?ticker=XYZ` | Yes (`X-Admin-Password`) | Removes a ticker from watchlist and SQLite database. |
+| `GET` | `/api/v1/matrix` | No | Returns all-stocks quantitative metrics matrix array. |
+| `GET` | `/api/reports/{ticker}/{date}` | No | Serves compiled HTML report (`mode=dashboard` or `mode=printable`, `lang=TR/EN`). |
 | `GET` | `/api/settings` | Yes (`X-Admin-Password`) | Retrieves system configuration settings. |
 | `POST` | `/api/settings` | Yes (`X-Admin-Password`) | Updates `.env` configuration file dynamically. |
-| `GET` | `/api/logs` | Yes (`X-Admin-Password`) | Streams live pipeline execution logs (`analysis.log`). |
+| `GET` | `/api/logs/files` | Yes (`X-Admin-Password`) | Reads active log file (`log_type=cron|analysis|live`). |
+| `POST` | `/api/logs/clear` | Yes (`X-Admin-Password`) | Truncates target log file contents. |
+| `POST` | `/api/reprocess` | Yes (`X-Admin-Password`) | Triggers report generation for a single stock or batch run. |
+| `GET` | `/api/reprocess/status` | No | Returns background batch reprocessing status and progress. |
 | `POST` | `/api/verify_admin` | No | Verifies admin password credentials. |
 
 ---
@@ -32,21 +37,25 @@ The web server is built using standard Python HTTP server modules (`http.server.
 ## 🗄️ Database Schema (`storage/app.db`)
 
 ```sql
-CREATE TABLE IF NOT EXISTS reports (
-    ticker TEXT PRIMARY KEY,
-    company_name TEXT,
-    report_date TEXT,
-    file_path TEXT,
+CREATE TABLE IF NOT EXISTS reports_index (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    report_date TEXT NOT NULL,
+    file_path TEXT NOT NULL,
     printable_path TEXT,
     piotroski_score INTEGER,
-    altman_z_score REAL,
-    wacc REAL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    altman_z REAL,
+    beneish_m REAL,
+    wacc_pct REAL,
+    status TEXT DEFAULT 'COMPLETED',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(ticker, report_date)
 );
 
 CREATE TABLE IF NOT EXISTS watchlist (
     ticker TEXT PRIMARY KEY,
-    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active INTEGER DEFAULT 1
 );
 ```
 
