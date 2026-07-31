@@ -116,8 +116,8 @@ class TestFetchYFinanceModels(unittest.TestCase):
 
         self.assertIn("finansal bünye", tr_comm.get("strong_points", ""))
         self.assertIn("financial position", en_comm.get("strong_points", ""))
-        self.assertEqual(len(tr_comm), 27)
-        self.assertEqual(len(en_comm), 27)
+        self.assertEqual(len([k for k in tr_comm if not k.startswith("_")]), 27)
+        self.assertEqual(len([k for k in en_comm if not k.startswith("_")]), 27)
 
 
 if __name__ == "__main__":

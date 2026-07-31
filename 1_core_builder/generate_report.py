@@ -41,7 +41,7 @@ def log_analysis(msg: str):
         print(f"⚠️ Analysis log write error: {e}")
 
 
-def generate_report(ticker, lang="TR"):
+def generate_report(ticker, lang="TR", strict_llm=False):
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')
     log_analysis(f"▶ Starting independent report generation for: {ticker} (Lang: {lang})")
@@ -74,15 +74,19 @@ def generate_report(ticker, lang="TR"):
         sourcing_script = os.path.normpath(os.path.join(BASE_DIR, "..", "stock-analyzer", "scripts", "fetch_yfinance.py"))
     python_exec = "py" if os.name == "nt" else sys.executable
     if os.path.exists(sourcing_script):
-        subprocess.run([python_exec, sourcing_script, ticker, "--output", metrics_path, "--language", lang], check=True)
+        proc = subprocess.run([python_exec, sourcing_script, ticker, "--output", metrics_path, "--language", lang], capture_output=True, text=True)
+        if proc.returncode != 0:
+            log_analysis(f"❌ Error sourcing data for {ticker}:\n{proc.stderr}")
+            return
     else:
         log_analysis(f"⚠️ Warning: Sourcing script not found at {sourcing_script}")
         return
 
     # Load metrics
     if not os.path.exists(metrics_path):
-        log_analysis(f"❌ Metrics file not found: {metrics_path}")
+        log_analysis(f"❌ Metrics file not found at: {metrics_path}")
         return
+
     with open(metrics_path, "r", encoding="utf-8") as f:
         metrics = json.load(f)
 
@@ -95,8 +99,8 @@ def generate_report(ticker, lang="TR"):
         log_analysis(f"⚠️ Warning: Failed to copy metrics to report directory: {e}")
 
     # Sanity check ticker
-    fetched_ticker = metrics.get("ticker")
-    if fetched_ticker != ticker:
+    fetched_ticker = metrics.get("ticker", "").upper()
+    if fetched_ticker != ticker.upper():
         log_analysis(f"❌ Critical error: fetched metrics ticker '{fetched_ticker}' does not match target ticker '{ticker}'!")
         return
 
@@ -110,7 +114,7 @@ def generate_report(ticker, lang="TR"):
     # STEP 2: LLM Commentary Generation (9Router)
     # ══════════════════════════════════════════════════════════
     from llm_commentary import generate_commentary
-    commentary = generate_commentary(metrics, lang=lang)
+    commentary = generate_commentary(metrics, lang=lang, log_fn=log_analysis, strict_llm=strict_llm)
 
     # Save commentary
     with open(commentary_path, "w", encoding="utf-8") as f:

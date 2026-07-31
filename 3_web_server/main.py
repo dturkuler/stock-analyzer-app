@@ -247,6 +247,7 @@ class SettingsUpdate(BaseModel):
     LLM_MODEL: Optional[str] = None
     LLM_TIMEOUT: Optional[str] = "120"
     CRON_DELAY_SECONDS: Optional[str] = "15"
+    STRICT_LLM: Optional[str] = "false"
 
 
 # ══════════════════════════════════════════════════════════════
@@ -289,7 +290,8 @@ def get_app_settings(x_admin_password: Optional[str] = Header(None)):
         "LLM_API_KEY_IS_SET": bool(api_key.strip()),
         "LLM_MODEL": os.getenv("LLM_MODEL", "code_combo"),
         "LLM_TIMEOUT": os.getenv("LLM_TIMEOUT", "120"),
-        "CRON_DELAY_SECONDS": os.getenv("CRON_DELAY_SECONDS", "15")
+        "CRON_DELAY_SECONDS": os.getenv("CRON_DELAY_SECONDS", "15"),
+        "STRICT_LLM": os.getenv("STRICT_LLM", "false")
     }
 
 
@@ -318,6 +320,8 @@ def update_app_settings(settings: SettingsUpdate, x_admin_password: Optional[str
         env_data["LLM_API_KEY"] = api_key_val.strip()
     if settings.LLM_MODEL is not None and settings.LLM_MODEL.strip():
         env_data["LLM_MODEL"] = settings.LLM_MODEL.strip()
+    if settings.STRICT_LLM is not None:
+        env_data["STRICT_LLM"] = str(settings.STRICT_LLM).lower()
     if settings.LLM_TIMEOUT is not None and settings.LLM_TIMEOUT.strip():
         env_data["LLM_TIMEOUT"] = settings.LLM_TIMEOUT.strip()
     if settings.CRON_DELAY_SECONDS is not None and settings.CRON_DELAY_SECONDS.strip():
@@ -584,8 +588,13 @@ def delete_watchlist_item(ticker: str, x_admin_password: Optional[str] = Header(
 def run_single_report_background(ticker: str, lang: str = "TR"):
     PROCESS_STATUS[ticker] = {"status": "RUNNING", "log": [f"▶ Starting analysis for {ticker}..."]}
     try:
+        is_strict = os.getenv("STRICT_LLM", "false").lower() in ("true", "1", "yes")
+        cmd = [PYTHON_EXEC, BUILDER_SCRIPT, ticker, "--lang", lang]
+        if is_strict:
+            cmd.append("--strict-llm")
+
         proc = subprocess.Popen(
-            [PYTHON_EXEC, BUILDER_SCRIPT, ticker, "--lang", lang],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

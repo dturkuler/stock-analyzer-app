@@ -147,10 +147,17 @@ def _is_english_text(text: str) -> bool:
     return False
 
 
-def _robust_parse_json(raw_content: str, ticker: str, metrics: dict, lang: str) -> dict:
+def _robust_parse_json(raw_content: str, ticker: str, metrics: dict, lang: str, log_fn=None, llm_model: str = "LIVE_AI") -> dict:
     """Safely parse LLM JSON response with control character fixes and fallback merging."""
+    def _log(msg):
+        if callable(log_fn):
+            log_fn(msg)
+        else:
+            print(msg)
+
     fallback = _fallback_commentary(ticker, metrics, lang)
     if not raw_content or not raw_content.strip():
+        _log("   ⚠️ LLM returned empty raw content.")
         return fallback
 
     cleaned = raw_content.strip()
@@ -206,18 +213,25 @@ def _robust_parse_json(raw_content: str, ticker: str, metrics: dict, lang: str) 
 
     if isinstance(parsed_data, dict) and len(parsed_data) > 0:
         lang_upper = (lang or "TR").upper()
+        res_dict = dict(fallback)
         for key, val in parsed_data.items():
             if val and isinstance(val, str) and val.strip():
                 clean_val = val.strip()
                 if lang_upper == "TR" and _is_english_text(clean_val):
-                    print(f"   ⚠️ Key '{key}' contained English output in TR mode. Using Turkish fallback.")
+                    _log(f"   ⚠️ Key '{key}' contained English output in TR mode. Using Turkish fallback.")
                 else:
-                    fallback[key] = clean_val
-        print(f"   ✅ LLM commentary parsed successfully ({len(parsed_data)} sections)")
-        return fallback
+                    res_dict[key] = clean_val
+            elif val and isinstance(val, (list, dict)):
+                res_dict[key] = val
 
-    print("   ⚠️ Could not parse LLM JSON output. Using rich quantitative fallback commentary.")
+        res_dict["_is_llm_generated"] = True
+        res_dict["_llm_model"] = llm_model
+        _log(f"   ✅ LLM commentary parsed successfully ({len(parsed_data)} sections) [Source: {llm_model}]")
+        return res_dict
+
+    _log("   ⚠️ Could not parse LLM JSON output. Using rich quantitative fallback commentary.")
     return fallback
+
 
 def _sanitize_prompt_field(value: str) -> str:
     """Sanitize a user-controlled string before embedding in LLM prompts.
@@ -229,14 +243,22 @@ def _sanitize_prompt_field(value: str) -> str:
     return re.sub(r'[^\w\s.\-&()/,;:\'\"#%+₺€$£¥]', '', value, flags=re.UNICODE).strip()
 
 
-def generate_commentary(metrics: dict, lang: str = "TR") -> dict:
+def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm: bool = False) -> dict:
     """Generate qualitative commentary JSON using LLM API or professional fallback."""
+    def _log(msg):
+        if callable(log_fn):
+            log_fn(msg)
+        else:
+            print(msg)
+
     load_dotenv(APP_ENV_PATH, override=True)
     load_dotenv(override=True)
 
     llm_base_url = os.getenv("LLM_BASE_URL") or os.getenv("BASE_URL") or os.getenv("NINEROUTER_URL", "http://localhost:20128/v1")
     llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("API_KEY") or os.getenv("NINEROUTER_KEY", "")
     llm_model = os.getenv("LLM_MODEL", "code_combo")
+
+    is_strict = strict_llm or os.getenv("STRICT_LLM", "false").lower() in ("true", "1", "yes")
 
     ticker = _sanitize_prompt_field(metrics.get("ticker", "UNKNOWN"))
     url = f"{llm_base_url.rstrip('/')}/chat/completions"
@@ -276,7 +298,7 @@ def generate_commentary(metrics: dict, lang: str = "TR") -> dict:
 
     try:
         timeout_val = int(os.getenv("LLM_TIMEOUT", "120"))
-        print(f"2. Requesting LLM commentary from {llm_base_url} ({llm_model}) [Streaming Mode]...")
+        _log(f"2. Requesting LLM commentary from {llm_base_url} ({llm_model}) [Streaming Mode]...")
         resp = requests.post(url, headers=headers, json=payload, stream=True, timeout=(10, timeout_val))
         resp.raise_for_status()
 
@@ -298,16 +320,30 @@ def generate_commentary(metrics: dict, lang: str = "TR") -> dict:
                 pass
 
         raw_content = "".join(chunks)
-        return _robust_parse_json(raw_content, ticker, metrics, lang)
+        res = _robust_parse_json(raw_content, ticker, metrics, lang, log_fn=log_fn, llm_model=llm_model)
+        if is_strict and not res.get("_is_llm_generated", False):
+            raise RuntimeError(f"Strict LLM Mode: LLM output could not be parsed as valid JSON.")
+        return res
 
-    except requests.exceptions.ConnectionError:
-        print(f"   ⚠️ LLM endpoint unreachable at {llm_base_url}. Using rich quantitative fallback commentary.")
+    except requests.exceptions.ConnectionError as ce:
+        err_msg = f"LLM endpoint unreachable at {llm_base_url} ({ce})"
+        _log(f"   ⚠️ {err_msg}")
+        if is_strict:
+            raise RuntimeError(f"Strict LLM Mode Error: {err_msg}")
         return _fallback_commentary(ticker, metrics, lang)
-    except requests.exceptions.Timeout:
-        print(f"   ⚠️ LLM request timeout at {llm_base_url}. Using rich quantitative fallback commentary.")
+    except requests.exceptions.Timeout as te:
+        err_msg = f"LLM request timeout at {llm_base_url} after {timeout_val}s ({te})"
+        _log(f"   ⚠️ {err_msg}")
+        if is_strict:
+            raise RuntimeError(f"Strict LLM Mode Error: {err_msg}")
         return _fallback_commentary(ticker, metrics, lang)
     except Exception as e:
-        print(f"   ⚠️ LLM commentary error: {e}. Using rich quantitative fallback commentary.")
+        if is_strict and "Strict LLM Mode" in str(e):
+            raise
+        err_msg = f"LLM commentary error: {e}"
+        _log(f"   ⚠️ {err_msg}")
+        if is_strict:
+            raise RuntimeError(f"Strict LLM Mode Error: {err_msg}")
         return _fallback_commentary(ticker, metrics, lang)
 
 
@@ -598,7 +634,9 @@ def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") ->
         "blog_catalysts_and_risks": blog_catalysts_val,
         "blog_bull_vs_bear": blog_bull_vs_bear_val,
         "blog_key_takeaways": blog_takeaways_val,
-        "blog_faqs": blog_faqs_val
+        "blog_faqs": blog_faqs_val,
+        "_is_llm_generated": False,
+        "_llm_model": "QUANT_FALLBACK"
     }
 
 
