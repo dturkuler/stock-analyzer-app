@@ -1121,7 +1121,12 @@ def get_dates(ticker: str):
     if not (ticker_dir + os.sep).startswith(reports_dir_abs) or not os.path.exists(ticker_dir):
         return []
     files = glob.glob(os.path.join(ticker_dir, "*.html"))
-    dates = [os.path.basename(f).replace(".html", "").replace("_printable", "") for f in files]
+    dates = []
+    for f in files:
+        base = os.path.basename(f).replace(".html", "").replace("_printable", "")
+        if base.endswith("_TR") or base.endswith("_EN"):
+            base = base[:-3]
+        dates.append(base)
     unique_dates = sorted(list(set(dates)), reverse=True)
     return unique_dates
 
