@@ -240,7 +240,7 @@ def init_db():
     """)
     conn.commit()
 
-    # Auto-sync existing report files on disk into reports_index table
+    # Auto-sync existing report files on disk into reports_index table with metric backfilling
     if os.path.exists(REPORTS_DIR):
         try:
             for ticker in os.listdir(REPORTS_DIR):
@@ -249,11 +249,35 @@ def init_db():
                     for f in glob.glob(os.path.join(t_dir, "*.html")):
                         if not f.endswith("_printable.html"):
                             report_date = os.path.basename(f).replace(".html", "")
+                            piotroski = None
+                            altman_z = None
+                            beneish_m = None
+                            wacc = None
+                            try:
+                                with open(f, "r", encoding="utf-8") as rf:
+                                    html_txt = rf.read()
+                                pio_m = re.search(r"Piotroski\s*(?:F-Score)?\s*(\d+)/9", html_txt, re.I)
+                                if pio_m: piotroski = int(pio_m.group(1))
+                                alt_m = re.search(r"Altman Z-Score\s*(?:Z\s*=\s*)?([\d\.-]+)", html_txt, re.I)
+                                if alt_m: altman_z = float(alt_m.group(1))
+                                ben_m = re.search(r"Beneish M-Score\s*(?:M\s*=\s*)?([\d\.-]+)", html_txt, re.I)
+                                if ben_m: beneish_m = float(ben_m.group(1))
+                                wacc_m = re.search(r"WACC\s*(?:%|=)?\s*([\d\.-]+)%?", html_txt, re.I)
+                                if wacc_m: wacc = float(wacc_m.group(1))
+                            except Exception:
+                                pass
+
                             cur.execute("""
-                                INSERT INTO reports_index (ticker, report_date, file_path, status)
-                                VALUES (?, ?, ?, 'SUCCESS')
-                                ON CONFLICT(ticker, report_date) DO NOTHING
-                            """, (ticker, report_date, f))
+                                INSERT INTO reports_index (ticker, report_date, file_path, piotroski_score, altman_z, beneish_m, wacc_pct, status)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, 'SUCCESS')
+                                ON CONFLICT(ticker, report_date) DO UPDATE SET
+                                    file_path=excluded.file_path,
+                                    piotroski_score=COALESCE(excluded.piotroski_score, piotroski_score),
+                                    altman_z=COALESCE(excluded.altman_z, altman_z),
+                                    beneish_m=COALESCE(excluded.beneish_m, beneish_m),
+                                    wacc_pct=COALESCE(excluded.wacc_pct, wacc_pct),
+                                    status='SUCCESS';
+                            """, (ticker, report_date, f, piotroski, altman_z, beneish_m, wacc))
             conn.commit()
         except Exception as e:
             print(f"⚠️ Error syncing reports_index on init: {e}")
