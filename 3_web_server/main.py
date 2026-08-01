@@ -96,7 +96,7 @@ async def log_ip_access_middleware(request: Request, call_next):
 
     try:
         os.makedirs(LOGS_DIR, exist_ok=True)
-        log_line = f"[{now_str}] IP: {ip} | {method} {endpoint} | UA: {user_agent[:80]}"
+        log_line = f"[{now_str}] IP: {ip}"
         with open(ACCESS_LOG_FILE, "a", encoding="utf-8") as f:
             f.write(log_line + "\n")
     except Exception:
