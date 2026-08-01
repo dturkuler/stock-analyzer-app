@@ -209,26 +209,35 @@ def _robust_parse_json(raw_content: str, ticker: str, metrics: dict, lang: str, 
         except Exception:
             pass
 
-    if isinstance(parsed_data, dict) and len(parsed_data) > 0:
-        lang_upper = (lang or "TR").upper()
-        res_dict = dict(fallback)
-        for key, val in parsed_data.items():
-            if val and isinstance(val, str) and val.strip():
-                clean_val = val.strip()
-                if lang_upper == "TR" and _is_english_text(clean_val):
-                    _log(f"   ⚠️ Key '{key}' contained English output in TR mode. Using Turkish fallback.")
+    allow_fallback = os.getenv("ALLOW_FALLBACK", "false").lower() in ("true", "1", "yes")
+
+    if not isinstance(parsed_data, dict) or len(parsed_data) == 0:
+        _log(f"   ❌ Could not parse LLM JSON output for {ticker}.")
+        if allow_fallback:
+            _log("   ⚠️ ALLOW_FALLBACK=true: Falling back to quantitative commentary.")
+            return fallback
+        return None
+
+    lang_upper = (lang or "TR").upper()
+    res_dict = dict(fallback)
+    for key, val in parsed_data.items():
+        if val and isinstance(val, str) and val.strip():
+            clean_val = val.strip()
+            if lang_upper == "TR" and _is_english_text(clean_val):
+                _log(f"   ⚠️ Key '{key}' contained English output in TR mode.")
+                if allow_fallback:
+                    res_dict[key] = fallback.get(key, clean_val)
                 else:
                     res_dict[key] = clean_val
-            elif val and isinstance(val, (list, dict)):
-                res_dict[key] = val
+            else:
+                res_dict[key] = clean_val
+        elif val and isinstance(val, (list, dict)):
+            res_dict[key] = val
 
-        res_dict["_is_llm_generated"] = True
-        res_dict["_llm_model"] = llm_model
-        _log(f"   ✅ LLM commentary parsed successfully ({len(parsed_data)} sections) [Source: {llm_model}]")
-        return res_dict
-
-    _log("   ⚠️ Could not parse LLM JSON output. Using rich quantitative fallback commentary.")
-    return fallback
+    res_dict["_is_llm_generated"] = True
+    res_dict["_llm_model"] = llm_model
+    _log(f"   ✅ LLM commentary parsed successfully ({len(parsed_data)} sections) [Source: {llm_model}]")
+    return res_dict
 
 
 def _sanitize_prompt_field(value: str) -> str:
@@ -256,7 +265,8 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
     llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("API_KEY") or os.getenv("NINEROUTER_KEY", "")
     llm_model = os.getenv("LLM_MODEL", "code_combo")
 
-    is_strict = strict_llm or os.getenv("STRICT_LLM", "false").lower() in ("true", "1", "yes")
+    allow_fallback = os.getenv("ALLOW_FALLBACK", "false").lower() in ("true", "1", "yes")
+    is_strict = strict_llm or not allow_fallback
 
     ticker = _sanitize_prompt_field(metrics.get("ticker", "UNKNOWN"))
     url = f"{llm_base_url.rstrip('/')}/chat/completions"
@@ -324,30 +334,28 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
 
         raw_content = "".join(chunks)
         res = _robust_parse_json(raw_content, ticker, metrics, lang, log_fn=log_fn, llm_model=llm_model)
-        if is_strict and not res.get("_is_llm_generated", False):
-            raise RuntimeError(f"Strict LLM Mode: LLM output could not be parsed as valid JSON.")
+        if res is None:
+            _log(f"   ❌ LLM Commentary parse failed for {ticker}. No fallback allowed.")
         return res
 
     except requests.exceptions.ConnectionError as ce:
         err_msg = f"LLM endpoint unreachable at {llm_base_url} ({ce})"
-        _log(f"   ⚠️ {err_msg}")
-        if is_strict:
-            raise RuntimeError(f"Strict LLM Mode Error: {err_msg}")
-        return _fallback_commentary(ticker, metrics, lang)
+        _log(f"   ❌ {err_msg}")
+        if allow_fallback:
+            return _fallback_commentary(ticker, metrics, lang)
+        return None
     except requests.exceptions.Timeout as te:
         err_msg = f"LLM request timeout at {llm_base_url} after {timeout_val}s ({te})"
-        _log(f"   ⚠️ {err_msg}")
-        if is_strict:
-            raise RuntimeError(f"Strict LLM Mode Error: {err_msg}")
-        return _fallback_commentary(ticker, metrics, lang)
+        _log(f"   ❌ {err_msg}")
+        if allow_fallback:
+            return _fallback_commentary(ticker, metrics, lang)
+        return None
     except Exception as e:
-        if is_strict and "Strict LLM Mode" in str(e):
-            raise
-        err_msg = f"LLM commentary error: {e}"
-        _log(f"   ⚠️ {err_msg}")
-        if is_strict:
-            raise RuntimeError(f"Strict LLM Mode Error: {err_msg}")
-        return _fallback_commentary(ticker, metrics, lang)
+        err_msg = f"LLM commentary error for {ticker}: {e}"
+        _log(f"   ❌ {err_msg}")
+        if allow_fallback:
+            return _fallback_commentary(ticker, metrics, lang)
+        return None
 
 
 def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") -> dict:

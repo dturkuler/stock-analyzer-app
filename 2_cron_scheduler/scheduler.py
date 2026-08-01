@@ -169,30 +169,24 @@ def run_daily_job():
             log_cron(f"{ticker} started")
 
             success = False
-            for attempt in range(1, 4):
-                try:
-                    proc = subprocess.Popen(
-                        [python_exec, builder_script, ticker, "--lang", lang],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                        encoding="utf-8",
-                        errors="replace"
-                    )
-                    stdout_output, _ = proc.communicate()
+            try:
+                proc = subprocess.Popen(
+                    [python_exec, builder_script, ticker, "--lang", lang],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace"
+                )
+                stdout_output, _ = proc.communicate()
 
-                    if proc.returncode == 0:
-                        success = True
-                        break
-                    else:
-                        problem = stdout_output.strip() if stdout_output else f"Exit code {proc.returncode}"
-                        log_cron(f"Error ({ticker} attempt {attempt}): {problem}")
-                        if attempt < 3:
-                            time.sleep(120)
-                except Exception as e:
-                    log_cron(f"Error ({ticker} attempt {attempt}): {e}")
-                    if attempt < 3:
-                        time.sleep(120)
+                if proc.returncode == 0:
+                    log_cron(f"✅ {ticker} report generated successfully.")
+                else:
+                    problem = stdout_output.strip() if stdout_output else f"Exit code {proc.returncode}"
+                    log_cron(f"❌ Error ({ticker}): {problem} - Moving to next ticker.")
+            except Exception as e:
+                log_cron(f"❌ Error ({ticker}): {e} - Moving to next ticker.")
 
             log_cron(f"{ticker} ended")
 

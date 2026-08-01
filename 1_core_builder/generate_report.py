@@ -116,9 +116,13 @@ def generate_report(ticker, lang="TR", strict_llm=False):
     from llm_commentary import generate_commentary
     commentary = generate_commentary(metrics, lang=lang, log_fn=log_analysis, strict_llm=strict_llm)
 
+    if commentary is None or not isinstance(commentary, dict) or not commentary.get("_is_llm_generated"):
+        log_analysis(f"❌ LLM Commentary Error for {ticker}. Aborting report generation (No Fallbacks Allowed).")
+        sys.exit(1)
+
     # Save commentary
     with open(commentary_path, "w", encoding="utf-8") as f:
-        json.dump(commentary, f, indent=2, ensure_ascii=False)
+        json.dump(commentary, f, ensure_ascii=False, indent=2)
     log_analysis(f"   💾 Commentary saved to: {commentary_path}")
 
     # ══════════════════════════════════════════════════════════
