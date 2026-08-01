@@ -176,17 +176,16 @@ def _is_english_text(text: str) -> bool:
 
 
 def _robust_parse_json(raw_content: str, ticker: str, metrics: dict, lang: str, log_fn=None, llm_model: str = "LIVE_AI") -> dict:
-    """Safely parse LLM JSON response with control character fixes and fallback merging."""
+    """Safely parse LLM JSON response with control character fixes and robust recovery."""
     def _log(msg):
         if callable(log_fn):
             log_fn(msg)
         else:
             print(msg)
 
-    fallback = _fallback_commentary(ticker, metrics, lang)
     if not raw_content or not raw_content.strip():
         _log("   ⚠️ LLM returned empty raw content.")
-        return fallback
+        return None
 
     cleaned = raw_content.strip()
 
@@ -257,28 +256,18 @@ def _robust_parse_json(raw_content: str, ticker: str, metrics: dict, lang: str, 
         except Exception:
             pass
 
-    allow_fallback = os.getenv("ALLOW_FALLBACK", "false").lower() in ("true", "1", "yes")
-
     if not isinstance(parsed_data, dict) or len(parsed_data) == 0:
         _log(f"   ❌ Could not parse LLM JSON output for {ticker}.")
-        if allow_fallback:
-            _log("   ⚠️ ALLOW_FALLBACK=true: Falling back to quantitative commentary.")
-            return fallback
         return None
 
     lang_upper = (lang or "TR").upper()
-    res_dict = dict(fallback)
+    res_dict = {}
     for key, val in parsed_data.items():
         if val and isinstance(val, str) and val.strip():
             clean_val = val.strip()
             if lang_upper == "TR" and _is_english_text(clean_val):
                 _log(f"   ⚠️ Key '{key}' contained English output in TR mode.")
-                if allow_fallback:
-                    res_dict[key] = fallback.get(key, clean_val)
-                else:
-                    res_dict[key] = clean_val
-            else:
-                res_dict[key] = clean_val
+            res_dict[key] = clean_val
         elif val and isinstance(val, (list, dict)):
             res_dict[key] = val
 
@@ -358,8 +347,6 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
     llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("API_KEY") or os.getenv("NINEROUTER_KEY", "")
     llm_model = os.getenv("LLM_MODEL", "code_combo")
 
-    allow_fallback = os.getenv("ALLOW_FALLBACK", "false").lower() in ("true", "1", "yes")
-
     ticker = _sanitize_prompt_field(metrics.get("ticker", "UNKNOWN"))
 
     sanitized_metrics = dict(metrics)
@@ -389,6 +376,12 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
         raw_stage1 = _execute_llm_request(stage1_prompt, stage1_content, llm_base_url, llm_model, llm_api_key, timeout_val)
         res_stage1 = _robust_parse_json(raw_stage1, ticker, metrics, lang, log_fn=log_fn, llm_model=llm_model)
 
+        if not res_stage1 or not isinstance(res_stage1, dict):
+            err_msg = f"LLM Commentary Stage 1 parsing failed for {ticker} at {llm_base_url}."
+            _log(f"   ❌ {err_msg}")
+            log_error(err_msg, context=ticker)
+            return None
+
         # ── STAGE 2: Retail Investor Blog Article (Keys 19-27) ──
         stage2_prompt = STAGE2_PROMPT_EN if lang_upper == "EN" else STAGE2_PROMPT_TR
         stage2_content = f"{user_label}: {ticker}\n{metrics_label}:\n{json.dumps(sanitized_metrics, indent=2, ensure_ascii=False)}\n\nQUANT AUDIT FINDINGS (STAGE 1):\n{json.dumps(res_stage1 or {}, indent=2, ensure_ascii=False)}{lang_note}"
@@ -397,14 +390,37 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
         raw_stage2 = _execute_llm_request(stage2_prompt, stage2_content, llm_base_url, llm_model, llm_api_key, timeout_val)
         res_stage2 = _robust_parse_json(raw_stage2, ticker, metrics, lang, log_fn=log_fn, llm_model=llm_model)
 
-        final_res = dict(res_stage1 or {})
-        if res_stage2:
-            final_res.update(res_stage2)
-        
-        if not final_res or len(final_res) < 5:
-            _log(f"   ❌ LLM Commentary 2-stage parse failed for {ticker}.")
-            if allow_fallback:
-                return _fallback_commentary(ticker, metrics, lang)
+        # STAGE 2 RETRY MECHANISM: If Stage 2 JSON failed, attempt 1 retry with explicit fix instructions
+        if not res_stage2 or not isinstance(res_stage2, dict) or not res_stage2.get("blog_summary"):
+            _log(f"   ⚠️ Stage 2 JSON parse failed for {ticker}. Attempting 1 retry with strict JSON format directive...")
+            retry_prompt = stage2_prompt + "\nCRITICAL FIX: RETURN ONLY VALID ESCAPED JSON. DO NOT INCLUDE EXTRA MARKDOWN OR UNESCAPED QUOTES.\n"
+            raw_stage2_retry = _execute_llm_request(retry_prompt, stage2_content, llm_base_url, llm_model, llm_api_key, timeout_val)
+            res_stage2 = _robust_parse_json(raw_stage2_retry, ticker, metrics, lang, log_fn=log_fn, llm_model=llm_model)
+
+        if not res_stage2 or not isinstance(res_stage2, dict):
+            err_msg = f"LLM Commentary Stage 2 blog generation failed after retry for {ticker}."
+            _log(f"   ❌ {err_msg}")
+            log_error(err_msg, context=ticker)
+            return None
+
+        # MERGE & VALIDATE ALL 27 MANDATORY KEYS
+        final_res = dict(res_stage1)
+        final_res.update(res_stage2)
+
+        mandatory_keys = [
+            "company_name", "executive_summary", "strong_points", "weak_points", "risk_discipline",
+            "scorecard_commentary", "piotroski_commentary", "altman_z_commentary", "moat_and_catalysts",
+            "ownership_commentary", "peer_comparison", "dupont_analysis", "forward_commentary",
+            "dcf_valuation", "technical_analysis", "forensic_audit", "scenario_analysis", "investment_verdict",
+            "blog_headline", "blog_summary", "blog_cash_and_health", "blog_earnings_quality",
+            "blog_valuation_dcf", "blog_catalysts_and_risks", "blog_bull_vs_bear", "blog_key_takeaways", "blog_faqs"
+        ]
+
+        missing_keys = [k for k in mandatory_keys if not final_res.get(k)]
+        if missing_keys:
+            err_msg = f"LLM Commentary incomplete for {ticker}. Missing keys: {missing_keys}"
+            _log(f"   ❌ {err_msg}")
+            log_error(err_msg, context=ticker)
             return None
 
         final_res["_is_llm_generated"] = True
@@ -415,316 +431,16 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
         err_msg = f"LLM endpoint unreachable at {llm_base_url} ({ce})"
         _log(f"   ❌ {err_msg}")
         log_error(err_msg, exc=ce, context=ticker)
-        if allow_fallback:
-            return _fallback_commentary(ticker, metrics, lang)
         return None
     except requests.exceptions.Timeout as te:
         err_msg = f"LLM request timeout at {llm_base_url} after {timeout_val}s ({te})"
         _log(f"   ❌ {err_msg}")
         log_error(err_msg, exc=te, context=ticker)
-        if allow_fallback:
-            return _fallback_commentary(ticker, metrics, lang)
         return None
     except Exception as e:
         err_msg = f"LLM commentary error for {ticker}: {e}"
         _log(f"   ❌ {err_msg}")
-        log_error(err_msg, exc=e, context=ticker)
-        if allow_fallback:
-            return _fallback_commentary(ticker, metrics, lang)
-        return None
 
-
-def _fallback_commentary(ticker: str, metrics: dict = None, lang: str = "TR") -> dict:
-    """Return rich, professional quantitative financial analysis when LLM API is unavailable."""
-    if metrics is None:
-        metrics = {}
-
-    mi = metrics.get("market_info", {})
-    price = mi.get("current_price", 0)
-    mcap = mi.get("market_cap", 0)
-    ev = mi.get("enterprise_value", 0)
-    sma50 = mi.get("fifty_day_avg", 0)
-
-    vp = metrics.get("valuation_parameters", {})
-    wacc = vp.get("wacc", 0.0)
-    rdcf = metrics.get("reverse_dcf", {})
-    implied_g = rdcf.get("implied_growth_rate_raw", 0.0)
-    recent_fcf = rdcf.get("recent_fcf", 0)
-
-    pf = metrics.get("piotroski_f_score", {})
-    pf_score = pf.get("score", 0)
-
-    az = metrics.get("altman_z_score", {})
-    z_score = az.get("z_score")
-    z_score_str = f"Z = {z_score:,.2f}" if isinstance(z_score, (int, float)) else "N/A"
-    z_zone = az.get("zone", "Normal")
-    beneish_m = metrics.get("beneish_m_score", {})
-    bm_score = beneish_m.get("m_score", -2.85) if isinstance(beneish_m, dict) else -2.85
-
-    hist = metrics.get("historical_metrics", [])
-    last_rev = hist[0].get("revenue", 1) if hist else 1
-    last_ni = hist[0].get("net_income", 1) if hist else 1
-    last_ebit = hist[0].get("operating_income", 0) if hist else 0
-    cash = hist[0].get("cash_and_equivalents", 0) if hist else 0
-    debt = hist[0].get("total_debt", 0) if hist else 0
-    net_debt = debt - cash
-    ps_ratio = mcap / last_rev if last_rev > 0 else 0
-    pe_ratio = mcap / last_ni if last_ni > 0 else 0
-
-    company_name = mi.get("short_name", ticker)
-    curr_sym = mi.get("currency_symbol", "₺")
-    lang_upper = (lang or "TR").upper()
-    is_bank = metrics.get("is_bank_sector", False)
-
-    implied_g_str = f"%{implied_g*100:.2f}" if isinstance(implied_g, (int, float)) else "N/A"
-
-    if lang_upper == "EN":
-        verdict_text = "BALANCED MODEL OUTLOOK (STRONG BALANCE SHEET / HIGH MULTIPLE BALANCE)"
-        net_cash_m = abs(net_debt)/1e6
-        net_margin_pct = (hist[0].get('net_margin', hist[0].get('gross_margin', 0.16))*100) if hist else 16.2
-
-        if net_debt < 0:
-            strong = (
-                f"{company_name} ({ticker}) exhibits a robust financial position with net cash reserves "
-                f"({curr_sym}{net_cash_m:,.1f}M). The net cash cushion yields a low WACC of %{wacc*100:.2f}, "
-                f"shielding the company from high interest rate environments."
-            )
-            blog_headline_val = f"📰 {ticker} Analysis: Solid Net Cash Cushion ({curr_sym}{net_cash_m:,.1f}M) vs. Price Tag"
-            blog_summary_val = f"{company_name} is one of the rare companies operating completely debt-free with a net cash position of {curr_sym}{net_cash_m:,.1f}M. While this provides an immense safety shield, investors should monitor its valuation multiple."
-            blog_cash_and_health_val = f"Operating debt-free is a major advantage during periods of high interest rates. {company_name}'s {curr_sym}{net_cash_m:,.1f}M cash cushion acts as a powerful shield against market volatility. Scoring {z_score_str} ({z_zone}) confirms its balance sheet health."
-            blog_bull_vs_bear_val = f"Bull Case: Net cash cushion of {curr_sym}{net_cash_m:,.1f}M provides strength and resilience during high interest rate environments.\n\nBear Case: Elevated valuation multiples require sustained earnings growth to support current stock prices.\n\nRetail Investor Takeaway: Dollar-cost averaging in small steps (2.5%-5.0% position size) while maintaining stop-loss discipline is a prudent strategy."
-            blog_takeaways_val = [
-                f"Financial Health Excellent: Low insolvency risk backed by solid net cash reserves of {curr_sym}{net_cash_m:,.1f}M.",
-                f"Valuation Tag: The stock trades at {ps_ratio:.1f}x Price-to-Sales relative to annual revenue.",
-                f"Key Support Level: The 50-day moving average at {curr_sym}{sma50:,.2f} serves as the primary safety floor."
-            ]
-            faq_ans_en = f"If I were managing a portfolio for {company_name}, I would maintain disciplined position sizing (2.5%-5.0% allocation). The net cash cushion of {curr_sym}{net_cash_m:,.1f}M provides solid downside protection."
-        else:
-            strong = (
-                f"{company_name} ({ticker}) exhibits a financial position with a net debt load of {curr_sym}{net_cash_m:,.1f}M on its balance sheet. "
-                f"Free Cash Flow generation and debt service coverage remain key operational metrics under current interest rates."
-            )
-            blog_headline_val = f"📰 {ticker} Analysis: Balance Sheet Debt Structure & Valuation Audit"
-            blog_summary_val = f"{company_name} carries a net debt position of {curr_sym}{net_cash_m:,.1f}M on its balance sheet. Financial leverage management and operating cash flows will be critical performance drivers over the upcoming quarters."
-            blog_cash_and_health_val = f"{company_name} operates with a net debt load of {curr_sym}{net_cash_m:,.1f}M. Under elevated interest rate environments, maintaining strong operating cash flows and interest coverage is essential."
-            blog_bull_vs_bear_val = f"Bull Case: Sustained operational cash flow growth and debt deleveraging could unlock significant equity upside.\n\nBear Case: High interest expense and debt service burdens could compress net profit margins if revenue slows.\n\nRetail Investor Takeaway: Limit position size to 2.5%-5.0% to manage balance sheet risk and monitor key support at {curr_sym}{sma50:,.2f}."
-            blog_takeaways_val = [
-                f"Debt Monitoring Critical: Net debt load of {curr_sym}{net_cash_m:,.1f}M requires continuous cash flow tracking.",
-                f"Valuation Tag: Stock trades at {ps_ratio:.1f}x Price-to-Sales relative to revenue.",
-                f"Key Support Level: The 50-day moving average at {curr_sym}{sma50:,.2f} serves as the primary technical floor."
-            ]
-            faq_ans_en = f"With {company_name} carrying {curr_sym}{net_cash_m:,.1f}M in net debt, I would restrict position size to 2.5%-5.0% to cap portfolio risk and keep a close eye on the {curr_sym}{sma50:,.2f} 50-day moving average support."
-
-        weak = f"The primary risk factor for {company_name} is valuation premium. Price-to-Sales (P/S) ratio stands at {ps_ratio:.1f}x."
-        risk_disc = f"Statistical risk models suggest a position limit of 2.5% - 5.0% (Kelly limit) with technical support at {curr_sym}{sma50:,.2f}."
-        scorecard_c = f"Our 360° Company Scorecard evaluates {company_name} on Piotroski ({pf_score}/9) and Altman Z ({z_score_str}, {z_zone})."
-        piotroski_c = f"Piotroski F-Score audit rates the company at {pf_score}/9 balance sheet quality."
-        altman_c = f"Altman Z-Score evaluation: {z_score_str} ({z_zone})."
-        moat_c = f"{company_name} benefits from sector infrastructure and contract pipeline catalysts."
-        ownership_c = f"Ownership structure provides stability against liquidity shocks."
-        peer_c = f"Compared to industry peers, {company_name} trades at a P/S multiple of {ps_ratio:.1f}x."
-        dupont_c = f"DuPont 5-Step ROE decomposition highlights operational margins and tax burden."
-        forward_c = f"Forward projections forecast valuation normalization toward historical industry averages."
-        dcf_c = f"Calculated WACC is %{wacc*100:.2f} with Reverse DCF growth tracking ({implied_g_str})."
-        tech_c = f"Technical indicators show 50-day moving average support at {curr_sym}{sma50:,.2f}."
-        forensic_c = f"Forensic audit using Beneish M-Score ({bm_score:.2f}) indicates transparent accounting."
-        scenario_c = f"Scenario analysis sets technical support at {curr_sym}{sma50:,.2f} as the primary Bear Case target."
-
-        blog_earnings_quality_val = f"Examining the balance sheet report card, the company scores {pf_score} out of 9 on the Piotroski scale with a net profit margin of %{net_margin_pct:.1f}."
-        blog_valuation_dcf_val = f"Relative to annual sales, the stock trades at {ps_ratio:.1f}x P/S. The market is pricing in forward growth expectations."
-        blog_catalysts_val = f"Growth Opportunities:\n1) Core business expansion and major new contract renewals.\n2) Deleveraging and cash flow optimization.\n\nRisk Radar:\n1) Interest rate sensitivity on debt service burdens.\n2) Breakdown below key technical support at {curr_sym}{sma50:,.2f}."
-        blog_faqs_val = [
-            {"q": f"❓ How would I personally approach {ticker} stock right now? (Investor Perspective)", "a": faq_ans_en},
-            {"q": f"❓ Is {ticker} stock suitable for beginner investors?", "a": f"Beginners should start small (2.5%-5.0% allocation limit) and keep track of debt ratios and moving average support."},
-            {"q": f"❓ What is the primary risk factor for {ticker}?", "a": f"The primary risk factor centers around debt servicing under high interest rates and key technical support at {curr_sym}{sma50:,.2f}."}
-        ]
-    else:
-        verdict_text = "DENGELİ MODEL GÖRÜŞÜ (FİNANSAL SAĞLIK VE DEĞERLEME DENGESİ)"
-        net_cash_m = abs(net_debt)/1e6 if net_debt < 0 else debt/1e6
-        net_margin_pct = (hist[0].get('net_margin', hist[0].get('gross_margin', 0.16))*100) if hist else 16.2
-        debt_desc_tr = f"kasasındaki {curr_sym}{net_cash_m:,.1f}M net nakit birikimi" if net_debt < 0 else f"{curr_sym}{net_cash_m:,.1f}M net borç pozisyonu"
-
-        bm_safe_tr = "Güvenli Bölge" if bm_score < -1.78 else "Sapma İkazı"
-
-        strong = (
-            f"{company_name} ({ticker}), finansal bünye açısından {debt_desc_tr} "
-            f"ile dikkat çekmektedir. %{wacc*100:.2f} "
-            f"seviyesindeki sermaye maliyeti (WACC) ve Piotroski {pf_score}/9 skoru operasyonel yapıyı desteklemektedir."
-        )
-        weak = (
-            f"{company_name} için temel risk faktörü değerleme seviyeleridir. "
-            f"Fiyat/Satışlar (P/S) etiket fiyatı {ps_ratio:.1f}x seviyesindedir. "
-            f"Esas faaliyet kârlılığı (EBIT: {curr_sym}{last_ebit/1e6:,.1f}M) üzerindeki maliyet seyri yakından izlenmelidir."
-        )
-        risk_disc = (
-            f"İstatistiki risk modellerinde pozisyon büyüklüğü için teorik Kelly limiti %2,5 - %5,0 bandında önerilmektedir. "
-            f"Fiyatın 50 günlük hareketli ortalaması ({curr_sym}{sma50:,.2f}) ana teknik destek noktası olarak takip edilmelidir."
-        )
-        scorecard_c = (
-            f"360° Şirket Karnesi modelimiz {company_name} için finansal veriler doğrultusunda kapsamlı skor üretmektedir. "
-            f"Altman Z-Score ({z_score_str}, {z_zone}) ve Piotroski F-Skoru {pf_score}/9 seviyesindedir."
-        )
-        piotroski_c = (
-            f"Piotroski F-Score denetiminde şirket {pf_score}/9 puan almıştır. "
-            f"Faaliyet nakit akışı ve kârlılık rasyoları nakit kalitesini belirleyen ana faktörlerdir."
-        )
-        altman_c = (
-            f"Altman Z-Score değerlendirmesi: {z_score_str} ({z_zone})."
-        )
-        moat_c = (
-            f"{company_name}, kendi sektöründeki müşteri ağı ve operasyonel altyapısı ile faaliyetlerini sürdürmektedir."
-        )
-        ownership_c = (
-            f"Ortaklık yapısı ve döviz pozisyonu kur dalgalanmalarına karşı bilanço dengesini etkilemektedir."
-        )
-        peer_c = (
-            f"Sektör rakipleri ile yapılan karşılaştırmada {company_name}, {ps_ratio:.1f}x P/S çarpanı ile değerlendirilmektedir."
-        )
-        dupont_c = (
-            f"DuPont 5-Adım Özsermaye Kârlılığı (ROE) ayrıştırmasında Vergi Yükü, Faiz Yükü ve Faaliyet Marjı öne çıkmaktadır."
-        )
-        forward_c = (
-            f"Gelecek dönem projeksiyonlarında ciro ve kârlılığın artmasıyla birlikte İleri Fiyat/Satışlar (Forward P/S) çarpanının "
-            f"{ps_ratio:.1f}x seviyesinden dengelenmesi öngörülmektedir."
-        )
-        dcf_c = (
-            f"Hesaplanan WACC %{wacc*100:.2f} ve Ters DCF implike büyüme oranı {implied_g_str} olarak ölçülmüştür."
-        )
-        tech_c = (
-            f"Teknik göstergelerde fiyat {curr_sym}{sma50:,.2f} olan 50 günlük hareketli ortalama seviyesindedir."
-        )
-        forensic_c = f"Adli denetimde Beneish M-Score {bm_score:.2f} ile {bm_safe_tr} konumundadır."
-        scenario_c = f"Senaryo analizinde {curr_sym}{sma50:,.2f} teknik desteği ana tampon seviyesidir."
-
-        if net_debt < 0:
-            cash_health_tr = f"Bir şirketin borçsuz olması, yüksek faizlerin hüküm sürdüğü dönemlerde büyük bir avantajdır. {company_name}’in kasasındaki {curr_sym}{net_cash_m:,.1f} milyonluk nakit, şirketi olası krizlere karşı koruyan güçlü bir kalkan görevi görüyor."
-            summary_tr = f"{company_name}, cebinde hiç net borcu olmadan yola devam eden nadir şirketlerden biri. Kasasında tam {curr_sym}{net_cash_m:,.1f} milyon net nakit biriktirmiş durumda. Bu durum şirkete muazzam bir güvenlik kalkanı sağlarken, yatırımcıların dikkat etmesi gereken tek konu hisse fiyatının biraz yüksek kalması."
-            bull_bear_tr = f"Boğa Senaryosu: Şirket borçsuz ve kasası nakit dolu. Bu finansal güç, zorlu ekonomik koşullarda büyük bir avantaj ve büyüme fırsatı sunar.\n\nAyı Senaryosu: Mevcut hisse fiyatı şirketin kârına göre oldukça yüksek. Beklenen hızlı büyüme gelmezse fiyatta geri çekilmeler görülebilir.\n\nKüçük Yatırımcı İçin Tavsiye: Tüm paranızla tek seferde almak yerine, fiyat düştükçe parça parça (kademeli) alım yapmak ve zarar kes (stop-loss) seviyelerine sadık kalmak mantıklı bir strateji olabilir."
-            takeaway_health_tr = f"Finansal Sağlık Mükemmel: Şirketin iflas riski yok denecek kadar az. Kasasındaki nakit ({curr_sym}{net_cash_m:,.1f}M), zor günlerde en büyük güvencesi."
-            faq_ans_tr = f"Şirketin batma riski yok denecek kadar az olsa da (kasada {curr_sym}{net_cash_m:,.1f}M net nakit var) fiyatı biraz pahalı. Bir portföy yönetiyor olsaydım tüm parayla girmek yerine %2,5 ile %5,0'lik küçük bir adımla alım yapar, {curr_sym}{sma50:,.2f} olan 50 günlük ortalamayı koruma kalkanım yapardım."
-            headline_tr = f"📰 {ticker} Analizi: Şirketin Kasası Para Dolu Ama Fiyatı Biraz Pahalı mı?"
-        else:
-            cash_health_tr = f"{company_name}, bilançosunda toplam {curr_sym}{net_cash_m:,.1f} milyon net borç yükü taşımaktadır. Yüksek faiz ortamında borç servis oranları ve işletme nakit akışlarının sürdürülebilirliği yakından takip edilmelidir."
-            summary_tr = f"{company_name}, bilançosunda {curr_sym}{net_cash_m:,.1f} milyon net borç ile faaliyetlerini sürdürmektedir. Finansal borç yönetimi ve nakit akış performansı önümüzdeki dönemde hisse değerlemesi açısından kritik öneme sahiptir."
-            bull_bear_tr = f"Boğa Senaryosu: Borç servis kapasitesinin korunması ve operasyonel nakit akışlarının artması bilançoyu rahatlatabilir.\n\nAyı Senaryosu: Yüksek borç yükü ve faiz maliyetleri kârlılık üzerinde baskı yaratabilir.\n\nKüçük Yatırımcı İçin Tavsiye: Borç yapısı nedeniyle pozisyon büyüklüğü %2,5 - %5,0 ile sınırlandırılmalı ve 50 günlük ortalama seviyesi ({curr_sym}{sma50:,.2f}) yakından izlenmelidir."
-            takeaway_health_tr = f"Borç Yönetimi Kritik: Bilançodaki {curr_sym}{net_cash_m:,.1f}M net borç yükü faiz ortamında yakından izlenmeli."
-            faq_ans_tr = f"Şirketin bilançosunda {curr_sym}{net_cash_m:,.1f}M net borç yükü bulunmaktadır. Bir portföy yönetiyor olsaydım riski sınırlamak adına pozisyon büyüklüğünü %2,5 - %5,0 bandında tutar ve {curr_sym}{sma50:,.2f} teknik desteğine sadık kalırdım."
-            headline_tr = f"📰 {ticker} Analizi: Bilanço Borç Yapısı ve 360° Değerleme Raporu"
-
-        if is_bank:
-            blog_headline_val = f"📰 {ticker} Analizi: Bankacılık Özsermaye Kârlılığı ve Defter Değeri Dengesi"
-        else:
-            blog_headline_val = headline_tr
-
-        blog_summary_val = summary_tr
-        blog_cash_and_health_val = f"{cash_health_tr} Altman Z-Score değerlendirmesi: {z_score_str} ({z_zone})."
-        blog_earnings_quality_val = f"Şirketin genel kârlılık karnesini incelediğimizde 9 üzerinden {pf_score} puan aldığını görüyoruz. Satışlarından elde ettiği kâr oranı %{net_margin_pct:.1f}. Şirket mali tablolarında dürüst ve şeffaf bir çizgi izliyor."
-        blog_valuation_dcf_val = f"Değerleme tarafında hisse fiyatı üretilen satışların {ps_ratio:.1f} katı seviyesinden işlem görüyor (P/S: {ps_ratio:.1f}x). Piyasa geleceğe yönelik büyüme beklentilerini fiyatlamaktadır."
-        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Sektörel iş hacmi büyümesi ve yeni sözleşmeler.\n2) Operasyonel nakit akışlarının güçlenmesi.\n\nKritik Riskler:\n1) Yüksek faiz ve borç maliyetlerinin kârlılık üzerindeki baskısı.\n2) {curr_sym}{sma50:,.2f} seviyesindeki teknik desteğin aşağı yönlü kırılması."
-        blog_bull_vs_bear_val = bull_bear_tr
-        blog_takeaways_val = [
-            takeaway_health_tr,
-            f"Fiyat Etiketi: Satışlarına kıyasla hisse fiyatı şu an ({ps_ratio:.1f} katı) seviyesinden işlem görüyor.",
-            f"Teknik Desteğe Dikkat: {curr_sym}{sma50:,.2f} seviyesindeki 50 günlük ortalama fiyat, takip edilmesi gereken ana sınır."
-        ]
-        blog_faqs_val = [
-            {"q": f"❓ {ticker} hissesine ben olsam şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": faq_ans_tr},
-            {"q": f"❓ {ticker} hissesi yeni başlayan biri için uygun mu?", "a": f"Yeni başlayan yatırımcıların borç yapısını ve dalgalanmaları dikkate alarak portföylerinin %2,5 ile %5,0'lik küçük bir kısmıyla hareket etmesi önerilir."},
-            {"q": f"❓ {ticker} hissesinde en büyük risk nedir?", "a": f"En büyük risk borç yükü, faiz maliyetleri ve hareketli ortalamalar etrafındaki fiyat düzeltmeleridir."}
-        ]
-        moat_c = (
-            f"{company_name}, kendi sektöründeki müşteri ağı ve operasyonel altyapısı ile faaliyetlerini sürdürmektedir."
-        )
-        ownership_c = (
-            f"Ortaklık yapısı ve döviz pozisyonu kur dalgalanmalarına karşı bilanço dengesini etkilemektedir."
-        )
-        peer_c = (
-            f"Sektör rakipleri ile yapılan karşılaştırmada {company_name}, {ps_ratio:.1f}x P/S çarpanı ile değerlendirilmektedir."
-        )
-        dupont_c = (
-            f"DuPont 5-Adım Özsermaye Kârlılığı (ROE) ayrıştırmasında Vergi Yükü, Faiz Yükü ve Faaliyet Marjı öne çıkmaktadır."
-        )
-        forward_c = (
-            f"Gelecek dönem projeksiyonlarında ciro ve kârlılığın artmasıyla birlikte İleri Fiyat/Satışlar (Forward P/S) çarpanının "
-            f"{ps_ratio:.1f}x seviyesinden dengelenmesi öngörülmektedir."
-        )
-        dcf_c = (
-            f"Hesaplanan WACC %{wacc*100:.2f} ve Ters DCF implike büyüme oranı {implied_g_str} olarak ölçülmüştür."
-        )
-        tech_c = (
-            f"Teknik göstergelerde fiyat {curr_sym}{sma50:,.2f} olan 50 günlük hareketli ortalama seviyesindedir."
-        )
-        forensic_c = f"Adli denetimde Beneish M-Score {bm_score:.2f} ile {bm_safe_tr} konumundadır."
-        scenario_c = f"Senaryo analizinde {curr_sym}{sma50:,.2f} teknik desteği ana tampon seviyesidir."
-
-        if net_debt < 0:
-            cash_health_tr = f"Bir şirketin borçsuz olması, yüksek faizlerin hüküm sürdüğü dönemlerde büyük bir avantajdır. {company_name}’in kasasındaki {curr_sym}{net_cash_m:,.1f} milyonluk nakit, şirketi olası krizlere karşı koruyan güçlü bir kalkan görevi görüyor."
-            summary_tr = f"{company_name}, cebinde hiç net borcu olmadan yola devam eden nadir şirketlerden biri. Kasasında tam {curr_sym}{net_cash_m:,.1f} milyon net nakit biriktirmiş durumda. Bu durum şirkete muazzam bir güvenlik kalkanı sağlarken, yatırımcıların dikkat etmesi gereken tek konu hisse fiyatının biraz yüksek kalması."
-            bull_bear_tr = f"Boğa Senaryosu: Şirket borçsuz ve kasası nakit dolu. Bu finansal güç, zorlu ekonomik koşullarda büyük bir avantaj ve büyüme fırsatı sunar.\n\nAyı Senaryosu: Mevcut hisse fiyatı şirketin kârına göre oldukça yüksek. Beklenen hızlı büyüme gelmezse fiyatta geri çekilmeler görülebilir.\n\nKüçük Yatırımcı İçin Tavsiye: Tüm paranızla tek seferde almak yerine, fiyat düştükçe parça parça (kademeli) alım yapmak ve zarar kes (stop-loss) seviyelerine sadık kalmak mantıklı bir strateji olabilir."
-            takeaway_health_tr = f"Finansal Sağlık Mükemmel: Şirketin iflas riski yok denecek kadar az. Kasasındaki nakit ({curr_sym}{net_cash_m:,.1f}M), zor günlerde en büyük güvencesi."
-            faq_ans_tr = f"Şirketin batma riski yok denecek kadar az olsa da (kasada {curr_sym}{net_cash_m:,.1f}M net nakit var) fiyatı biraz pahalı. Bir portföy yönetiyor olsaydım tüm parayla girmek yerine %2,5 ile %5,0'lik küçük bir adımla alım yapar, {curr_sym}{sma50:,.2f} olan 50 günlük ortalamayı koruma kalkanım yapardım."
-            headline_tr = f"📰 {ticker} Analizi: Şirketin Kasası Para Dolu Ama Fiyatı Biraz Pahalı mı?"
-        else:
-            cash_health_tr = f"{company_name}, bilançosunda toplam {curr_sym}{net_cash_m:,.1f} milyon net borç yükü taşımaktadır. Yüksek faiz ortamında borç servis oranları ve işletme nakit akışlarının sürdürülebilirliği yakından takip edilmelidir."
-            summary_tr = f"{company_name}, bilançosunda {curr_sym}{net_cash_m:,.1f} milyon net borç ile faaliyetlerini sürdürmektedir. Finansal borç yönetimi ve nakit akış performansı önümüzdeki dönemde hisse değerlemesi açısından kritik öneme sahiptir."
-            bull_bear_tr = f"Boğa Senaryosu: Borç servis kapasitesinin korunması ve operasyonel nakit akışlarının artması bilançoyu rahatlatabilir.\n\nAyı Senaryosu: Yüksek borç yükü ve faiz maliyetleri kârlılık üzerinde baskı yaratabilir.\n\nKüçük Yatırımcı İçin Tavsiye: Borç yapısı nedeniyle pozisyon büyüklüğü %2,5 - %5,0 ile sınırlandırılmalı ve 50 günlük ortalama seviyesi ({curr_sym}{sma50:,.2f}) yakından izlenmelidir."
-            takeaway_health_tr = f"Borç Yönetimi Kritik: Bilançodaki {curr_sym}{net_cash_m:,.1f}M net borç yükü faiz ortamında yakından izlenmeli."
-            faq_ans_tr = f"Şirketin bilançosunda {curr_sym}{net_cash_m:,.1f}M net borç yükü bulunmaktadır. Bir portföy yönetiyor olsaydım riski sınırlamak adına pozisyon büyüklüğünü %2,5 - %5,0 bandında tutar ve {curr_sym}{sma50:,.2f} teknik desteğine sadık kalırdım."
-            headline_tr = f"📰 {ticker} Analizi: Bilanço Borç Yapısı ve 360° Değerleme Raporu"
-
-        if is_bank:
-            blog_headline_val = f"📰 {ticker} Analizi: Bankacılık Özsermaye Kârlılığı ve Defter Değeri Dengesi"
-        else:
-            blog_headline_val = headline_tr
-
-        blog_summary_val = summary_tr
-        blog_cash_and_health_val = f"{cash_health_tr} Altman Z-Score değerlendirmesi: {z_score_str} ({z_zone})."
-        blog_earnings_quality_val = f"Şirketin genel kârlılık karnesini incelediğimizde 9 üzerinden {pf_score} puan aldığını görüyoruz. Satışlarından elde ettiği kâr oranı %{net_margin_pct:.1f}. Şirket mali tablolarında dürüst ve şeffaf bir çizgi izliyor."
-        blog_valuation_dcf_val = f"Değerleme tarafında hisse fiyatı üretilen satışların {ps_ratio:.1f} katı seviyesinden işlem görüyor (P/S: {ps_ratio:.1f}x). Piyasa geleceğe yönelik büyüme beklentilerini fiyatlamaktadır."
-        blog_catalysts_val = f"Büyüme Fırsatları:\n1) Sektörel iş hacmi büyümesi ve yeni sözleşmeler.\n2) Operasyonel nakit akışlarının güçlenmesi.\n\nKritik Riskler:\n1) Yüksek faiz ve borç maliyetlerinin kârlılık üzerindeki baskısı.\n2) {curr_sym}{sma50:,.2f} seviyesindeki teknik desteğin aşağı yönlü kırılması."
-        blog_bull_vs_bear_val = bull_bear_tr
-        blog_takeaways_val = [
-            takeaway_health_tr,
-            f"Fiyat Etiketi: Satışlarına kıyasla hisse fiyatı şu an ({ps_ratio:.1f} katı) seviyesinden işlem görüyor.",
-            f"Teknik Desteğe Dikkat: {curr_sym}{sma50:,.2f} seviyesindeki 50 günlük ortalama fiyat, takip edilmesi gereken ana sınır."
-        ]
-        blog_faqs_val = [
-            {"q": f"❓ {ticker} hissesine ben olsam şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": faq_ans_tr},
-            {"q": f"❓ {ticker} hissesi yeni başlayan biri için uygun mu?", "a": f"Yeni başlayan yatırımcıların borç yapısını ve dalgalanmaları dikkate alarak portföylerinin %2,5 ile %5,0'lik küçük bir kısmıyla hareket etmesi önerilir."},
-            {"q": f"❓ {ticker} hissesinde en büyük risk nedir?", "a": f"En büyük risk borç yükü, faiz maliyetleri ve hareketli ortalamalar etrafındaki fiyat düzeltmeleridir."}
-        ]
-
-    return {
-        "company_name": company_name,
-        "executive_summary": strong,
-        "strong_points": strong,
-        "weak_points": weak,
-        "risk_discipline": risk_disc,
-        "scorecard_commentary": scorecard_c,
-        "piotroski_commentary": piotroski_c,
-        "altman_z_commentary": altman_c,
-        "moat_and_catalysts": moat_c,
-        "ownership_commentary": ownership_c,
-        "peer_comparison": peer_c,
-        "dupont_analysis": dupont_c,
-        "forward_commentary": forward_c,
-        "dcf_valuation": dcf_c,
-        "technical_analysis": tech_c,
-        "forensic_audit": forensic_c,
-        "scenario_analysis": scenario_c,
-        "investment_verdict": verdict_text,
-        "blog_headline": blog_headline_val,
-        "blog_summary": blog_summary_val,
-        "blog_cash_and_health": blog_cash_and_health_val,
-        "blog_earnings_quality": blog_earnings_quality_val,
-        "blog_valuation_dcf": blog_valuation_dcf_val,
-        "blog_catalysts_and_risks": blog_catalysts_val,
-        "blog_bull_vs_bear": blog_bull_vs_bear_val,
-        "blog_key_takeaways": blog_takeaways_val,
-        "blog_faqs": blog_faqs_val,
-        "_is_llm_generated": False,
-        "_llm_model": "QUANT_FALLBACK"
-    }
 
 
 if __name__ == "__main__":

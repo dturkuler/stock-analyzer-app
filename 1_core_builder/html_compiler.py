@@ -281,15 +281,8 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     lang = lang.upper()
     is_en = (lang == "EN")
 
-    if not commentary or not commentary.get("blog_summary"):
-        try:
-            from llm_commentary import generate_commentary
-            auto_comm = generate_commentary(metrics, lang=lang)
-            if commentary and isinstance(commentary, dict):
-                auto_comm.update({k: v for k, v in commentary.items() if v})
-            commentary = auto_comm
-        except Exception:
-            pass
+    if not commentary or not isinstance(commentary, dict):
+        commentary = {}
 
     ticker = metrics.get("ticker", "UNKNOWN")
     company_name = metrics.get("name") or commentary.get("company_name") or ticker
@@ -1660,7 +1653,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
               <div class="stat-value" style="font-size:1.1rem; color:var(--accent-cyan);">{_fmt_num(z_score, is_en=is_en, decimals=2)} ({"Safe" if is_en else "Tamamen Güvenli"})</div>
             </div>
           </div>
-          <div class="analyst-text">{format_analyst_text(commentary.get("blog_cash_and_health", commentary.get("altman_z_commentary", commentary.get("strong_points", ""))), is_en=is_en)}</div>
+          <div class="analyst-text">{format_analyst_text(commentary.get("blog_cash_and_health", ""), is_en=is_en)}</div>
         </section>
 
         <!-- SECTION 3: EARNINGS QUALITY & DUPONT ROE -->
@@ -1676,7 +1669,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
               <div class="stat-value" style="font-size:1.1rem; color:var(--accent-rose);">{_fmt_pct(hist[0].get("net_margin", hist[0].get("gross_margin", 0)), is_en=is_en) if hist else "N/A"}</div>
             </div>
           </div>
-          <div class="analyst-text">{format_analyst_text(commentary.get("blog_earnings_quality", commentary.get("piotroski_commentary", commentary.get("dupont_analysis", ""))), is_en=is_en)}</div>
+          <div class="analyst-text">{format_analyst_text(commentary.get("blog_earnings_quality", ""), is_en=is_en)}</div>
         </section>
 
         <!-- SECTION 4: VALUATION REALITY & REVERSE DCF -->
@@ -1692,13 +1685,13 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
               <div class="stat-value" style="font-size:1.1rem; color:var(--accent-cyan);">{_fmt_pct(implied_g, is_en=is_en)}</div>
             </div>
           </div>
-          <div class="analyst-text">{format_analyst_text(commentary.get("blog_valuation_dcf", commentary.get("dcf_valuation", commentary.get("peer_comparison", ""))), is_en=is_en)}</div>
+          <div class="analyst-text">{format_analyst_text(commentary.get("blog_valuation_dcf", ""), is_en=is_en)}</div>
         </section>
 
         <!-- SECTION 5: TECHNICAL MOMENTUM & 4 SCENARIO PRICE TARGETS -->
         <section class="article-section">
           <h2>{"📈 Chart Status & 4 Price Target Scenarios" if is_en else "📈 Grafik Durumu & 4 Farklı Fiyat Senaryosu"}</h2>
-          <div class="analyst-text" style="margin-bottom:0.75rem;">{format_analyst_text(commentary.get("technical_analysis", commentary.get("scenario_analysis", "")), is_en=is_en)}</div>
+          <div class="analyst-text" style="margin-bottom:0.75rem;">{format_analyst_text(commentary.get("technical_analysis", ""), is_en=is_en)}</div>
 
           <!-- 4 SCENARIO TARGET PRICE VISUAL GRID -->
           <div class="grid-4" style="margin-top:0.75rem; margin-bottom:0.75rem;">
@@ -1724,13 +1717,13 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <!-- SECTION 6: CATALYSTS & RISK RADAR -->
         <section class="article-section">
           <h2>{"⚡ Opportunities & Risks Radar" if is_en else "⚡ Şanslar ve Riskler Radarımızda"}</h2>
-          <div class="analyst-text">{format_analyst_text(commentary.get("blog_catalysts_and_risks", commentary.get("moat_and_catalysts", "")), is_en=is_en)}</div>
+          <div class="analyst-text">{format_analyst_text(commentary.get("blog_catalysts_and_risks", ""), is_en=is_en)}</div>
         </section>
 
         <!-- SECTION 7: BULL VS BEAR & ACTION PLAN -->
         <section class="article-section">
           <h2>{"⚖️ Bullish vs. Bearish Outlook & Strategy" if is_en else "⚖️ İyimser vs. Kötümser Görüş & Yatırım Stratejisi"}</h2>
-          <div class="analyst-text">{format_analyst_text(commentary.get("blog_bull_vs_bear", commentary.get("weak_points", "")), is_en=is_en)}</div>
+          <div class="analyst-text">{format_analyst_text(commentary.get("blog_bull_vs_bear", ""), is_en=is_en)}</div>
         </section>
 
         <!-- FAQ ACCORDION SECTION -->
