@@ -106,8 +106,11 @@ def generate_report(ticker, lang="TR", strict_llm=False):
 
     # Log metrics summary
     p_score = metrics.get("piotroski_f_score", {}).get("score", "N/A")
-    z_score = metrics.get("altman_z_score", {}).get("score", "N/A")
-    wacc_val = metrics.get("dcf", {}).get("wacc_pct", "N/A")
+    z_score_raw = metrics.get("altman_z_score", {}).get("z_score")
+    z_score = round(z_score_raw, 2) if isinstance(z_score_raw, (int, float)) else "N/A"
+
+    raw_wacc = metrics.get("valuation_parameters", {}).get("wacc")
+    wacc_val = f"{round(raw_wacc * 100, 2)}" if isinstance(raw_wacc, (int, float)) else "N/A"
     log_analysis(f"   📊 Sourced metrics for {ticker}: Piotroski F-Score={p_score}/9, Altman Z={z_score}, WACC={wacc_val}%")
 
     # ══════════════════════════════════════════════════════════
@@ -167,9 +170,10 @@ def generate_report(ticker, lang="TR", strict_llm=False):
             );
         """)
         piotroski = metrics.get("piotroski_f_score", {}).get("score", None)
-        altman_z = metrics.get("altman_z_score", {}).get("score", None)
-        beneish_m = metrics.get("beneish_m_score", {}).get("score", None)
-        wacc = metrics.get("dcf", {}).get("wacc_pct", None)
+        altman_z = metrics.get("altman_z_score", {}).get("z_score", None)
+        beneish_m = metrics.get("beneish_m_score", {}).get("m_score", metrics.get("beneish_m_score", {}).get("score", None))
+        raw_wacc = metrics.get("valuation_parameters", {}).get("wacc")
+        wacc = round(raw_wacc * 100, 2) if isinstance(raw_wacc, (int, float)) else None
 
         cur.execute("""
             INSERT INTO reports_index (ticker, report_date, file_path, piotroski_score, altman_z, beneish_m, wacc_pct, status)
