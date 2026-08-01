@@ -1454,6 +1454,7 @@ def index():
                 </div>
             </div>
             <div class="icon-tools-group">
+                <button class="btn" onclick="openValuationHistoryModal()" title="📊 Değerleme Formül Trendleri & Tarihçe GFX">📊 GFX</button>
                 <button id="headerThemeBtn" class="icon-btn" onclick="toggleMainTheme()" title="Tema / Theme">🌙</button>
                 <button class="icon-btn" onclick="openAdminModal()" title="🔒 Admin Paneli / Admin Panel" data-i18n-title="btn_admin">⚙️</button>
                 <button class="icon-btn" onclick="printReportPage()" title="Yazdır / Print">🖨️</button>
@@ -1467,6 +1468,19 @@ def index():
 
         <!-- Tooltip Element -->
         <div id="hudTooltip"></div>
+
+        <!-- VALUATION HISTORY GFX MODAL -->
+        <div id="valuationHistoryModal" class="modal-backdrop" onclick="if(event.target===this) closeValuationHistoryModal()">
+            <div class="cmd-palette-card" style="max-width: 840px; width: 92%; max-height: 88vh; display: flex; flex-direction: column;">
+                <div class="modal-header" style="padding: 1rem 1.25rem;">
+                    <div class="modal-title" id="gfxModalTitle">📊 Değerleme Formül Tarihçesi & GFX Trendleri</div>
+                    <button class="close-btn" onclick="closeValuationHistoryModal()">&times;</button>
+                </div>
+                <div id="gfxModalBody" style="padding: 1.25rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.25rem; background: var(--bg-dark);">
+                    <!-- Rendered dynamically -->
+                </div>
+            </div>
+        </div>
 
         <!-- COMMAND PALETTE OVERLAY MODAL -->
         <div id="commandPaletteModal" class="cmd-palette-backdrop" onclick="if(event.target===this) closeCommandPalette()">
@@ -2844,6 +2858,140 @@ def index():
                 } catch(e) {
                     if (box) box.innerText = `🔴 Live log yükleme hatası: ${e.message}`;
                 }
+            }
+
+            async function openValuationHistoryModal(ticker) {
+                const selectEl = document.getElementById('tickerSelect');
+                const targetTicker = ticker || (typeof currentTicker !== 'undefined' ? currentTicker : null) || (selectEl ? selectEl.value : null);
+                if (!targetTicker || targetTicker === '_MATRIX_') {
+                    alert('Lütfen önce analiz edilecek bir hisse seçiniz.');
+                    return;
+                }
+
+                const modal = document.getElementById('valuationHistoryModal');
+                if (modal) modal.classList.add('active');
+
+                const titleEl = document.getElementById('gfxModalTitle');
+                if (titleEl) titleEl.innerText = `📊 Değerleme Formül Tarihçesi & GFX Trendleri: ${targetTicker}`;
+
+                const bodyEl = document.getElementById('gfxModalBody');
+                if (bodyEl) bodyEl.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:2rem;">⏳ Tarihçe verileri yükleniyor...</div>';
+
+                try {
+                    const res = await fetch(`/api/valuation/history/${targetTicker}`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    renderValuationHistoryGfx(data, bodyEl);
+                } catch(err) {
+                    if (bodyEl) bodyEl.innerHTML = `<div style="color:var(--accent-rose); text-align:center; padding:2rem;">🔴 Tarihçe verisi yüklenemedi: ${err.message}</div>`;
+                }
+            }
+
+            function closeValuationHistoryModal() {
+                const modal = document.getElementById('valuationHistoryModal');
+                if (modal) modal.classList.remove('active');
+            }
+
+            function renderValuationHistoryGfx(data, container) {
+                const history = data.history || [];
+                if (history.length === 0) {
+                    container.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--text-muted);">
+                        ℹ️ '${data.ticker}' için henüz kayıtlı tarihsel analiz verisi bulunmuyor.<br>
+                        Analiz çalıştırıldıkça tarihsel formül trendleri burada grafikle gösterilecektir.
+                    </div>`;
+                    return;
+                }
+
+                const dates = history.map(h => h.report_date);
+                const altmanZ = history.map(h => h.altman_z ?? 0);
+                const piotroski = history.map(h => h.piotroski_score ?? 0);
+                const dcf = history.map(h => h.dcf_fair_value ?? 0);
+                const wacc = history.map(h => h.wacc_pct ?? 0);
+
+                const renderLineChart = (title, pts, datesList, color = '#06b6d4', suffix = '') => {
+                    if (pts.length === 0) return '';
+                    const min = Math.min(...pts);
+                    const max = Math.max(...pts);
+                    const range = (max - min) || 1;
+                    const w = 680, h = 140;
+                    
+                    const pathPoints = pts.map((v, i) => {
+                        const x = (i / Math.max(pts.length - 1, 1)) * (w - 40) + 20;
+                        const y = h - 25 - ((v - min) / range) * (h - 45);
+                        return { x, y, val: v, date: datesList[i] };
+                    });
+
+                    const dAttr = pathPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+                    
+                    const circles = pathPoints.map(p => `
+                        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="${color}" stroke="#0f172a" stroke-width="2">
+                            <title>${p.date}: ${p.val}${suffix}</title>
+                        </circle>
+                        <text x="${p.x.toFixed(1)}" y="${(p.y - 8).toFixed(1)}" fill="${color}" font-size="10" text-anchor="middle" font-weight="bold">${p.val}${suffix}</text>
+                    `).join('');
+
+                    const xLabels = pathPoints.map(p => `
+                        <text x="${p.x.toFixed(1)}" y="${h - 5}" fill="var(--text-muted)" font-size="9" text-anchor="middle">${p.date}</text>
+                    `).join('');
+
+                    return `
+                        <div class="admin-card" style="padding:1rem;">
+                            <div style="font-weight:700; color:var(--text-main); font-size:0.9rem; margin-bottom:0.75rem; display:flex; justify-content:space-between;">
+                                <span>${title}</span>
+                                <span style="color:${color}; font-family:var(--font-mono); font-weight:700;">${pts[pts.length - 1]}${suffix}</span>
+                            </div>
+                            <div style="overflow-x:auto;">
+                                <svg viewBox="0 0 ${w} ${h}" style="width:100%; height:auto; min-width:320px; max-height:160px;">
+                                    <path d="${dAttr}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round"/>
+                                    ${circles}
+                                    ${xLabels}
+                                </svg>
+                            </div>
+                        </div>
+                    `;
+                };
+
+                container.innerHTML = `
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        ${renderLineChart('🛡️ Altman Z-Score Trend (İflas Riski)', altmanZ, dates, '#10b981')}
+                        ${renderLineChart('🔥 Piotroski F-Score Trend (0-9)', piotroski, dates, '#3b82f6')}
+                        ${renderLineChart('🎯 DCF Intrinsic Fair Value', dcf, dates, '#8b5cf6', '₺')}
+                        ${renderLineChart('⚡ WACC % Trend', wacc, dates, '#f59e0b', '%')}
+                    </div>
+                    <div class="admin-card" style="padding:1rem; margin-top:0.5rem;">
+                        <div style="font-weight:700; color:var(--accent-cyan); font-size:0.9rem; margin-bottom:0.75rem;">📋 Tarihsel Değerleme Snapshot Tablosu</div>
+                        <div style="overflow-x:auto;">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Tarih</th>
+                                        <th>Piotroski F</th>
+                                        <th>Altman Z</th>
+                                        <th>Beneish M</th>
+                                        <th>WACC %</th>
+                                        <th>DCF Hedef</th>
+                                        <th>Graham No</th>
+                                        <th>Lynch Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${history.map(h => `
+                                        <tr>
+                                            <td><strong>${h.report_date}</strong></td>
+                                            <td>${h.piotroski_score ?? '-'}</td>
+                                            <td>${h.altman_z ?? '-'}</td>
+                                            <td>${h.beneish_m ?? '-'}</td>
+                                            <td>${h.wacc_pct ? h.wacc_pct + '%' : '-'}</td>
+                                            <td>${h.dcf_fair_value ? '₺' + h.dcf_fair_value : '-'}</td>
+                                            <td>${h.graham_number ? '₺' + h.graham_number : '-'}</td>
+                                            <td>${h.lynch_fair_value ? '₺' + h.lynch_fair_value : '-'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
             }
 
             async function fetchFileLogs() {
