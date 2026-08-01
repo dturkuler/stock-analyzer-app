@@ -1089,7 +1089,7 @@ def index():
             /* Slide-Over Admin Drawer */
             .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); z-index: 1000; justify-content: flex-end; align-items: stretch; }
             .modal-backdrop.active { display: flex; }
-            .modal { background: var(--panel-bg); color: var(--text-main); border-left: 1px solid var(--panel-border); width: 520px; max-width: 100vw; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; box-shadow: -10px 0 30px rgba(0,0,0,0.5); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease; border-radius: 0; }
+            .modal { background: var(--panel-bg); color: var(--text-main); border-left: 1px solid var(--panel-border); width: 780px; max-width: 95vw; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; box-shadow: -10px 0 30px rgba(0,0,0,0.5); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease; border-radius: 0; box-sizing: border-box; }
             .modal-backdrop.active .modal { transform: translateX(0); }
 
             /* Command Palette Modal Overlay */
@@ -1125,7 +1125,7 @@ def index():
             .close-btn { background: none; border: none; color: var(--text-muted); font-size: 1.4rem; cursor: pointer; }
             .close-btn:hover { color: var(--text-main); }
 
-            .modal-body { padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; }
+            .modal-body { padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; flex: 1; min-height: 0; }
 
             /* Auth Lock Box */
             .auth-box { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 10px; padding: 2.5rem; max-width: 450px; margin: 2rem auto; text-align: center; display: flex; flex-direction: column; gap: 1.25rem; }
@@ -1136,10 +1136,11 @@ def index():
             .admin-card { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 8px; padding: 1.25rem; }
             .card-heading { font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; color: var(--accent-cyan); display: flex; justify-content: space-between; align-items: center; }
 
-            .create-form { display: grid; grid-template-columns: 1fr 2fr 120px auto; gap: 0.75rem; align-items: center; }
+            .create-form { display: grid; grid-template-columns: 1fr 2fr 100px auto; gap: 0.75rem; align-items: center; }
             .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
             .form-field { display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.82rem; color: var(--text-muted); }
 
+            .table-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
             table.admin-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
             table.admin-table th, table.admin-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--panel-border); }
             table.admin-table th { background: rgba(255,255,255,0.03); color: var(--text-muted); font-weight: 600; }
