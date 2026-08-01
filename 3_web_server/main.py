@@ -476,6 +476,21 @@ def get_error_logs(x_admin_password: Optional[str] = Header(None)):
     return {"log": read_last_log_lines(log_path)}
 
 
+@app.get("/api/logs/{log_type}")
+def get_logs_by_type(log_type: str, x_admin_password: Optional[str] = Header(None)):
+    verify_password_header(x_admin_password)
+    target = log_type.lower().strip()
+    if target == "cron":
+        log_path = os.path.join(LOGS_DIR, "cron.log")
+    elif target == "analysis":
+        log_path = os.path.join(LOGS_DIR, "analysis.log")
+    elif target == "errors":
+        log_path = os.path.join(LOGS_DIR, "errors.log")
+    else:
+        raise HTTPException(status_code=400, detail=f"Geçersiz log türü / Invalid log type: {log_type}")
+    return {"log": read_last_log_lines(log_path)}
+
+
 @app.post("/api/logs/clear/{log_type}")
 def clear_logs(log_type: str, x_admin_password: Optional[str] = Header(None)):
     verify_password_header(x_admin_password)
@@ -1531,6 +1546,7 @@ def index():
                                 <div class="log-tab-bar">
                                     <div id="tabCronLog" class="log-tab active" onclick="switchLogTab('cron')" data-i18n="tab_cron">⏰ Cron Scheduler Logları (cron.log)</div>
                                     <div id="tabAnalysisLog" class="log-tab" onclick="switchLogTab('analysis')" data-i18n="tab_analysis">📊 Analiz Rapor Logları (analysis.log)</div>
+                                    <div id="tabErrorLog" class="log-tab" onclick="switchLogTab('errors')" data-i18n="tab_errors">🚨 Hata Logları (errors.log)</div>
                                     <div id="tabLiveLog" class="log-tab" onclick="switchLogTab('live')" data-i18n="tab_live">⚡ Canlı İşlem Çıktısı (Live)</div>
                                 </div>
                                 <div id="fileConsoleBox" class="console-box">Loglar yükleniyor...</div>
@@ -1628,6 +1644,7 @@ def index():
                     btn_batch_run: "🚀 Tüm Aktif Hisseleri Çalıştır (Batch Run)",
                     tab_cron: "⏰ Cron Scheduler Logları (cron.log)",
                     tab_analysis: "📊 Analiz Rapor Logları (analysis.log)",
+                    tab_errors: "🚨 Hata Logları (errors.log)",
                     tab_live: "⚡ Canlı İşlem Çıktısı (Live)",
                     log_loading: "Loglar yükleniyor...",
                     sec3_heading: "➕ Yeni Hisse Ekle (Create Stock)",
@@ -1734,6 +1751,7 @@ def index():
                     btn_batch_run: "🚀 Run All Active Stocks (Batch Run)",
                     tab_cron: "⏰ Cron Scheduler Logs (cron.log)",
                     tab_analysis: "📊 Analysis Report Logs (analysis.log)",
+                    tab_errors: "🚨 Error Logs (errors.log)",
                     tab_live: "⚡ Live Execution Output (Live)",
                     log_loading: "Loading logs...",
                     sec3_heading: "➕ Add New Stock (Create Stock)",
@@ -2243,7 +2261,7 @@ def index():
                     const navTab = document.getElementById('adminNavTabLogs');
                     if (navTab) navTab.classList.add('active');
                     if (logsTab) logsTab.style.display = 'flex';
-                    fetchFileLogs();
+                    switchLogTab(activeLogType || 'analysis');
                 }
             }
 
@@ -2663,9 +2681,16 @@ def index():
 
             function switchLogTab(type) {
                 activeLogType = type;
-                document.getElementById('tabCronLog').classList.toggle('active', type === 'cron');
-                document.getElementById('tabAnalysisLog').classList.toggle('active', type === 'analysis');
-                document.getElementById('tabLiveLog').classList.toggle('active', type === 'live');
+                const tabCron = document.getElementById('tabCronLog');
+                const tabAnalysis = document.getElementById('tabAnalysisLog');
+                const tabError = document.getElementById('tabErrorLog');
+                const tabLive = document.getElementById('tabLiveLog');
+
+                if (tabCron) tabCron.classList.toggle('active', type === 'cron');
+                if (tabAnalysis) tabAnalysis.classList.toggle('active', type === 'analysis');
+                if (tabError) tabError.classList.toggle('active', type === 'errors');
+                if (tabLive) tabLive.classList.toggle('active', type === 'live');
+
                 if (type !== 'live') {
                     fetchFileLogs();
                 }
@@ -2674,7 +2699,9 @@ def index():
             async function fetchFileLogs() {
                 if (activeLogType === 'live') return;
                 const t = UI_I18N[currentUiLang] || UI_I18N.TR;
-                const endpoint = activeLogType === 'cron' ? '/api/logs/cron' : '/api/logs/analysis';
+                const validTypes = ['cron', 'analysis', 'errors'];
+                const targetType = validTypes.includes(activeLogType) ? activeLogType : 'analysis';
+                const endpoint = `/api/logs/${targetType}`;
                 try {
                     const res = await fetch(endpoint, { headers: getAdminHeaders() });
                     const box = document.getElementById('fileConsoleBox');

@@ -29,6 +29,7 @@ try:
         get_cron_logs,
         get_analysis_logs,
         get_error_logs,
+        get_logs_by_type,
         clear_logs,
         get_report,
         get_dates,
@@ -139,6 +140,15 @@ class TestWebServerHandlers(unittest.TestCase):
     def test_get_error_logs(self):
         logs = get_error_logs(x_admin_password=self.admin_password)
         self.assertIn("log", logs)
+
+    def test_get_logs_by_type(self):
+        analysis_logs = get_logs_by_type("analysis", x_admin_password=self.admin_password)
+        self.assertIn("log", analysis_logs)
+        cron_logs = get_logs_by_type("cron", x_admin_password=self.admin_password)
+        self.assertIn("log", cron_logs)
+        with self.assertRaises(HTTPException) as ctx:
+            get_logs_by_type("invalid_type", x_admin_password=self.admin_password)
+        self.assertEqual(ctx.exception.status_code, 400)
 
     def test_clear_logs_live(self):
         res = clear_logs("live", x_admin_password=self.admin_password)
