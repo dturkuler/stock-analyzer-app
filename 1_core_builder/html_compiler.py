@@ -185,6 +185,94 @@ def format_analyst_text(text, is_en=False):
     return "".join([f'<p style="margin-bottom:0.6rem;">{p}</p>' for p in paras])
 
 
+def _render_svg_line_chart_python(title, history, key, color, prefix="", suffix="", decimals=2):
+    if not history:
+        return f'<div class="admin-card" style="padding:1rem;"><strong>{title}</strong><br><span style="color:var(--text-muted); font-size:0.85rem;">No historical data</span></div>'
+    
+    valid_points = []
+    for h in history:
+        v = h.get(key)
+        if key == "market_cap" and v is not None:
+            v = v / 1e9  # Billions
+        if v is not None and not (isinstance(v, float) and math.isnan(v)):
+            raw_date = str(h.get("report_date", ""))
+            short_date = (raw_date[4:6] + "-" + raw_date[6:8]) if len(raw_date) == 8 else (raw_date[5:] if len(raw_date)>=10 else raw_date)
+            valid_points.append({"val": float(v), "date": raw_date, "shortDate": short_date})
+            
+    if not valid_points:
+        return f'<div class="admin-card" style="padding:1rem;"><strong>{title}</strong><br><span style="color:var(--text-muted); font-size:0.85rem;">No data points</span></div>'
+
+    vals = [p["val"] for p in valid_points]
+    min_v = min(vals)
+    max_v = max(vals)
+    rng = (max_v - min_v) if (max_v - min_v) != 0 else 1.0
+
+    w = 420
+    h = 175
+    pad_l = 60
+    pad_r = 25
+    pad_t = 25
+    pad_b = 30
+
+    pts = []
+    n = len(valid_points)
+    for i, p in enumerate(valid_points):
+        x = pad_l + (i / max(1, n - 1)) * (w - pad_l - pad_r)
+        y = pad_t + (1.0 - (p["val"] - min_v) / rng) * (h - pad_t - pad_b)
+        pts.append({"x": x, "y": y, "val": p["val"], "date": p["date"], "shortDate": p["shortDate"]})
+
+    d_attr = " ".join([f"{'M' if i == 0 else 'L'}{p['x']:.1f},{p['y']:.1f}" for i, p in enumerate(pts)])
+
+    def _fmt(v):
+        if v is None:
+            return "-"
+        if suffix in ["B", "M"]:
+            return f"{prefix}{v:.2f}{suffix}"
+        if decimals == 0:
+            return f"{prefix}{int(round(v))}{suffix}"
+        return f"{prefix}{v:.{decimals}f}{suffix}"
+
+    circles = []
+    x_labels = []
+    for p in pts:
+        v_str = _fmt(p["val"])
+        circles.append(f'<g class="chart-point"><circle cx="{p["x"]:.1f}" cy="{p["y"]:.1f}" r="4" fill="{color}" stroke="#0f172a" stroke-width="2"><title>{p["date"]}: {v_str}</title></circle><text x="{p["x"]:.1f}" y="{p["y"]-7:.1f}" fill="{color}" font-size="9.5" text-anchor="middle" font-weight="bold">{v_str}</text></g>')
+        x_labels.append(f'<text x="{p["x"]:.1f}" y="{h-8}" fill="#94a3b8" font-size="9" text-anchor="middle">{p["shortDate"]}</text>')
+
+    y_max_text = _fmt(max_v)
+    y_min_text = _fmt(min_v)
+    y_mid_text = _fmt(min_v + rng / 2.0)
+    y_mid_y = pad_t + 0.5 * (h - pad_t - pad_b)
+    last_val_text = _fmt(pts[-1]["val"])
+
+    return f"""
+    <div class="admin-card" style="padding:1rem; background:rgba(15, 23, 42, 0.6); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+        <div style="font-weight:700; color:#f1f5f9; font-size:0.9rem; margin-bottom:0.6rem; display:flex; justify-content:space-between; align-items:center;">
+            <span>{title}</span>
+            <span style="color:{color}; font-family:var(--font-mono); font-weight:700; font-size:0.85rem;">Son: {last_val_text}</span>
+        </div>
+        <div style="overflow-x:auto;">
+            <svg viewBox="0 0 {w} {h}" style="width:100%; height:auto; min-width:320px; max-height:175px; overflow:visible;">
+                <line x1="{pad_l}" y1="{pad_t}" x2="{w - pad_r}" y2="{pad_t}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3,3" />
+                <line x1="{pad_l}" y1="{y_mid_y}" x2="{w - pad_r}" y2="{y_mid_y}" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3,3" />
+                <line x1="{pad_l}" y1="{h - pad_b}" x2="{w - pad_r}" y2="{h - pad_b}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3,3" />
+
+                <text x="{pad_l - 6}" y="{pad_t + 3}" fill="#64748b" font-size="8.5" text-anchor="end">{y_max_text}</text>
+                <text x="{pad_l - 6}" y="{y_mid_y + 3}" fill="#475569" font-size="8" text-anchor="end">{y_mid_text}</text>
+                <text x="{pad_l - 6}" y="{h - pad_b + 3}" fill="#64748b" font-size="8.5" text-anchor="end">{y_min_text}</text>
+
+                <line x1="{pad_l}" y1="{pad_t}" x2="{pad_l}" y2="{h - pad_b}" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+                <line x1="{pad_l}" y1="{h - pad_b}" x2="{w - pad_r}" y2="{h - pad_b}" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+
+                <path d="{d_attr}" fill="none" stroke="{color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                {''.join(circles)}
+                {''.join(x_labels)}
+            </svg>
+        </div>
+    </div>
+    """
+
+
 def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     """Compile a 100% master parity 13-tab HTML dashboard with modern web layout."""
 
@@ -195,6 +283,120 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
     ticker = metrics.get("ticker", "UNKNOWN")
     company_name = metrics.get("name") or commentary.get("company_name") or ticker
+
+    try:
+        import sqlite3, os
+        db_p = "storage/app.db"
+        if os.path.exists(db_p):
+            conn = sqlite3.connect(db_p)
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT report_date, stock_price, market_cap, piotroski_score, altman_z, beneish_m, wacc_pct, dcf_fair_value, graham_number, lynch_fair_value
+                FROM reports_index
+                WHERE ticker = ? AND status = 'SUCCESS'
+                ORDER BY report_date ASC
+            """, (ticker,))
+            gfx_history = [dict(r) for r in cur.fetchall()]
+            conn.close()
+        else:
+            gfx_history = []
+    except Exception:
+        gfx_history = []
+
+    curr_sym = "$" if is_en else "₺"
+    chart_price = _render_svg_line_chart_python("📈 Hisse Fiyatı (Stock Price)" if not is_en else "📈 Stock Price", gfx_history, "stock_price", "#06b6d4", prefix=curr_sym)
+    chart_mcap = _render_svg_line_chart_python("🏢 Piyasa Değeri (Market Cap)" if not is_en else "🏢 Market Cap", gfx_history, "market_cap", "#a855f7", prefix=curr_sym, suffix="B")
+    chart_pio = _render_svg_line_chart_python("🔥 Piotroski F-Score (0-9)" if not is_en else "🔥 Piotroski F-Score (0-9)", gfx_history, "piotroski_score", "#10b981", suffix="/9", decimals=0)
+    chart_altman = _render_svg_line_chart_python("🛡️ Altman Z-Score" if not is_en else "🛡️ Altman Z-Score", gfx_history, "altman_z", "#3b82f6")
+    chart_beneish = _render_svg_line_chart_python("🕵️ Beneish M-Score" if not is_en else "🕵️ Beneish M-Score", gfx_history, "beneish_m", "#f59e0b")
+    chart_wacc = _render_svg_line_chart_python("⚡ WACC % Trend" if not is_en else "⚡ WACC % Trend", gfx_history, "wacc_pct", "#f43f5e", suffix="%")
+    chart_dcf = _render_svg_line_chart_python("🎯 DCF Hedef (Fair Value)" if not is_en else "🎯 DCF Intrinsic Fair Value", gfx_history, "dcf_fair_value", "#10b981", prefix=curr_sym)
+    chart_graham = _render_svg_line_chart_python("🏛️ Graham No (Graham Number)" if not is_en else "🏛️ Graham Number", gfx_history, "graham_number", "#6366f1", prefix=curr_sym)
+    chart_lynch = _render_svg_line_chart_python("⚡ Lynch Value (Peter Lynch)" if not is_en else "⚡ Peter Lynch Value", gfx_history, "lynch_fair_value", "#14b8a6", prefix=curr_sym)
+
+    gfx_table_rows = []
+    for gh in gfx_history:
+        d = gh.get("report_date", "")
+        p_str = f"{curr_sym}{gh['stock_price']:.2f}" if gh.get("stock_price") is not None else "-"
+        mc = gh.get("market_cap")
+        mc_str = f"{curr_sym}{mc/1e9:.2f}B" if (mc and abs(mc) >= 1e9) else (f"{curr_sym}{mc/1e6:.2f}M" if mc else "-")
+        pio_str = str(gh.get("piotroski_score")) if gh.get("piotroski_score") is not None else "-"
+        alt_str = f"{gh['altman_z']:.2f}" if gh.get("altman_z") is not None else "-"
+        ben_str = f"{gh['beneish_m']:.2f}" if gh.get("beneish_m") is not None else "-"
+        wacc_str = f"{gh['wacc_pct']:.2f}%" if gh.get("wacc_pct") is not None else "-"
+        dcf_str = f"{curr_sym}{gh['dcf_fair_value']:.2f}" if gh.get("dcf_fair_value") is not None else "-"
+        gra_str = f"{curr_sym}{gh['graham_number']:.2f}" if gh.get("graham_number") is not None else "-"
+        lyn_str = f"{curr_sym}{gh['lynch_fair_value']:.2f}" if gh.get("lynch_fair_value") is not None else "-"
+        
+        gfx_table_rows.append(f"""
+        <tr>
+            <td><strong>{d}</strong></td>
+            <td>{p_str}</td>
+            <td>{mc_str}</td>
+            <td>{pio_str}</td>
+            <td>{alt_str}</td>
+            <td>{ben_str}</td>
+            <td>{wacc_str}</td>
+            <td>{dcf_str}</td>
+            <td>{gra_str}</td>
+            <td>{lyn_str}</td>
+        </tr>
+        """)
+
+    gfx_tab_html = f"""
+    <!-- TAB 12: GFX FINANCIAL TIME SERIES ANALYTICS -->
+    <div id="gfx" class="tab-pane">
+      <div class="investor-guide-box">
+        <div class="guide-title">{"💡 WHAT IS GFX TIME SERIES ANALYTICS?" if is_en else "💡 GFX ZAMAN SERİSİ ANALİTİĞİ NEDİR?"}</div>
+        <div class="guide-text">
+          {"This section tracks the historical time-series trends for " + company_name + " across all 9 key metrics: Stock Price, Market Cap, Piotroski F-Score, Altman Z-Score, Beneish M-Score, WACC %, DCF Fair Value, Graham Number, and Lynch Value." if is_en else f"Bu bölüm, {company_name} şirketinin tüm 9 temel finansal metriğinin (Hisse Fiyatı, Piyasa Değeri, Piotroski F-Score, Altman Z-Score, Beneish M-Score, WACC %, DCF Hedef, Graham No ve Lynch Value) tarihsel zaman serisi değişim grafiklerini sunar."}
+        </div>
+      </div>
+
+      <div class="analyst-header" style="margin-bottom: 1.5rem;">
+        <h2 class="analyst-heading">{"📊 GFX Financial Time Series Analytics" if is_en else "📊 GFX Finansal Zaman Serisi & Tarihsel Trend Analizi"}</h2>
+        <div class="analyst-sub">{"Historical Metric Trajectory & Valuation Trends — " if is_en else "Tarihsel Değerleme & Adli Muhasebe Metrik Değişim Trendleri — "}{company_name} ({ticker})</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
+        {chart_price}
+        {chart_mcap}
+        {chart_pio}
+        {chart_altman}
+        {chart_beneish}
+        {chart_wacc}
+        {chart_dcf}
+        {chart_graham}
+        {chart_lynch}
+      </div>
+
+      <div class="card" style="padding:1.25rem; margin-top:1.5rem;">
+        <div style="font-weight:700; color:var(--accent-cyan); font-size:1rem; margin-bottom:0.75rem;">📋 Tüm Metrik & Değer Tarihçe Tablosu (All Historical Metrics & Values)</div>
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>Hisse Fiyatı</th>
+                <th>Piyasa Değeri</th>
+                <th>Piotroski F</th>
+                <th>Altman Z</th>
+                <th>Beneish M</th>
+                <th>WACC %</th>
+                <th>DCF Hedef</th>
+                <th>Graham No</th>
+                <th>Lynch Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {''.join(gfx_table_rows)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    """
     mi = metrics.get("market_info", {})
     price = mi.get("current_price", 0)
     mcap = mi.get("market_cap", 0)
@@ -1352,26 +1554,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       </div>
     </div>
 
-    <!-- TAB 12: GFX FINANCIAL TIME SERIES ANALYTICS -->
-    <div id="gfx" class="tab-pane">
-      <div class="investor-guide-box">
-        <div class="guide-title">{"💡 WHAT IS GFX TIME SERIES ANALYTICS?" if is_en else "💡 GFX ZAMAN SERİSİ ANALİTİĞİ NEDİR?"}</div>
-        <div class="guide-text">
-          {"This section tracks the historical time-series trends for " + company_name + " across all 9 key metrics: Stock Price, Market Cap, Piotroski F-Score, Altman Z-Score, Beneish M-Score, WACC %, DCF Fair Value, Graham Number, and Lynch Value." if is_en else f"Bu bölüm, {company_name} şirketinin tüm 9 temel finansal metriğinin (Hisse Fiyatı, Piyasa Değeri, Piotroski F-Score, Altman Z-Score, Beneish M-Score, WACC %, DCF Hedef, Graham No ve Lynch Value) tarihsel zaman serisi değişim grafiklerini sunar."}
-        </div>
-      </div>
-
-      <div class="analyst-header" style="margin-bottom: 1.5rem;">
-        <h2 class="analyst-heading">{"📊 GFX Financial Time Series Analytics" if is_en else "📊 GFX Finansal Zaman Serisi & Tarihsel Trend Analizi"}</h2>
-        <div class="analyst-sub">{"Historical Metric Trajectory & Valuation Trends — " if is_en else "Tarihsel Değerleme & Adli Muhasebe Metrik Değişim Trendleri — "}{company_name} ({ticker})</div>
-      </div>
-
-      <div id="gfxTabChartsContainer" class="card" style="padding:1.25rem;">
-        <div style="text-align:center; padding:2rem; color:var(--text-muted);">
-          ⏳ {"Loading GFX time series charts and historical database records..." if is_en else "GFX zaman serisi grafikleri ve tarihsel veri kayıtları yükleniyor..."}
-        </div>
-      </div>
-    </div>
+    {gfx_tab_html}
 
     <!-- TAB 13: AI FINANCIAL COMMENTARY -->
     <div id="analyst" class="tab-pane">
