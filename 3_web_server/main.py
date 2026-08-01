@@ -1035,7 +1035,7 @@ def get_valuation_history(ticker: str):
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute("""
-        SELECT report_date, piotroski_score, altman_z, beneish_m, wacc_pct, dcf_fair_value, graham_number, lynch_fair_value, created_at
+        SELECT report_date, stock_price, market_cap, net_debt, piotroski_score, altman_z, beneish_m, wacc_pct, ps_ratio, pe_ratio, ev_ebitda, dcf_fair_value, graham_number, lynch_fair_value, fcf_margin_pct, recent_fcf, created_at
         FROM reports_index
         WHERE ticker = ? AND status = 'SUCCESS'
         ORDER BY report_date ASC
@@ -2996,12 +2996,14 @@ def index():
                         ${renderLineChart('⚡ WACC % Trend', wacc, dates, '#f59e0b', '%')}
                     </div>
                     <div class="admin-card" style="padding:1rem; margin-top:0.5rem;">
-                        <div style="font-weight:700; color:var(--accent-cyan); font-size:0.9rem; margin-bottom:0.75rem;">📋 Tarihsel Değerleme Snapshot Tablosu</div>
+                        <div style="font-weight:700; color:var(--accent-cyan); font-size:0.9rem; margin-bottom:0.75rem;">📋 Tüm Metrik & Değer Tarihçe Tablosu (All Historical Metrics & Values)</div>
                         <div style="overflow-x:auto;">
                             <table class="admin-table">
                                 <thead>
                                     <tr>
                                         <th>Tarih</th>
+                                        <th>Hisse Fiyatı</th>
+                                        <th>Piyasa Değeri</th>
                                         <th>Piotroski F</th>
                                         <th>Altman Z</th>
                                         <th>Beneish M</th>
@@ -3012,9 +3014,16 @@ def index():
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${history.map(h => `
+                                    ${history.map(h => {
+                                        let mcapStr = '-';
+                                        if (h.market_cap != null) {
+                                            mcapStr = Math.abs(h.market_cap) >= 1e9 ? ('₺' + (h.market_cap/1e9).toFixed(2) + 'B') : ('₺' + (h.market_cap/1e6).toFixed(2) + 'M');
+                                        }
+                                        return `
                                         <tr>
                                             <td><strong>${h.report_date}</strong></td>
+                                            <td>${h.stock_price != null ? '₺' + h.stock_price.toFixed(2) : '-'}</td>
+                                            <td>${mcapStr}</td>
                                             <td>${h.piotroski_score ?? '-'}</td>
                                             <td>${h.altman_z != null ? h.altman_z.toFixed(2) : '-'}</td>
                                             <td>${h.beneish_m != null ? h.beneish_m.toFixed(2) : '-'}</td>
@@ -3023,7 +3032,7 @@ def index():
                                             <td>${h.graham_number != null ? '₺' + h.graham_number.toFixed(2) : '-'}</td>
                                             <td>${h.lynch_fair_value != null ? '₺' + h.lynch_fair_value.toFixed(2) : '-'}</td>
                                         </tr>
-                                    `).join('')}
+                                    `}).join('')}
                                 </tbody>
                             </table>
                         </div>
