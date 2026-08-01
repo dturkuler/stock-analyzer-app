@@ -891,6 +891,7 @@ def run_analysis(ticker_symbol, output_path, language="TR"):
 
     data = {
         "ticker": ticker_symbol,
+        "lang": language,
         "name": c_name,
         "is_bank_sector": is_bank_sector,
         "bank_valuation": bank_valuation,

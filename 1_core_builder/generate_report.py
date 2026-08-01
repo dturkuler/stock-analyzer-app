@@ -48,10 +48,13 @@ def generate_report(ticker, lang="TR", strict_llm=False):
         sys.stdout.reconfigure(encoding='utf-8')
     log_analysis(f"▶ Starting independent report generation for: {ticker} (Lang: {lang})")
     date_str = datetime.datetime.now().strftime("%Y%m%d")
+    lang_upper = (lang or "TR").upper()
 
     # Paths
     storage_dir = os.path.join(BASE_DIR, "storage", "reports", ticker)
     os.makedirs(storage_dir, exist_ok=True)
+    report_file_lang = os.path.join(storage_dir, f"{date_str}_{lang_upper}.html")
+    printable_report_file_lang = os.path.join(storage_dir, f"{date_str}_{lang_upper}_printable.html")
     report_file = os.path.join(storage_dir, f"{date_str}.html")
     printable_report_file = os.path.join(storage_dir, f"{date_str}_printable.html")
 
@@ -60,7 +63,7 @@ def generate_report(ticker, lang="TR", strict_llm=False):
     metrics_path = os.path.join(workspace_dir, f"01_quant_metrics_{ticker}.json")
     commentary_path = os.path.join(workspace_dir, f"02_llm_commentary_{ticker}.json")
 
-    for path in [report_file, printable_report_file, metrics_path, commentary_path]:
+    for path in [report_file, report_file_lang, printable_report_file, printable_report_file_lang, metrics_path, commentary_path]:
         if os.path.exists(path):
             try:
                 os.remove(path)
@@ -76,7 +79,7 @@ def generate_report(ticker, lang="TR", strict_llm=False):
         sourcing_script = os.path.normpath(os.path.join(BASE_DIR, "..", "stock-analyzer", "scripts", "fetch_yfinance.py"))
     python_exec = "py" if os.name == "nt" else sys.executable
     if os.path.exists(sourcing_script):
-        proc = subprocess.run([python_exec, sourcing_script, ticker, "--output", metrics_path, "--language", lang], capture_output=True, text=True)
+        proc = subprocess.run([python_exec, sourcing_script, ticker, "--output", metrics_path, "--language", lang_upper], capture_output=True, text=True)
         if proc.returncode != 0:
             log_analysis(f"❌ Error sourcing data for {ticker}:\n{proc.stderr}")
             log_error(f"Error sourcing data for {ticker}: {proc.stderr}", context=ticker)
@@ -143,14 +146,20 @@ def generate_report(ticker, lang="TR", strict_llm=False):
     html_content = compile_report(metrics, commentary, lang=lang)
     printable_content = compile_printable_report(metrics, commentary, lang=lang)
 
+    with open(report_file_lang, "w", encoding="utf-8") as f:
+        f.write(html_content)
+
+    with open(printable_report_file_lang, "w", encoding="utf-8") as f:
+        f.write(printable_content)
+
     with open(report_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     with open(printable_report_file, "w", encoding="utf-8") as f:
         f.write(printable_content)
 
-    log_analysis(f"✅ Dashboard report saved to: {report_file}")
-    log_analysis(f"📄 Printable PDF/Copy report saved to: {printable_report_file}")
+    log_analysis(f"✅ Dashboard report saved to: {report_file_lang} & {report_file}")
+    log_analysis(f"📄 Printable PDF/Copy report saved to: {printable_report_file_lang} & {printable_report_file}")
 
     # ══════════════════════════════════════════════════════════
     # STEP 4: SQLite Database Indexing

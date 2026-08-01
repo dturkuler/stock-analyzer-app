@@ -357,6 +357,8 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
     lang_note = ""
     if lang_upper == "TR":
         lang_note = "\nCRITICAL: KESİNLİKLE TÜM JSON DEĞERLERİ VE ANALİZ YORUMLARI %100 TÜRKÇE OLMALIDIR. TEK BİR İNGİLİZCE KELİME VEYA CÜMLE KULLANMA.\n"
+    elif lang_upper == "EN":
+        lang_note = "\nCRITICAL: ALL JSON VALUES, TEXT SUMMARIES, AND ANALYST COMMENTARY MUST BE 100% IN ENGLISH. DO NOT USE TURKISH WORDS OR PHRASES.\n"
 
     timeout_val = int(os.getenv("LLM_TIMEOUT", "120"))
 

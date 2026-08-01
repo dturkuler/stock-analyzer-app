@@ -1130,20 +1130,31 @@ def get_index():
 
 
 @app.get("/api/reports/{ticker}/{date}", response_class=HTMLResponse)
-def get_report(ticker: str, date: str, mode: str = "dashboard"):
+def get_report(ticker: str, date: str, mode: str = "dashboard", lang: str = "TR"):
     if ".." in ticker or ".." in date or "/" in ticker or "\\" in ticker or "/" in date or "\\" in date:
         raise HTTPException(status_code=400, detail="Invalid path parameter.")
     safe_ticker = os.path.basename(ticker)
     safe_date = os.path.basename(date)
-    filename = f"{safe_date}_printable.html" if mode == "printable" else f"{safe_date}.html"
-    file_path = os.path.abspath(os.path.join(REPORTS_DIR, safe_ticker, filename))
+    lang_upper = (lang or "TR").strip().upper()
+
+    if mode == "printable":
+        filename_lang = f"{safe_date}_{lang_upper}_printable.html"
+        filename_default = f"{safe_date}_printable.html"
+    else:
+        filename_lang = f"{safe_date}_{lang_upper}.html"
+        filename_default = f"{safe_date}.html"
+
+    file_path_lang = os.path.abspath(os.path.join(REPORTS_DIR, safe_ticker, filename_lang))
+    file_path_default = os.path.abspath(os.path.join(REPORTS_DIR, safe_ticker, filename_default))
     reports_dir_abs = os.path.abspath(REPORTS_DIR) + os.sep
 
-    if not file_path.startswith(reports_dir_abs):
+    if not file_path_lang.startswith(reports_dir_abs):
         raise HTTPException(status_code=400, detail="Invalid path parameter.")
 
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
+    target_path = file_path_lang if os.path.exists(file_path_lang) else file_path_default
+
+    if os.path.exists(target_path):
+        with open(target_path, "r", encoding="utf-8") as f:
             return f.read()
     return HTMLResponse(content="<div style='color:#fff; padding:2rem;'><h1>⚠️ Report Not Found</h1><p>No report exists for this ticker/date combination.</p></div>", status_code=404)
 
