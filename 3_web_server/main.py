@@ -260,6 +260,7 @@ def init_db():
                     for f in glob.glob(os.path.join(t_dir, "*.html")):
                         if not f.endswith("_printable.html"):
                             report_date = os.path.basename(f).replace(".html", "")
+                            price_val = None
                             piotroski = None
                             altman_z = None
                             beneish_m = None
@@ -267,6 +268,13 @@ def init_db():
                             try:
                                 with open(f, "r", encoding="utf-8") as rf:
                                     html_txt = rf.read()
+                                price_m = (
+                                    re.search(r"Mevcut Hisse Fiyatı</td><td><strong>([^<]+)</strong>", html_txt, re.I)
+                                    or re.search(r"Current Stock Price</td><td><strong>([^<]+)</strong>", html_txt, re.I)
+                                    or re.search(r"Fiyat:\s*([^<]+)</div>", html_txt, re.I)
+                                )
+                                price_val = _parse_metric_num(price_m.group(1)) if price_m else None
+
                                 pio_m = re.search(r"Piotroski\s*(?:F-Score)?\s*(?:skoru|score)?\s*(\d+)\s*/\s*9", html_txt, re.I)
                                 if pio_m: piotroski = int(pio_m.group(1))
                                 alt_m = re.search(r"Altman\s*Z-Score[^\d\.-]*(?:Z\s*=\s*)?([\d\.,]+)", html_txt, re.I)
@@ -279,16 +287,17 @@ def init_db():
                                 pass
 
                             cur.execute("""
-                                INSERT INTO reports_index (ticker, report_date, file_path, piotroski_score, altman_z, beneish_m, wacc_pct, status)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, 'SUCCESS')
+                                INSERT INTO reports_index (ticker, report_date, file_path, stock_price, piotroski_score, altman_z, beneish_m, wacc_pct, status)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'SUCCESS')
                                 ON CONFLICT(ticker, report_date) DO UPDATE SET
                                     file_path=excluded.file_path,
+                                    stock_price=COALESCE(excluded.stock_price, stock_price),
                                     piotroski_score=COALESCE(excluded.piotroski_score, piotroski_score),
                                     altman_z=COALESCE(excluded.altman_z, altman_z),
                                     beneish_m=COALESCE(excluded.beneish_m, beneish_m),
                                     wacc_pct=COALESCE(excluded.wacc_pct, wacc_pct),
                                     status='SUCCESS';
-                            """, (ticker, report_date, f, piotroski, altman_z, beneish_m, wacc))
+                            """, (ticker, report_date, f, price_val, piotroski, altman_z, beneish_m, wacc))
             conn.commit()
         except Exception as e:
             print(f"⚠️ Error syncing reports_index on init: {e}")
