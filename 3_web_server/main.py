@@ -55,6 +55,8 @@ VERSION_PATH = os.path.join(BASE_DIR, "VERSION")
 ACCESS_LOG_FILE = os.path.join(LOGS_DIR, "access.log")
 IP_CONNECTION_STATS = {}
 RECENT_ACCESS_LOGS = []
+IP_SESSION_LAST_SEEN = {}
+SESSION_TIMEOUT_SECONDS = 1800  # 30-minute session inactivity threshold
 
 @app.middleware("http")
 async def log_ip_access_middleware(request: Request, call_next):
@@ -68,7 +70,14 @@ async def log_ip_access_middleware(request: Request, call_next):
     method = request.method
     user_agent = request.headers.get("User-Agent", "Unknown")
     import datetime
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_dt = datetime.datetime.now()
+    now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    is_new_session = False
+    last_seen = IP_SESSION_LAST_SEEN.get(ip)
+    if not last_seen or (now_dt - last_seen).total_seconds() > SESSION_TIMEOUT_SECONDS:
+        is_new_session = True
+    IP_SESSION_LAST_SEEN[ip] = now_dt
 
     if ip not in IP_CONNECTION_STATS:
         IP_CONNECTION_STATS[ip] = {
@@ -94,13 +103,14 @@ async def log_ip_access_middleware(request: Request, call_next):
     if len(RECENT_ACCESS_LOGS) > 100:
         RECENT_ACCESS_LOGS.pop(0)
 
-    try:
-        os.makedirs(LOGS_DIR, exist_ok=True)
-        log_line = f"[{now_str}] IP: {ip}"
-        with open(ACCESS_LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(log_line + "\n")
-    except Exception:
-        pass
+    if is_new_session:
+        try:
+            os.makedirs(LOGS_DIR, exist_ok=True)
+            log_line = f"[{now_str}] IP: {ip}"
+            with open(ACCESS_LOG_FILE, "a", encoding="utf-8") as f:
+                f.write(log_line + "\n")
+        except Exception:
+            pass
 
     response = await call_next(request)
     return response
