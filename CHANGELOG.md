@@ -5,6 +5,24 @@ All notable changes to the Stock Analyzer Platform project will be documented in
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-08-01
+
+### ✨ New Features & M&A Readiness
+- **Acquire.com Preparation**: Added root `LICENSE` (MIT License) establishing clear software IP ownership.
+- **Dependency Management**: Added root `requirements.txt` manifest with pinned version limits and refactored `Dockerfile` to optimize layer caching.
+- **Environment Configuration**: Added `STRICT_LLM=false` setting to `.env.example` with self-documenting usage guidance.
+- **Mermaid Architecture Diagrams**: Embedded visual **System Architecture Flow** and **Database Entity Relationship Diagram (ERD)** into `README.md`.
+
+### ⚡ Improvements & Refactoring
+- **Environment Config Cleanup (Issue #30)**: Completely eliminated legacy provider-specific `NINEROUTER_URL` and `NINEROUTER_KEY` fallbacks in favor of standard `LLM_BASE_URL` / `BASE_URL` and `LLM_API_KEY` / `API_KEY`.
+- **Analysis Log Formatting (Issue #32)**: Enhanced `1_core_builder/generate_report.py` to format ticker analysis runs with delimiter lines (`--------------------------------------------------`) and append explicit completion/failure banners (`✅ Analysis of {ticker} completed successfully.` / `❌ Analysis of {ticker} failed.`).
+
+### 🐛 Fixes & Test Suite Polish (Issue #31)
+- **Unit Test Mocking**: Replaced live yfinance 404 network fetches in `test_generate_report.py` with isolated `unittest.mock.patch`, resulting in an 8x execution speedup (0.09s test runner).
+- **Log Purging**: Completely removed residual `INVALID_NONEXISTENT_TICKER_9999` error traces from `storage/logs/analysis.log` and `storage/logs/errors.log`.
+
+---
+
 ## [2.2.1] - 2026-08-01
 
 ### 🐛 Fixes & Error Handling

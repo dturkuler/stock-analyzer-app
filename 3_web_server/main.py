@@ -342,8 +342,6 @@ class SettingsUpdate(BaseModel):
     LLM_API_KEY: Optional[str] = None
     BASE_URL: Optional[str] = None
     API_KEY: Optional[str] = None
-    NINEROUTER_URL: Optional[str] = None
-    NINEROUTER_KEY: Optional[str] = None
     LLM_MODEL: Optional[str] = None
     LLM_TIMEOUT: Optional[str] = "120"
     CRON_DELAY_SECONDS: Optional[str] = "15"
@@ -379,8 +377,8 @@ def _mask_api_key(key: str) -> str:
 def get_app_settings(x_admin_password: Optional[str] = Header(None)):
     verify_password_header(x_admin_password)
     load_dotenv(APP_ENV_PATH, override=True)
-    base_url = os.getenv("LLM_BASE_URL") or os.getenv("BASE_URL") or os.getenv("NINEROUTER_URL", "http://localhost:20128/v1")
-    api_key = os.getenv("LLM_API_KEY") or os.getenv("API_KEY") or os.getenv("NINEROUTER_KEY", "")
+    base_url = os.getenv("LLM_BASE_URL") or os.getenv("BASE_URL") or ""
+    api_key = os.getenv("LLM_API_KEY") or os.getenv("API_KEY") or ""
     return {
         "VERSION": get_app_version(),
         "ADMIN_PASSWORD": "••••••••",
@@ -411,11 +409,11 @@ def update_app_settings(settings: SettingsUpdate, x_admin_password: Optional[str
     if settings.ADMIN_PASSWORD is not None and settings.ADMIN_PASSWORD.strip() and not settings.ADMIN_PASSWORD.strip().startswith("••••"):
         env_data["ADMIN_PASSWORD"] = settings.ADMIN_PASSWORD.strip()
     
-    base_url_val = settings.LLM_BASE_URL or settings.BASE_URL or settings.NINEROUTER_URL
+    base_url_val = settings.LLM_BASE_URL or settings.BASE_URL
     if base_url_val is not None:
         env_data["LLM_BASE_URL"] = base_url_val.strip()
 
-    api_key_val = settings.LLM_API_KEY or settings.API_KEY or settings.NINEROUTER_KEY
+    api_key_val = settings.LLM_API_KEY or settings.API_KEY
     if api_key_val is not None and api_key_val.strip() and not api_key_val.strip().startswith("••••"):
         env_data["LLM_API_KEY"] = api_key_val.strip()
     if settings.LLM_MODEL is not None and settings.LLM_MODEL.strip():
@@ -2722,7 +2720,7 @@ def index():
                         adminPassEl.placeholder = s.ADMIN_PASSWORD_IS_SET ? "•••••••• (Kayıtlı / Set)" : "Yönetici şifresi";
                     }
                     document.getElementById('settingLlmModel').value = s.LLM_MODEL || '';
-                    document.getElementById('settingLlmBaseUrl').value = s.LLM_BASE_URL || s.BASE_URL || s.NINEROUTER_URL || '';
+                    document.getElementById('settingLlmBaseUrl').value = s.LLM_BASE_URL || s.BASE_URL || '';
                     const apiKeyEl = document.getElementById('settingLlmApiKey');
                     if (apiKeyEl) {
                         apiKeyEl.value = '';

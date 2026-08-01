@@ -9,17 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python requirements
-RUN pip install --no-cache-dir \
-    fastapi \
-    uvicorn \
-    requests \
-    yfinance \
-    pandas \
-    numpy \
-    apscheduler \
-    python-dotenv \
-    beautifulsoup4 \
-    curl_cffi
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY . /app
 

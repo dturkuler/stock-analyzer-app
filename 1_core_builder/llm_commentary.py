@@ -350,8 +350,8 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
     load_dotenv(APP_ENV_PATH, override=True)
     load_dotenv(override=True)
 
-    llm_base_url = os.getenv("LLM_BASE_URL") or os.getenv("BASE_URL") or os.getenv("NINEROUTER_URL", "http://localhost:20128/v1")
-    llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("API_KEY") or os.getenv("NINEROUTER_KEY", "")
+    llm_base_url = os.getenv("LLM_BASE_URL") or os.getenv("BASE_URL") or "http://localhost:20128/v1"
+    llm_api_key = os.getenv("LLM_API_KEY") or os.getenv("API_KEY") or ""
     llm_model = os.getenv("LLM_MODEL", "code_combo")
 
     ticker = _sanitize_prompt_field(metrics.get("ticker", "UNKNOWN"))

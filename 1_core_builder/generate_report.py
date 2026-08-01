@@ -45,9 +45,21 @@ def log_analysis(msg: str):
         log_error(f"Analysis log write error: {e}", exc=e)
 
 
+DELIMITER = "--------------------------------------------------"
+
+
+def _fail_exit(ticker, msg=None):
+    if msg:
+        log_analysis(f"❌ {msg}")
+    log_analysis(f"❌ Analysis of {ticker} failed.")
+    log_analysis(DELIMITER)
+    sys.exit(1)
+
+
 def generate_report(ticker, lang="TR", strict_llm=False):
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')
+    log_analysis(DELIMITER)
     log_analysis(f"▶ Starting independent report generation for: {ticker} (Lang: {lang})")
     date_str = datetime.datetime.now().strftime("%Y%m%d")
     lang_upper = (lang or "TR").upper()
@@ -85,17 +97,15 @@ def generate_report(ticker, lang="TR", strict_llm=False):
         if proc.returncode != 0:
             log_analysis(f"❌ Error sourcing data for {ticker}:\n{proc.stderr}")
             log_error(f"Error sourcing data for {ticker}: {proc.stderr}", context=ticker)
-            sys.exit(1)
+            _fail_exit(ticker)
     else:
-        log_analysis(f"⚠️ Warning: Sourcing script not found at {sourcing_script}")
         log_error(f"Sourcing script not found at {sourcing_script}", context=ticker)
-        sys.exit(1)
+        _fail_exit(ticker, f"Sourcing script not found at {sourcing_script}")
 
     # Load metrics
     if not os.path.exists(metrics_path):
-        log_analysis(f"❌ Metrics file not found at: {metrics_path}")
         log_error(f"Metrics file not found at: {metrics_path}", context=ticker)
-        sys.exit(1)
+        _fail_exit(ticker, f"Metrics file not found at: {metrics_path}")
 
     with open(metrics_path, "r", encoding="utf-8") as f:
         metrics = json.load(f)
@@ -111,9 +121,8 @@ def generate_report(ticker, lang="TR", strict_llm=False):
     # Sanity check ticker
     fetched_ticker = metrics.get("ticker", "").upper()
     if fetched_ticker != ticker.upper():
-        log_analysis(f"❌ Critical error: fetched metrics ticker '{fetched_ticker}' does not match target ticker '{ticker}'!")
         log_error(f"Fetched metrics ticker '{fetched_ticker}' does not match target ticker '{ticker}'", context=ticker)
-        sys.exit(1)
+        _fail_exit(ticker, f"Critical error: fetched metrics ticker '{fetched_ticker}' does not match target ticker '{ticker}'!")
 
     # Log metrics summary
     p_score = metrics.get("piotroski_f_score", {}).get("score", "N/A")
@@ -131,9 +140,8 @@ def generate_report(ticker, lang="TR", strict_llm=False):
     commentary = generate_commentary(metrics, lang=lang, log_fn=log_analysis, strict_llm=strict_llm)
 
     if commentary is None or not isinstance(commentary, dict) or not commentary.get("_is_llm_generated"):
-        log_analysis(f"❌ LLM Commentary Error for {ticker}. Aborting report generation (No Fallbacks Allowed).")
         log_error(f"LLM Commentary Error for {ticker}. Aborting report generation (No Fallbacks Allowed).", context=ticker)
-        sys.exit(1)
+        _fail_exit(ticker, f"LLM Commentary Error for {ticker}. Aborting report generation (No Fallbacks Allowed).")
 
     # Save commentary
     with open(commentary_path, "w", encoding="utf-8") as f:
@@ -149,9 +157,8 @@ def generate_report(ticker, lang="TR", strict_llm=False):
         printable_content = compile_printable_report(metrics, commentary, lang=lang)
     except Exception as exc:
         err_msg = f"HTML compilation failed for {ticker}: {exc}"
-        log_analysis(f"❌ {err_msg}")
         log_error(err_msg, exc=exc, context=ticker)
-        sys.exit(1)
+        _fail_exit(ticker, err_msg)
 
     with open(report_file_lang, "w", encoding="utf-8") as f:
         f.write(html_content)
@@ -219,6 +226,9 @@ def generate_report(ticker, lang="TR", strict_llm=False):
         log_analysis(f"🗄️ Indexed report metadata in SQLite database ({db_path})")
     except Exception as db_err:
         log_analysis(f"⚠️ SQLite DB Indexing warning: {db_err}")
+
+    log_analysis(f"✅ Analysis of {ticker} completed successfully.")
+    log_analysis(DELIMITER)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
 
   <br/><br/>
 
-  [![Version](https://img.shields.io/badge/Version-2.2.1-blue.svg)](VERSION)
+  [![Version](https://img.shields.io/badge/Version-2.3.0-blue.svg)](VERSION)
   [![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
   [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
@@ -23,6 +23,64 @@
 **stock-analyzer-app** is a universal, decoupled stock research and equity analysis platform designed for global stock exchanges (US, BİST, European, Asian, and international markets). It automatically sources multi-year financial statements, computes quantitative models (DuPont 5-Step, Piotroski F-Score, Altman Z-Score, Beneish M-Score, WACC, and 2D DCF Sensitivity), generates AI qualitative commentaries via OpenAI-compatible LLM provider APIs, and compiles responsive interactive HTML dashboards and printable PDF reports.
 
 The app features a **Password-Protected Admin Control Panel** for managing watchlists, editing environment parameters in the browser, monitoring live log streams, and triggering single-stock or batch report executions.
+
+---
+
+## 📐 Architecture & Database ERD
+
+### 🏗️ System Architecture Flow
+
+```mermaid
+graph TD
+    User["👤 User / Web Browser"] -->|HTTP / SPA Dashboards| WebServer["🌐 3_web_server (FastAPI / Uvicorn)"]
+    Cron["⏱️ 2_cron_scheduler (APScheduler)"] -->|Periodic Reprocessing| CoreBuilder["⚙️ 1_core_builder (Data Engine)"]
+    WebServer -->|On-Demand Trigger| CoreBuilder
+    
+    subgraph Data Processing Pipeline
+        CoreBuilder -->|Fetch Statements| YFinance["📈 Yahoo Finance API"]
+        CoreBuilder -->|Quant Models| Metrics["🧮 DuPont / DCF / Piotroski / Altman / Beneish"]
+        CoreBuilder -->|Prompt Engineering| LLM["🤖 OpenAI-Compatible LLM API"]
+        CoreBuilder -->|HTML Compiler| Reports["📄 Storage / Reports (HTML & Printable)"]
+    end
+
+    WebServer -->|CRUD & Indexes| DB[("🗄️ SQLite Database (storage/app.db)")]
+    Reports -->|Serve Static HTML| User
+```
+
+### 🗄️ Database Entity Relationship Diagram (ERD)
+
+```mermaid
+erDiagram
+    WATCHLIST {
+        int id PK
+        string ticker UK
+        string company_name
+        int is_active
+        timestamp created_at
+    }
+    REPORTS_INDEX {
+        int id PK
+        string ticker UK
+        string report_date UK
+        string file_path
+        real stock_price
+        int piotroski_score
+        real altman_z
+        real beneish_m
+        real wacc_pct
+        real dcf_fair_value
+        real graham_number
+        real lynch_fair_value
+        string status
+        text error_message
+        timestamp created_at
+    }
+    CRON_CONFIG {
+        int id PK
+        int ticker_delay_seconds
+        timestamp updated_at
+    }
+```
 
 ---
 

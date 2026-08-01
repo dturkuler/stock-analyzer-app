@@ -6,6 +6,7 @@ Location: tests/test_generate_report.py
 import os
 import unittest
 import tempfile
+from unittest.mock import patch, MagicMock
 from generate_report import log_analysis, ANALYSIS_LOG_FILE
 from logger import log_error, ERRORS_LOG_FILE
 
@@ -16,6 +17,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 class TestGenerateReportPipeline(unittest.TestCase):
 
     def test_log_analysis_writes_file(self):
+
         test_msg = "TEST_PIPELINE_LOG_MESSAGE"
         log_analysis(test_msg)
         self.assertTrue(os.path.exists(ANALYSIS_LOG_FILE))
@@ -32,14 +34,19 @@ class TestGenerateReportPipeline(unittest.TestCase):
             self.assertIn(test_err_msg, content)
             self.assertIn("[TEST_TICKER]", content)
 
-    def test_pipeline_sourcing_failure_exits_with_code_1(self):
+    @patch("subprocess.run")
+    @patch("generate_report.log_error")
+    @patch("generate_report.log_analysis")
+    def test_pipeline_sourcing_failure_exits_with_code_1(self, mock_log_analysis, mock_log_error, mock_subproc):
         """Verify that generate_report exits with status code 1 on data sourcing error."""
         import shutil
         from generate_report import generate_report
-        test_dir = os.path.join(BASE_DIR, "storage", "reports", "INVALID_NONEXISTENT_TICKER_9999")
+        mock_subproc.return_value = MagicMock(returncode=1, stderr="Mocked sourcing error")
+
+        test_dir = os.path.join(BASE_DIR, "storage", "reports", "TEST_INVALID_TICKER")
         try:
             with self.assertRaises(SystemExit) as cm:
-                generate_report("INVALID_NONEXISTENT_TICKER_9999", lang="TR")
+                generate_report("TEST_INVALID_TICKER", lang="TR")
             self.assertEqual(cm.exception.code, 1)
         finally:
             if os.path.exists(test_dir):
