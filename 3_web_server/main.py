@@ -2947,47 +2947,90 @@ def index():
                 }
 
                 const dates = history.map(h => h.report_date);
-                const altmanZ = history.map(h => h.altman_z != null ? Number(h.altman_z.toFixed(2)) : 0);
-                const piotroski = history.map(h => h.piotroski_score ?? 0);
-                const dcf = history.map(h => h.dcf_fair_value != null ? Number(h.dcf_fair_value.toFixed(2)) : 0);
-                const graham = history.map(h => h.graham_number != null ? Number(h.graham_number.toFixed(2)) : 0);
-                const wacc = history.map(h => h.wacc_pct != null ? Number(h.wacc_pct.toFixed(2)) : 0);
+                const prices = history.map(h => h.stock_price);
+                const mcaps = history.map(h => h.market_cap != null ? h.market_cap / 1e9 : null);
+                const piotroski = history.map(h => h.piotroski_score);
+                const altmanZ = history.map(h => h.altman_z);
+                const beneish = history.map(h => h.beneish_m);
+                const wacc = history.map(h => h.wacc_pct);
+                const dcf = history.map(h => h.dcf_fair_value);
+                const graham = history.map(h => h.graham_number);
+                const lynch = history.map(h => h.lynch_fair_value);
 
-                const renderLineChart = (title, pts, datesList, color = '#06b6d4', suffix = '') => {
-                    if (pts.length === 0) return '';
-                    const min = Math.min(...pts);
-                    const max = Math.max(...pts);
-                    const range = (max - min) || 1;
-                    const w = 680, h = 140;
-                    
+                const renderLineChart = (title, pts, datesList, color = '#06b6d4', prefix = '', suffix = '', decimals = 2) => {
+                    const valid = pts.filter(v => v != null && !isNaN(v));
+                    if (!pts || valid.length === 0) return '';
+
+                    const min = Math.min(...valid);
+                    const max = Math.max(...valid);
+                    const range = (max - min) === 0 ? 1 : (max - min);
+
+                    const w = 420, h = 175;
+                    const padL = 60, padR = 25, padT = 25, padB = 30;
+
                     const pathPoints = pts.map((v, i) => {
-                        const x = (i / Math.max(pts.length - 1, 1)) * (w - 40) + 20;
-                        const y = h - 25 - ((v - min) / range) * (h - 45);
-                        return { x, y, val: v, date: datesList[i] };
-                    });
+                        if (v == null || isNaN(v)) return null;
+                        const x = padL + (i / Math.max(1, pts.length - 1)) * (w - padL - padR);
+                        const y = padT + (1 - (v - min) / range) * (h - padT - padB);
+                        const rawDate = datesList[i] || '';
+                        const shortDate = rawDate.length === 8 ? (rawDate.slice(4,6) + '-' + rawDate.slice(6,8)) : (rawDate.length >= 10 ? rawDate.slice(5) : rawDate);
+                        return { x, y, val: v, date: rawDate, shortDate };
+                    }).filter(p => p !== null);
+
+                    if (pathPoints.length === 0) return '';
 
                     const dAttr = pathPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-                    
+
+                    function fmtVal(v) {
+                        if (v == null) return '-';
+                        if (suffix === 'B' || suffix === 'M') {
+                            return prefix + v.toFixed(2) + suffix;
+                        }
+                        return prefix + (decimals === 0 ? Math.round(v) : v.toFixed(decimals)) + suffix;
+                    }
+
                     const circles = pathPoints.map(p => `
-                        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="${color}" stroke="#0f172a" stroke-width="2">
-                            <title>${p.date}: ${p.val}${suffix}</title>
-                        </circle>
-                        <text x="${p.x.toFixed(1)}" y="${(p.y - 8).toFixed(1)}" fill="${color}" font-size="10" text-anchor="middle" font-weight="bold">${p.val}${suffix}</text>
+                        <g class="chart-point">
+                            <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="${color}" stroke="#0f172a" stroke-width="2">
+                                <title>${p.date}: ${fmtVal(p.val)}</title>
+                            </circle>
+                            <text x="${p.x.toFixed(1)}" y="${(p.y - 7).toFixed(1)}" fill="${color}" font-size="9.5" text-anchor="middle" font-weight="bold">${fmtVal(p.val)}</text>
+                        </g>
                     `).join('');
 
                     const xLabels = pathPoints.map(p => `
-                        <text x="${p.x.toFixed(1)}" y="${h - 5}" fill="var(--text-muted)" font-size="9" text-anchor="middle">${p.date}</text>
+                        <text x="${p.x.toFixed(1)}" y="${h - 8}" fill="#94a3b8" font-size="9" text-anchor="middle">${p.shortDate}</text>
                     `).join('');
 
+                    const yMaxText = fmtVal(max);
+                    const yMinText = fmtVal(min);
+                    const yMidText = fmtVal(min + range / 2);
+                    const yMidY = padT + 0.5 * (h - padT - padB);
+
                     return `
-                        <div class="admin-card" style="padding:1rem;">
-                            <div style="font-weight:700; color:var(--text-main); font-size:0.9rem; margin-bottom:0.75rem; display:flex; justify-content:space-between;">
+                        <div class="admin-card" style="padding:1rem; background:rgba(15, 23, 42, 0.6); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+                            <div style="font-weight:700; color:#f1f5f9; font-size:0.9rem; margin-bottom:0.6rem; display:flex; justify-content:space-between; align-items:center;">
                                 <span>${title}</span>
-                                <span style="color:${color}; font-family:var(--font-mono); font-weight:700;">${pts[pts.length - 1]}${suffix}</span>
+                                <span style="color:${color}; font-family:var(--font-mono); font-weight:700; font-size:0.85rem;">Son: ${fmtVal(pathPoints[pathPoints.length - 1].val)}</span>
                             </div>
                             <div style="overflow-x:auto;">
-                                <svg viewBox="0 0 ${w} ${h}" style="width:100%; height:auto; min-width:320px; max-height:160px;">
-                                    <path d="${dAttr}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round"/>
+                                <svg viewBox="0 0 ${w} ${h}" style="width:100%; height:auto; min-width:320px; max-height:175px; overflow:visible;">
+                                    <!-- Y Grid Lines -->
+                                    <line x1="${padL}" y1="${padT}" x2="${w - padR}" y2="${padT}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3,3" />
+                                    <line x1="${padL}" y1="${yMidY}" x2="${w - padR}" y2="${yMidY}" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3,3" />
+                                    <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3,3" />
+
+                                    <!-- Y Axis Labels -->
+                                    <text x="${padL - 6}" y="${padT + 3}" fill="#64748b" font-size="8.5" text-anchor="end">${yMaxText}</text>
+                                    <text x="${padL - 6}" y="${yMidY + 3}" fill="#475569" font-size="8" text-anchor="end">${yMidText}</text>
+                                    <text x="${padL - 6}" y="${h - padB + 3}" fill="#64748b" font-size="8.5" text-anchor="end">${yMinText}</text>
+
+                                    <!-- X & Y Axes -->
+                                    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h - padB}" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+                                    <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+
+                                    <!-- Trend Line Path -->
+                                    <path d="${dAttr}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
                                     ${circles}
                                     ${xLabels}
                                 </svg>
@@ -2997,12 +3040,16 @@ def index():
                 };
 
                 container.innerHTML = `
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                        ${renderLineChart('🛡️ Altman Z-Score Trend (İflas Riski)', altmanZ, dates, '#10b981')}
-                        ${renderLineChart('🔥 Piotroski F-Score Trend (0-9)', piotroski, dates, '#3b82f6')}
-                        ${renderLineChart('🎯 DCF Intrinsic Fair Value', dcf, dates, '#8b5cf6', '₺')}
-                        ${renderLineChart('🏛️ Graham Değeri (Graham Number)', graham, dates, '#ec4899', '₺')}
-                        ${renderLineChart('⚡ WACC % Trend', wacc, dates, '#f59e0b', '%')}
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        ${renderLineChart('📈 Hisse Fiyatı (Stock Price)', prices, dates, '#06b6d4', '₺')}
+                        ${renderLineChart('🏢 Piyasa Değeri (Market Cap)', mcaps, dates, '#a855f7', '₺', 'B')}
+                        ${renderLineChart('🔥 Piotroski F-Score (0-9)', piotroski, dates, '#10b981', '', '/9', 0)}
+                        ${renderLineChart('🛡️ Altman Z-Score (İflas Riski)', altmanZ, dates, '#3b82f6')}
+                        ${renderLineChart('🕵️ Beneish M-Score (Hile Skoru)', beneish, dates, '#f59e0b')}
+                        ${renderLineChart('⚡ WACC % Trend', wacc, dates, '#f43f5e', '', '%')}
+                        ${renderLineChart('🎯 DCF Intrinsic Fair Value', dcf, dates, '#10b981', '₺')}
+                        ${renderLineChart('🏛️ Graham Değeri (Graham Number)', graham, dates, '#6366f1', '₺')}
+                        ${renderLineChart('⚡ Lynch Value (Peter Lynch)', lynch, dates, '#14b8a6', '₺')}
                     </div>
                     <div class="admin-card" style="padding:1rem; margin-top:0.5rem;">
                         <div style="font-weight:700; color:var(--accent-cyan); font-size:0.9rem; margin-bottom:0.75rem;">📋 Tüm Metrik & Değer Tarihçe Tablosu (All Historical Metrics & Values)</div>
