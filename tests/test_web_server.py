@@ -6,6 +6,8 @@ Location: tests/test_web_server.py
 import os
 import sys
 import unittest
+import unittest.mock
+import tempfile
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB_SERVER_DIR = os.path.join(PROJECT_ROOT, "3_web_server")
@@ -158,9 +160,16 @@ class TestWebServerHandlers(unittest.TestCase):
         res = clear_logs("live", x_admin_password=self.admin_password)
         self.assertEqual(res.get("status"), "ok")
 
-    def test_clear_logs_errors(self):
+    @unittest.mock.patch("main.LOGS_DIR", new_callable=lambda: tempfile.mkdtemp())
+    def test_clear_logs_errors(self, mock_logs_dir):
+        # Create dummy errors.log in temp dir
+        temp_err_file = os.path.join(mock_logs_dir, "errors.log")
+        with open(temp_err_file, "w", encoding="utf-8") as f:
+            f.write("DUMMY_TEST_ERROR")
         res = clear_logs("errors", x_admin_password=self.admin_password)
         self.assertEqual(res.get("status"), "ok")
+        with open(temp_err_file, "r", encoding="utf-8") as f:
+            self.assertEqual(f.read(), "")
 
     def test_get_reprocess_status_idle(self):
         status = get_reprocess_status("NON_EXISTENT_TICKER")

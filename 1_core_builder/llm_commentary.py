@@ -444,6 +444,8 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
     except Exception as e:
         err_msg = f"LLM commentary error for {ticker}: {e}"
         _log(f"   ❌ {err_msg}")
+        log_error(err_msg, exc=e, context=ticker)
+        return None
 
 
 
