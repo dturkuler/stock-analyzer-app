@@ -29,6 +29,13 @@ class TestGenerateReportPipeline(unittest.TestCase):
             self.assertIn(test_err_msg, content)
             self.assertIn("[TEST_TICKER]", content)
 
+    def test_pipeline_sourcing_failure_exits_with_code_1(self):
+        """Verify that generate_report exits with status code 1 on data sourcing error."""
+        from generate_report import generate_report
+        with self.assertRaises(SystemExit) as cm:
+            generate_report("INVALID_NONEXISTENT_TICKER_9999", lang="TR")
+        self.assertEqual(cm.exception.code, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

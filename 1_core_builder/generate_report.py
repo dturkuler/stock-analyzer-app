@@ -83,17 +83,17 @@ def generate_report(ticker, lang="TR", strict_llm=False):
         if proc.returncode != 0:
             log_analysis(f"❌ Error sourcing data for {ticker}:\n{proc.stderr}")
             log_error(f"Error sourcing data for {ticker}: {proc.stderr}", context=ticker)
-            return
+            sys.exit(1)
     else:
         log_analysis(f"⚠️ Warning: Sourcing script not found at {sourcing_script}")
         log_error(f"Sourcing script not found at {sourcing_script}", context=ticker)
-        return
+        sys.exit(1)
 
     # Load metrics
     if not os.path.exists(metrics_path):
         log_analysis(f"❌ Metrics file not found at: {metrics_path}")
         log_error(f"Metrics file not found at: {metrics_path}", context=ticker)
-        return
+        sys.exit(1)
 
     with open(metrics_path, "r", encoding="utf-8") as f:
         metrics = json.load(f)
@@ -111,7 +111,7 @@ def generate_report(ticker, lang="TR", strict_llm=False):
     if fetched_ticker != ticker.upper():
         log_analysis(f"❌ Critical error: fetched metrics ticker '{fetched_ticker}' does not match target ticker '{ticker}'!")
         log_error(f"Fetched metrics ticker '{fetched_ticker}' does not match target ticker '{ticker}'", context=ticker)
-        return
+        sys.exit(1)
 
     # Log metrics summary
     p_score = metrics.get("piotroski_f_score", {}).get("score", "N/A")

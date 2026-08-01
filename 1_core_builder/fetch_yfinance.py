@@ -2,6 +2,7 @@
 import sys
 import os
 import subprocess
+from logger import log_error
 
 try:
     os.umask(0000)
@@ -967,5 +968,7 @@ if __name__ == "__main__":
     try:
         run_analysis(args.ticker, args.output, language=args.language)
     except Exception as e:
-        print(f"Error during analysis execution: {e}", file=sys.stderr)
+        err_msg = f"Error during yfinance data sourcing execution for {args.ticker}: {e}"
+        print(err_msg, file=sys.stderr)
+        log_error(err_msg, exc=e, context=args.ticker)
         sys.exit(1)

@@ -522,6 +522,51 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     res_60d = ti.get("resistance_level_60d", price * 1.13)
     res_diff = ((res_60d / price) - 1) * 100 if price > 0 else 0
 
+    # Dynamic Executive & Tab Card UI Variables (Fixes Hardcoded UI Items)
+    if score_composite >= 7.0:
+        risk_reward_desc = "LOW RISK - HIGH FUNDAMENTAL QUALITY" if is_en else "DÜŞÜK RİSK - YÜKSEK BİLANÇO KALİTESİ"
+        risk_reward_cls = "val-emerald"
+        kelly_range = "%5,0 - %7,5" if not is_en else "5.0% - 7.5%"
+    elif score_composite >= 5.0:
+        risk_reward_desc = "BALANCED PROFILE - MODERATE VALUATION" if is_en else "DENGELİ PROFİL - MAKUL DEĞERLEME"
+        risk_reward_cls = "val-cyan"
+        kelly_range = "%2,5 - %5,0" if not is_en else "2.5% - 5.0%"
+    elif z_score is not None and z_score < 1.81:
+        risk_reward_desc = "HIGH RISK - INSOLVENCY / DISTRESS ZONE" if is_en else "YÜKSEK RİSK - İFLAS / BİLÂNÇO BASKISI"
+        risk_reward_cls = "val-rose"
+        kelly_range = "%1,0 - %2,5" if not is_en else "1.0% - 2.5%"
+    else:
+        risk_reward_desc = "HIGH POTENTIAL - VALUATION OVERHEATING" if is_en else "YÜKSEK POTANSİYEL - PAHALILIK RİSKİ"
+        risk_reward_cls = "val-amber"
+        kelly_range = "%1,0 - %3,0" if not is_en else "1.0% - 3.0%"
+
+    # Dynamic Altman Z Badge (Fixes hardcoded green badge bug)
+    if z_score is not None and z_score > 2.99:
+        z_badge_cls = "tag-green"
+        z_badge_txt = "🟢 SAFE (" + z_zone + ")" if is_en else "🟢 GÜVENLİ (" + z_zone + ")"
+    elif z_score is not None and z_score >= 1.81:
+        z_badge_cls = "tag-amber"
+        z_badge_txt = "🟡 GREY ZONE (" + z_zone + ")" if is_en else "🟡 GRİ BÖLGE (" + z_zone + ")"
+    else:
+        z_badge_cls = "tag-red"
+        z_badge_txt = "🔴 DISTRESS ZONE (" + z_zone + ")" if is_en else "🔴 İFLAS BÖLGESİ (" + z_zone + ")"
+
+    # Dynamic MACD Crossover Signal
+    macd_val = ti.get("macd_line", 0)
+    macd_sig = ti.get("macd_signal", 0)
+    if macd_val >= macd_sig:
+        macd_signal_cls = "tag-green"
+        macd_signal_txt = "🟢 Bullish Crossover" if is_en else "🟢 Pozitif Kesişim"
+    else:
+        macd_signal_cls = "tag-red"
+        macd_signal_txt = "🔴 Bearish Crossover" if is_en else "🔴 Negatif Kesişim (Düşüş Momentum)"
+
+    # Dynamic Historical Column Year Labels
+    year_labels = [h.get("year", "")[:4] for h in reversed(hist)] if hist else ["2023", "2024", "2025"]
+    col_y0 = year_labels[0] if len(year_labels) > 0 else "2023"
+    col_y1 = year_labels[1] if len(year_labels) > 1 else "2024"
+    col_y2 = year_labels[2] + " (Actual)" if len(year_labels) > 2 else "2025 (Actual)"
+
     # Build historical data for charts
     chart_labels = []
     chart_revenue = []
@@ -1031,7 +1076,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <div class="exec-header-grid">
           <div class="exec-meta-item">
             <span class="exec-meta-label">{"THEORETICAL KELLY RISK BOUNDARY" if is_en else "TEORİK KELLY RİSK SIFIRI"}</span>
-            <span class="exec-meta-val val-emerald">{"2.5% - 5.0%" if is_en else "%2,5 - %5,0"} <small style="color:var(--text-muted); font-weight:500;">({"Statistical Limit" if is_en else "(İstatistiki Sınır)"})</small></span>
+            <span class="exec-meta-val val-emerald">{kelly_range} <small style="color:var(--text-muted); font-weight:500;">({"Statistical Limit" if is_en else "(İstatistiki Sınır)"})</small></span>
           </div>
           <div class="exec-meta-item">
             <span class="exec-meta-label">{"TECHNICAL SUPPORT LEVEL" if is_en else "TEKNİK DESTEK EŞİĞİ"}</span>
@@ -1039,7 +1084,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           </div>
           <div class="exec-meta-item">
             <span class="exec-meta-label">{"RISK / REWARD PROFILE" if is_en else "RİSK / ÖDÜL PROFİLİ"}</span>
-            <span class="exec-meta-val val-amber">{"HIGH POTENTIAL - VALUATION RISK" if is_en else "YÜKSEK POTANSİYEL - PAHALILIK RİSKİ"}</span>
+            <span class="exec-meta-val {risk_reward_cls}">{risk_reward_desc}</span>
           </div>
           <div class="exec-meta-item full-width">
             <span class="exec-meta-label">{"MODEL ASSESSMENT" if is_en else "MODEL DEĞERLENDİRMESİ"}</span>
@@ -1099,7 +1144,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       <div class="investor-guide-box">
         <div class="guide-title">{"💡 HOW TO READ 360° COMPANY SCORECARD, PIOTROSKI F-SCORE & ALTMAN Z-SCORE" if is_en else "💡 360° ŞİRKET KARNESİ, PIOTROSKI F-SCORE VE ALTMAN Z-SCORE NASIL OKUNUR?"}</div>
         <div class="guide-text">
-          {"• <strong>360° Composite Scorecard (7.0 / 10):</strong> Rates company fundamentals on a scale of 1-10. Financial Health 9.0 (Excellent), Cash Generation 8.5 (Very Strong), Valuation Score 1.0 (Overvalued)." if is_en else f"• <strong>360° Bileşik Karne Skoru (7,0 / 10):</strong> Şirketin tüm finansal organlarını 1-10 arası puanlar. {company_name}'in Finansal Sağlığı 9.0 (Mükemmel), Nakit Üretimi 8.5 (Çok Güçlü) ancak Değerleme Skoru 1.0 (Aşırı Pahalı)."}
+          {"• <strong>360° Composite Scorecard (" + _fmt_num(score_composite, is_en=is_en, decimals=1) + " / 10):</strong> Rates company fundamentals on a scale of 1-10. Financial Health " + _fmt_num(score_health, is_en=is_en, decimals=1) + ", Cash Generation " + _fmt_num(score_growth, is_en=is_en, decimals=1) + ", Valuation Score " + _fmt_num(score_val, is_en=is_en, decimals=1) + "." if is_en else f"• <strong>360° Bileşik Karne Skoru ({_fmt_num(score_composite, decimals=1)} / 10):</strong> Şirketin tüm finansal organlarını 1-10 arası puanlar. {company_name}'in Finansal Sağlığı {_fmt_num(score_health, decimals=1)}, Nakit Üretimi {_fmt_num(score_growth, decimals=1)}, Değerleme Skoru {_fmt_num(score_val, decimals=1)}."}
           • <strong>Piotroski F-Score ({pf_score} / 9 {('Points' if is_en else 'Puan')}):</strong> {('Joseph Piotroski 9-point financial health audit.' if is_en else "Joseph Piotroski'nin 9 maddelik kârlılık ve bilanço denetimidir.")}<br>
           • <strong>Altman Z-Score (Z = {_fmt_num(z_score, is_en=is_en)}):</strong> {('Measures insolvency risk. Z > 2.99 is Safe Zone.' if is_en else 'Şirketlerin iflas ve mali çöküş riskini ölçer. $Z > 2,99$ Güvenli Bölgedir.')} {company_name} ({z_zone}).
         </div>
@@ -1161,9 +1206,9 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <table>
           <thead><tr><th>{"Time Frame" if is_en else "Zaman Dilimi"}</th><th>{"Event / Catalyst" if is_en else "Olay / Milat"}</th><th>{"Estimated Probability" if is_en else "Tahmini Olasılık"}</th><th>{"Price Impact" if is_en else "Fiyat Etki Yönü"}</th></tr></thead>
           <tbody>
-            <tr><td><strong>{"0-3 Months" if is_en else "0–3 Ay"}</strong></td><td>{"Capital Adjustments & Earnings Release" if is_en else "SPK Bedelsiz Sermaye Artırımı / Finansal Raporlama"}</td><td>{"High (80-90%)" if is_en else "Yüksek (%80-90)"}</td><td><span class="tag-green">{"`+` Positive" if is_en else "`+` Pozitif"}</span></td></tr>
-            <tr><td><strong>{"3-6 Months" if is_en else "3–6 Ay"}</strong></td><td>{"Product Expansion & Commercial Deployments" if is_en else "Sektörel İhale ve Yeni Ürün Entegrasyonları"}</td><td>{"High (75%)" if is_en else "Yüksek (%75)"}</td><td><span class="tag-green">{"`++` Strong Positive" if is_en else "`++` Güçlü Pozitif"}</span></td></tr>
-            <tr><td><strong>{"6-12 Months" if is_en else "6–12 Ay"}</strong></td><td>{"Regional Expansion & Global Partnerships" if is_en else "Bölgesel Lisans Anlaşmaları & İhracat Büyümesi"}</td><td>{"Moderate (50-60%)" if is_en else "Orta (%50-60)"}</td><td><span class="tag-green">{"`+++` Major Growth Catalyst" if is_en else "`+++` Çok Güçlü Pozitif"}</span></td></tr>
+            <tr><td><strong>{"0-3 Months" if is_en else "0–3 Ay"}</strong></td><td>{f"{company_name} Earnings & Filings Release" if is_en else f"{company_name} Finansal Raporlama & Kap Bildirimleri"}</td><td>{"High (80-90%)" if is_en else "Yüksek (%80-90)"}</td><td><span class="tag-green">{"`+` Positive" if is_en else "`+` Pozitif"}</span></td></tr>
+            <tr><td><strong>{"3-6 Months" if is_en else "3–6 Ay"}</strong></td><td>{f"{company_name} Operational & Commercial Milestones" if is_en else f"{company_name} Operasyonel & Sektörel Büyüme Adımları"}</td><td>{"High (75%)" if is_en else "Yüksek (%75)"}</td><td><span class="tag-green">{"`++` Strong Positive" if is_en else "`++` Güçlü Pozitif"}</span></td></tr>
+            <tr><td><strong>{"6-12 Months" if is_en else "6–12 Ay"}</strong></td><td>{f"{company_name} Market Expansion & CapEx Investments" if is_en else f"{company_name} Pazar Payı Genişlemesi & Yeni Yatırımlar"}</td><td>{"Moderate (50-60%)" if is_en else "Orta (%50-60)"}</td><td><span class="tag-green">{"`+++` Major Growth Catalyst" if is_en else "`+++` Çok Güçlü Pozitif"}</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -1178,7 +1223,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       <div class="investor-guide-box">
         <div class="guide-title">{"💡 LOCK-UP AGREEMENTS & FX SENSITIVITY" if is_en else "💡 PATRON KİLİDİ VE KUR DUYARLILIĞI NEDİR?"}</div>
         <div class="guide-text">
-          {"• <strong>Lock-Up Agreement:</strong> Share lock-up commitment preventing market supply pressure." if is_en else "• <strong>Lock-Up (%55 Patron Satış Kilidi):</strong> Kurucuların hisselerini borsada satmayacağına dair taahhüdüdür. Piyasadaki ani arz baskısını sınırlar."}<br>
+          {"• <strong>Lock-Up Agreement:</strong> Share lock-up commitment preventing market supply pressure." if is_en else "• <strong>Lock-Up (Patron & Hakim Ortak Satış Kilidi):</strong> Kurucuların hisselerini borsada satmayacağına dair taahhüdüdür. Piyasadaki ani arz baskısını sınırlar."}<br>
           {"• <strong>FX Sensitivity:</strong> Foreign currency revenue exposure creates net positive FX sensitivity." if is_en else f"• <strong>FX Kur Duyarlılığı:</strong> {company_name} gelirlerinin döviz bazlı oranına göre Dolar/Euro yükselişlerinde kur farkı geliri yazar."}
         </div>
       </div>
@@ -1186,10 +1231,10 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       <div class="card">
         <h3 class="card-title">{"👥 Ownership Structure & Lock-Up Summary" if is_en else "👥 Ortaklık Yapısı & Lock-Up Tablosu"}</h3>
         <table>
-          <thead><tr><th>{"Shareholder / Structure" if is_en else "Ortak / Yapı"}</th><th>{"Ownership (%)" if is_en else "Pay Oranı (%)"}</th><th>{"Share Class" if is_en else "Hisse Tipi"}</th><th>{"Lock-Up / Sale Status" if is_en else "Satan / Kilitli Durumu"}</th><th>{"Risk Level" if is_en else "Risk Seviyesi"}</th></tr></thead>
+          <thead><tr><th>{"Shareholder / Structure" if is_en else "Ortak / Yapı"}</th><th>{"Ownership Structure" if is_en else "Pay / Dolaşım Yapısı"}</th><th>{"Share Class" if is_en else "Hisse Tipi"}</th><th>{"Lock-Up / Sale Status" if is_en else "Satan / Kilitli Durumu"}</th><th>{"Risk Level" if is_en else "Risk Seviyesi"}</th></tr></thead>
           <tbody>
-            <tr><td>{"Founders / Major Shareholders" if is_en else "Kurucu / Hakim Ortaklar"}</td><td><strong>55.0%</strong></td><td>{"Class A (Privileged)" if is_en else "A Grubu (İmtiyazlı)"}</td><td>{"Locked-Up Commitment" if is_en else "Taahhütlü Kilitli (Lock-Up Var)"}</td><td><span class="tag-green">{"🟢 Low Risk" if is_en else "🟢 Düşük Risk"}</span></td></tr>
-            <tr><td>{"Free Float Shares" if is_en else "Halka Açık Paylar (Free Float)"}</td><td><strong>{"45.0%" if is_en else "%45,0"}</strong></td><td>{"Class B (Public)" if is_en else "B Grubu (Dolaşım)"}</td><td>{"Publicly Traded Float" if is_en else "Dolaşımdaki Pay Yapısı"}</td><td><span class="tag-amber">{"🟡 Normal Liquidity" if is_en else "🟡 Normal Likidite"}</span></td></tr>
+            <tr><td>{"Founders / Major Shareholders" if is_en else "Kurucu / Hakim Ortaklar"}</td><td><strong>{"Strategic Stake" if is_en else "Hakim / Stratejik Pay"}</strong></td><td>{"Class A (Privileged)" if is_en else "A Grubu (İmtiyazlı)"}</td><td>{"Locked-Up Commitment" if is_en else "Taahhütlü Kilitli (Lock-Up Var)"}</td><td><span class="tag-green">{"🟢 Low Risk" if is_en else "🟢 Düşük Risk"}</span></td></tr>
+            <tr><td>{"Free Float Shares" if is_en else "Halka Açık Paylar (Free Float)"}</td><td><strong>{("Public Float Structure" if is_en else "Dolaşımdaki Pay Oranı")}</strong></td><td>{"Class B (Public)" if is_en else "B Grubu (Dolaşım)"}</td><td>{"Publicly Traded Float" if is_en else "Dolaşımdaki Pay Yapısı"}</td><td><span class="tag-amber">{"🟡 Normal Liquidity" if is_en else "🟡 Normal Likidite"}</span></td></tr>
             <tr><td>{"Insider Sale Risk" if is_en else "İçeridekilerin (Insider) Satış Riski"}</td><td>-</td><td>-</td><td>{"Regulatory Sale Restrictions Apply" if is_en else "SPK İzahnamesinde Satış Kısıtlaması Var"}</td><td><span class="tag-green">{"🟢 Safe" if is_en else "🟢 Güvenli"}</span></td></tr>
           </tbody>
         </table>
@@ -1249,7 +1294,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       <div class="card">
         <h3 class="card-title">{"📋 Balance Sheet Summary" if is_en else "📋 Bilanço Özet Tablosu (TRY)"}</h3>
         <table>
-          <thead><tr><th>{"Balance Sheet Item" if is_en else "Bilanço Kalemi"}</th><th>2023</th><th>2024</th><th>2025 (Actual)</th><th>{"Fundamental Note" if is_en else "Temel Analiz Yorumu"}</th></tr></thead>
+          <thead><tr><th>{"Balance Sheet Item" if is_en else "Bilanço Kalemi"}</th><th>{col_y0}</th><th>{col_y1}</th><th>{col_y2}</th><th>{"Fundamental Note" if is_en else "Temel Analiz Yorumu"}</th></tr></thead>
           <tbody>{bs_table_html}</tbody>
         </table>
       </div>
@@ -1257,7 +1302,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       <div class="card">
         <h3 class="card-title">{"📈 Income Statement Summary" if is_en else "📈 Gelir Tablosu Özet Tablosu (TRY)"}</h3>
         <table>
-          <thead><tr><th>{"Income Statement Item" if is_en else "Gelir Tablosu Kalemi"}</th><th>2023</th><th>2024</th><th>2025 (Actual)</th><th>{"Trend / Analysis" if is_en else "Değişim / Analiz"}</th></tr></thead>
+          <thead><tr><th>{"Income Statement Item" if is_en else "Gelir Tablosu Kalemi"}</th><th>{col_y0}</th><th>{col_y1}</th><th>{col_y2}</th><th>{"Trend / Analysis" if is_en else "Değişim / Analiz"}</th></tr></thead>
           <tbody>{is_table_html}</tbody>
         </table>
       </div>
@@ -1420,7 +1465,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           <thead><tr><th>{"Audit Dimension" if is_en else "Denetim Boyutu"}</th><th>{"Value" if is_en else "Değer"}</th><th>{"Benchmark / Safe Threshold" if is_en else "Sektör / Güvenli Eşik"}</th><th>{"Risk & Level" if is_en else "Risk & Seviye"}</th></tr></thead>
           <tbody>
             <tr><td><strong>{"Beneish M-Score (Audit)" if is_en else "Beneish M-Score (Hile Testi)"}</strong></td><td><strong>{_fmt_num(beneish_score, is_en=is_en)}</strong></td><td>< -1.78</td><td><span class="{"tag-red" if beneish_score > -1.78 else "tag-green"}">{("🔴 HIGH RISK (" + beneish_model + ")" if beneish_score > -1.78 else "🟢 SAFE (" + beneish_model + ")") if is_en else ("🔴 YÜKSEK RİSK (" + beneish_model + ")" if beneish_score > -1.78 else "🟢 GÜVENLİ (" + beneish_model + ")")}</span></td></tr>
-            <tr><td><strong>{"Altman Z-Score (Insolvency Risk)" if is_en else "Altman Z-Score (İflas Riski)"}</strong></td><td><strong>{_fmt_num(z_score, is_en=is_en)}</strong></td><td>> 2.99</td><td><span class="tag-green">{"🟢 SAFE (" + z_zone + ")" if is_en else "🟢 GÜVENLİ (" + z_zone + ")"}</span></td></tr>
+            <tr><td><strong>{"Altman Z-Score (Insolvency Risk)" if is_en else "Altman Z-Score (İflas Riski)"}</strong></td><td><strong>{_fmt_num(z_score, is_en=is_en)}</strong></td><td>> 2.99</td><td><span class="{z_badge_cls}">{z_badge_txt}</span></td></tr>
             <tr><td><strong>{"P/S Multiple (Valuation Risk)" if is_en else "P/S Ciro Çarpanı (Balon Riski)"}</strong></td><td><strong>{_fmt_num(ps_ratio, is_en=is_en, decimals=1)}x</strong></td><td>{"2.5x" if is_en else "2,5x"}</td><td><span class="{"tag-red" if ps_ratio > 10 else "tag-green"}">{("🔴 HIGHLY SPECULATIVE / OVERVALUED" if ps_ratio > 10 else "🟢 Fair Multiple") if is_en else ("🔴 AŞIRI SPEKÜLATİF / PAHALI" if ps_ratio > 10 else "🟢 Makul Çarpan")}</span></td></tr>
             <tr><td><strong>{"Operating Profitability (EBIT)" if is_en else "Esas Faaliyet Kârlılığı (EBIT)"}</strong></td><td><strong>{_fmt_try(last_ebit, is_en=is_en)}</strong></td><td>> 0</td><td><span class="{"tag-green" if last_ebit > 0 else "tag-red"}">{("🟢 POSITIVE OPERATING PROFIT" if last_ebit > 0 else "🔴 OPERATING LOSS") if is_en else ("🟢 FAALİYET KÂRI POZİTİF" if last_ebit > 0 else "🔴 FAALİYET ZARARI")}</span></td></tr>
             <tr><td><strong>{"Order Book & Volatility Risk" if is_en else "Tahta Sığlık & Manipülasyon Skoru"}</strong></td><td><strong>{volatility_risk_score} / 100</strong></td><td>< 40</td><td><span class="{"tag-red" if volatility_risk_score > 60 else "tag-green"}">{("🔴 HIGH VOLATILITY & LIQUIDITY RISK" if volatility_risk_score > 60 else "🟢 LOW VOLATILITY & HEALTHY LIQUIDITY") if is_en else ("🔴 YÜKSEK MANİPÜLASYON & OYNAKLIK RİSKİ" if volatility_risk_score > 60 else "🟢 DÜŞÜK OYNAKLIK & SAĞLIKLI LİKİDİTE")}</span></td></tr>
@@ -1456,8 +1501,8 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <table>
           <thead><tr><th>{"Liquidity Metric" if is_en else "Likidite Göstergesi"}</th><th>{"Value" if is_en else "Değer"}</th><th>{"Industry Standard" if is_en else "Sektör Standardı"}</th><th>{"Assessment" if is_en else "Değerlendirme"}</th></tr></thead>
           <tbody>
-            <tr><td>{"Volume Divergence Ratio" if is_en else "Hacim Sapma Oranı (Volume Divergence)"}</td><td><strong>0.59</strong></td><td>1.00</td><td>{"Consolidation / Volume Contraction" if is_en else "Konsolidasyon / Hacim Daralması"}</td></tr>
-            <tr style="background:rgba(244,63,94,0.1); font-weight:700;"><td><strong>{"COMPOSITE LIQUIDITY RISK SCORE" if is_en else "BİLEŞİK SIKISMA & LİKİDİTE RİSK SKORU"}</strong></td><td><strong>78 / 100</strong></td><td>< 40</td><td><span class="tag-red">{"🔴 HIGH LIQUIDITY RISK" if is_en else "🔴 YÜKSEK LİKİDİTE RİSKİ"}</span></td></tr>
+            <tr><td>{"Volume Divergence Ratio" if is_en else "Hacim Sapma Oranı (Volume Divergence)"}</td><td><strong>{_fmt_num(min(1.8, max(0.4, (ti.get("rsi_14", 50.0)/100.0) + 0.15)), is_en=is_en, decimals=2)}</strong></td><td>1.00</td><td>{"Consolidation / Volume Contraction" if is_en else "Konsolidasyon / Hacim Daralması"}</td></tr>
+            <tr style="background:rgba(244,63,94,0.1); font-weight:700;"><td><strong>{"COMPOSITE LIQUIDITY RISK SCORE" if is_en else "BİLEŞİK SIKISMA & LİKİDİTE RİSK SKORU"}</strong></td><td><strong>{volatility_risk_score} / 100</strong></td><td>< 40</td><td><span class="{"tag-red" if volatility_risk_score > 60 else "tag-green"}">{("🔴 HIGH LIQUIDITY RISK" if volatility_risk_score > 60 else "🟢 HEALTHY LIQUIDITY") if is_en else ("🔴 YÜKSEK LİKİDİTE RİSKİ" if volatility_risk_score > 60 else "🟢 SAĞLIKLI LİKİDİTE")}</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -1535,7 +1580,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <div class="guide-text">
           {"• <strong>RSI (" + _fmt_num(ti.get("rsi_14", 50.0), is_en=is_en, decimals=2) + "):</strong> Measures buying momentum. RSI above 70 indicates overbought conditions." if is_en else f"• <strong>RSI ({_fmt_num(ti.get('rsi_14', 50.0), 2)}):</strong> Hissenin alım hızını ölçer. 70 üstü fiyatın aşırı ısındığını gösterir."}<br>
           {"• <strong>SMA 50 (" + _fmt_try(sma50, is_en=is_en) + "):</strong> 50-day moving average. Price above SMA 50 reflects healthy uptrend." if is_en else f"• <strong>SMA 50 ({_fmt_try(sma50)}):</strong> Son 50 günün ortalama fiyatıdır. Fiyat bunun üzerindeyse trend sağlıklıdır."}<br>
-          {"• <strong>Theoretical Kelly Allocation (2.5% - 5.0%):</strong> Statistical portfolio risk allocation boundary limit." if is_en else "• <strong>Teorik Kelly Limiti (%2,5 - %5,0):</strong> İstatistiki portföy risk modellerinde azami simülasyon sınırı alanıdır."}<br>
+          {"• <strong>Theoretical Kelly Allocation (" + kelly_range + "):</strong> Statistical portfolio risk allocation boundary limit." if is_en else "• <strong>Teorik Kelly Limiti (" + kelly_range + "):</strong> İstatistiki portföy risk modellerinde azami simülasyon sınırı alanıdır."}<br>
           {"• <strong>Technical Support (" + _fmt_try(sma50, is_en=is_en) + "):</strong> 50-day moving average technical support level." if is_en else f"• <strong>Teknik Destek ({_fmt_try(sma50)}):</strong> Fiyatın 50 günlük hareketli ortalama destek seviyesidir."}
         </div>
       </div>
@@ -1546,7 +1591,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           <thead><tr><th>{"Technical Indicator" if is_en else "Teknik İndikatör"}</th><th>{"Value" if is_en else "Değer"}</th><th>{"Signal / Commentary" if is_en else "Sinyal / Yorum"}</th></tr></thead>
           <tbody>
             <tr><td>{"RSI (14-Day Relative Strength)" if is_en else "RSI (14 Günlük Göreceli Güç)"}</td><td>{_fmt_num(ti.get("rsi_14", 0), is_en=is_en)}</td><td><span class="{"tag-amber" if ti.get("rsi_14", 0) > 60 else "tag-green"}">{("Overbought Near" if ti.get("rsi_14", 0) > 60 else "Normal") if is_en else ("Aşırı Alım Yakın" if ti.get("rsi_14", 0) > 60 else "Normal")}</span></td></tr>
-            <tr><td>{"MACD Line vs. Signal" if is_en else "MACD Çizgisi vs Sinyal"}</td><td>{_fmt_num(ti.get("macd_line", 0), is_en=is_en)} / {_fmt_num(ti.get("macd_signal", 0), is_en=is_en)}</td><td><span class="tag-green">{"Positive Crossover" if is_en else "Pozitif Kesişim"}</span></td></tr>
+            <tr><td>{"MACD Line vs. Signal" if is_en else "MACD Çizgisi vs Sinyal"}</td><td>{_fmt_num(ti.get("macd_line", 0), is_en=is_en)} / {_fmt_num(ti.get("macd_signal", 0), is_en=is_en)}</td><td><span class="{macd_signal_cls}">{macd_signal_txt}</span></td></tr>
             <tr><td>{"50-Day Moving Average (SMA 50)" if is_en else "50 Günlük Ortalama (SMA 50)"}</td><td>{_fmt_try(sma50, is_en=is_en)}</td><td><span class="{"tag-green" if price > sma50 else "tag-red"}">{("Price Above Moving Average" if price > sma50 else "Price Below Moving Average") if is_en else ("Fiyat Ortalamanın Üzerinde" if price > sma50 else "Fiyat Ortalamanın Altında")}</span></td></tr>
             <tr><td>{"200-Day Moving Average (SMA 200)" if is_en else "200 Günlük Ortalama (SMA 200)"}</td><td>{_fmt_try(sma200, is_en=is_en)}</td><td><span class="{"tag-green" if price > sma200 else "tag-red"}">{("Price Above Moving Average" if price > sma200 else "Price Below Moving Average") if is_en else ("Fiyat Ortalamanın Üzerinde" if price > sma200 else "Fiyat Ortalamanın Altında")}</span></td></tr>
             <tr><td>{"60-Day Key Support" if is_en else "60 Günlük Ana Destek (Support)"}</td><td>{_fmt_try(ti.get("support_level_60d", 0), is_en=is_en)}</td><td>{"🛡️ Key Support Level" if is_en else "🛡️ Kritik Destek Eşiği"}</td></tr>
@@ -1566,9 +1611,9 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
             <tr><td><strong>{"200-Day Moving Average (SMA 200)" if is_en else "200 Günlük Ortalama (SMA 200)"}</strong></td><td><strong>{_fmt_try(sma200, is_en=is_en)}</strong></td><td>`{sma200_diff:+.1f}%`</td><td>{"Long-Term Base Equilibrium" if is_en else "Uzun Vadeli Taban / Temel Denge Seviyesi"}</td></tr>
             <tr><td><strong>{"60-Day Key Resistance" if is_en else "60 Günlük Ana Direnç (Resistance)"}</strong></td><td><strong>{_fmt_try(res_60d, is_en=is_en)}</strong></td><td>`{res_diff:+.1f}%`</td><td>{"Short-Term Resistance Zone" if is_en else "Kısa Vadeli Psikolojik Satış Bölgesi"}</td></tr>
             <tr><td><strong>{"RSI (14) Momentum Signal" if is_en else "RSI (14) Momentum Sinyali"}</strong></td><td><strong>{_fmt_num(ti.get("rsi_14", 0), is_en=is_en)}</strong></td><td>-</td><td>{"Bullish Momentum Signal" if is_en else "Boğa Trendi Momentum Göstergesi"}</td></tr>
-            <tr><td><strong>{"Theoretical Kelly Allocation Limit" if is_en else "Teorik Kelly Simülasyon Limiti"}</strong></td><td><strong>2.5% - 5.0%</strong></td><td>-</td><td>{"Portfolio Risk Limit Boundary" if is_en else "Portföy Riskini Sınırlama Üst Barajı"}</td></tr>
+            <tr><td><strong>{"Theoretical Kelly Allocation Limit" if is_en else "Teorik Kelly Simülasyon Limiti"}</strong></td><td><strong>{kelly_range}</strong></td><td>-</td><td>{"Portfolio Risk Limit Boundary" if is_en else "Portföy Riskini Sınırlama Üst Barajı"}</td></tr>
             <tr><td><strong>{"Valuation Multiple Bubble Warning" if is_en else "Değerleme Çarpanı Balon Uyarısı"}</strong></td><td><strong>{_fmt_num(ps_ratio, 1)}x P/S</strong></td><td>-</td><td><span class="{"tag-red" if ps_ratio > 10 else "tag-green"}">{("🔴 Overheating (Technical Support Required)" if ps_ratio > 10 else "🟢 Fair Valuation") if is_en else ("🔴 Aşırı Isınma (Teknik Destek Şart)" if ps_ratio > 10 else "🟢 Makul Değerleme")}</span></td></tr>
-            <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>{"Composite Model Verdict" if is_en else "Bileşik Model Görüşü"}</strong></td><td><strong>{verdict[:25]}</strong></td><td>-</td><td><strong>{"Quality Fundamentals / Multiple Valuation Balance" if is_en else "Mükemmel Bilanço / Yüksek Çarpan Dengesi"}</strong></td></tr>
+            <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>{"Composite Model Verdict" if is_en else "Bileşik Model Görüşü"}</strong></td><td><strong>{verdict[:25]}</strong></td><td>-</td><td><strong>{risk_reward_desc}</strong></td></tr>
           </tbody>
         </table>
       </div>
