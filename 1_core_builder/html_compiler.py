@@ -454,13 +454,29 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
     date_str = datetime.datetime.now().strftime("%d %B %Y")
 
-    # Validate investment verdict string
-    verdict = commentary.get("investment_verdict")
-    if not verdict or not isinstance(verdict, str) or len(verdict.strip()) < 5:
-        err_msg = f"Missing or invalid 'investment_verdict' key in commentary for {ticker}."
+    # Validate all 27 mandatory commentary keys strictly (NO FALLBACKS ALLOWED)
+    mandatory_keys = [
+        "company_name", "executive_summary", "strong_points", "weak_points", "risk_discipline",
+        "scorecard_commentary", "piotroski_commentary", "altman_z_commentary", "moat_and_catalysts",
+        "ownership_commentary", "peer_comparison", "dupont_analysis", "forward_commentary",
+        "dcf_valuation", "technical_analysis", "forensic_audit", "scenario_analysis", "investment_verdict",
+        "blog_headline", "blog_summary", "blog_cash_and_health", "blog_earnings_quality",
+        "blog_valuation_dcf", "blog_catalysts_and_risks", "blog_bull_vs_bear", "blog_key_takeaways", "blog_faqs"
+    ]
+    missing_or_invalid = []
+    for k in mandatory_keys:
+        val = commentary.get(k)
+        if val is None:
+            missing_or_invalid.append(k)
+        elif isinstance(val, (str, list, dict)) and len(val) == 0:
+            missing_or_invalid.append(k)
+
+    if missing_or_invalid:
+        err_msg = f"Missing or invalid mandatory commentary key(s) for {ticker}: {missing_or_invalid}"
         log_error(err_msg, context=ticker)
         raise ValueError(err_msg)
-    verdict = verdict.strip()
+
+    verdict = commentary["investment_verdict"].strip()
 
     exp_m = metrics.get("expanded_metrics", {})
     ev_ebitda = exp_m.get("ev_to_ebitda", 0)
@@ -1045,9 +1061,9 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           {"🏛️ Executive Summary & Algorithmic Data Briefing" if is_en else "🏛️ Yönetici Özeti & Algoritmik Veri Brifingi (Executive Summary)"}
         </h2>
         <div class="exec-summary-grid">
-          <div class="exec-summary-box"><h4>{"🟢 Strengths & Balance Sheet" if is_en else "🟢 Güçlü Yanlar & Bilanço"}</h4><p>{commentary.get("strong_points", "N/A")}</p></div>
-          <div class="exec-summary-box"><h4>{"🔴 Valuation & Weaknesses" if is_en else "🔴 Değerleme & Zayıf Yanlar"}</h4><p>{commentary.get("weak_points", "N/A")}</p></div>
-          <div class="exec-summary-box"><h4>{"🎯 Model & Execution Discipline" if is_en else "🎯 Model & Risk Disiplini"}</h4><p>{commentary.get("risk_discipline", "N/A")}</p></div>
+          <div class="exec-summary-box"><h4>{"🟢 Strengths & Balance Sheet" if is_en else "🟢 Güçlü Yanlar & Bilanço"}</h4><p>{commentary["strong_points"]}</p></div>
+          <div class="exec-summary-box"><h4>{"🔴 Valuation & Weaknesses" if is_en else "🔴 Değerleme & Zayıf Yanlar"}</h4><p>{commentary["weak_points"]}</p></div>
+          <div class="exec-summary-box"><h4>{"🎯 Model & Execution Discipline" if is_en else "🎯 Model & Risk Disiplini"}</h4><p>{commentary["risk_discipline"]}</p></div>
         </div>
       </div>
 
@@ -1112,12 +1128,12 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
             <thead><tr><th>Piotroski Testi</th><th>Durum</th></tr></thead>
             <tbody>{piotroski_rows_html}</tbody>
           </table>
-          <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary.get("piotroski_commentary", "")}</div></div>
+          <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary["piotroski_commentary"]}</div></div>
         </div>
         <div class="card">
           <h3 class="card-title">{"🛡️ Altman Z-Score Insolvency & Risk Audit" if is_en else "🛡️ Altman Z-Score İflas & Mali Bünye Riski"}</h3>
           <div style="font-size: 2rem; font-weight: 800; color: var(--accent-emerald); margin-bottom: 0.5rem;">Z = {_fmt_num(z_score)} <span style="font-size:0.9rem; font-weight:600; color:var(--text-muted);">({z_zone})</span></div>
-          <div class="analyst-block"><div class="analyst-text">{commentary.get("altman_z_commentary", "")}</div></div>
+          <div class="analyst-block"><div class="analyst-text">{commentary["altman_z_commentary"]}</div></div>
         </div>
       </div>
       <div class="legal-disclaimer-footer">
@@ -1137,7 +1153,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
       <div class="card">
         <h3 class="card-title">{"🛡️ Competitive Moats & Catalyst Analysis" if is_en else "🛡️ Rekabetçi Hendekler & Katalizör Analizi"}</h3>
-        <div class="analyst-text" style="padding:0.5rem;">{commentary.get("moat_and_catalysts", "")}</div>
+        <div class="analyst-text" style="padding:0.5rem;">{commentary["moat_and_catalysts"]}</div>
       </div>
 
       <div class="card">
@@ -1181,7 +1197,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
       <div class="card">
         <h3 class="card-title">{"💱 Foreign Exchange (FX) Sensitivity Analysis" if is_en else "💱 Döviz Kuru Duyarlılığı Analizi"}</h3>
-        <div class="analyst-text" style="padding:0.5rem;">{commentary.get("ownership_commentary", "")}</div>
+        <div class="analyst-text" style="padding:0.5rem;">{commentary["ownership_commentary"]}</div>
       </div>
       <div class="legal-disclaimer-footer">
         {"<strong>DISCLAIMER & AI LIABILITY NOTICE:</strong> The information contained herein does not constitute investment advice. Generated using autonomous AI technologies." if is_en else "<strong>YASAL UYARI & YAPAY ZEKÂ SORUMLULUK BİLDİRİMİ:</strong> Burada yer alan yatırım bilgi, yorum ve değerlendirmeler yatırım danışmanlığı kapsamında değildir."}
@@ -1203,7 +1219,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           <thead><tr><th>{"Stock / Company" if is_en else "Hisse / Şirket"}</th><th>{"Market Cap" if is_en else "Piyasa Değeri"}</th><th>P/S</th><th>P/E</th><th>{"Net Margin" if is_en else "Net Kâr Marjı"}</th><th>{"Revenue Growth" if is_en else "Satış Büyümesi"}</th><th>{"Valuation" if is_en else "Değerleme"}</th></tr></thead>
           <tbody>{peer_rows_html}</tbody>
         </table>
-        <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary.get("peer_comparison", "")}</div></div>
+        <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary["peer_comparison"]}</div></div>
       </div>
       <div class="legal-disclaimer-footer">
         {t("disclaimer", lang=lang)}
@@ -1287,7 +1303,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
             <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td>{"Composite DuPont ROE" if is_en else "Bileşik DuPont ROE"}</td><td>{"5-Factor Product" if is_en else "5 Adım Çarpımı"}</td><td><strong>{_fmt_pct(dp.get("dupont_roe_pct", 0)/100, is_en=is_en)}</strong></td><td>{"Return on Equity" if is_en else "Özsermaye Kârlılığı"}</td></tr>
           </tbody>
         </table>
-        <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary.get("dupont_analysis", "")}</div></div>
+        <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary["dupont_analysis"]}</div></div>
       </div>
       <div class="grid-2">
         <div class="card"><h3 class="card-title">{"📈 Revenue vs. EBIT Growth" if is_en else "📈 Hasılat vs. EBIT Gelişimi"}</h3><canvas id="revenueMarginChart" style="max-height:260px; width:100%;"></canvas></div>
@@ -1320,7 +1336,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         </table>
       </div>
       <div class="card">
-        <div class="analyst-text" style="padding:0.5rem;">{commentary.get("forward_commentary", "")}</div>
+        <div class="analyst-text" style="padding:0.5rem;">{commentary["forward_commentary"]}</div>
       </div>
       <div class="legal-disclaimer-footer">
         {"<strong>DISCLAIMER & AI LIABILITY NOTICE:</strong> The information contained herein does not constitute investment advice. Generated using autonomous AI technologies." if is_en else "<strong>YASAL UYARI & YAPAY ZEKÂ SORUMLULUK BİLDİRİMİ:</strong> Burada yer alan yatırım bilgi, yorum ve değerlendirmeler yatırım danışmanlığı kapsamında değildir."}
@@ -1376,7 +1392,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         </div>
         <table>{dcf_matrix_html}</table>
       </div>
-      <div class="analyst-block"><div class="analyst-text">{commentary.get("dcf_valuation", "")}</div></div>
+      <div class="analyst-block"><div class="analyst-text">{commentary["dcf_valuation"]}</div></div>
       <div class="legal-disclaimer-footer">
         {"<strong>DISCLAIMER & AI LIABILITY NOTICE:</strong> The information contained herein does not constitute investment advice. Generated using autonomous AI technologies." if is_en else "<strong>YASAL UYARI & YAPAY ZEKÂ SORUMLULUK BİLDİRİMİ:</strong> Burada yer alan yatırım bilgi, yorum ve değerlendirmeler yatırım danışmanlığı kapsamında değildir."}
       </div>
@@ -1410,7 +1426,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
             <tr><td><strong>{"Order Book & Volatility Risk" if is_en else "Tahta Sığlık & Manipülasyon Skoru"}</strong></td><td><strong>{volatility_risk_score} / 100</strong></td><td>< 40</td><td><span class="{"tag-red" if volatility_risk_score > 60 else "tag-green"}">{("🔴 HIGH VOLATILITY & LIQUIDITY RISK" if volatility_risk_score > 60 else "🟢 LOW VOLATILITY & HEALTHY LIQUIDITY") if is_en else ("🔴 YÜKSEK MANİPÜLASYON & OYNAKLIK RİSKİ" if volatility_risk_score > 60 else "🟢 DÜŞÜK OYNAKLIK & SAĞLIKLI LİKİDİTE")}</span></td></tr>
           </tbody>
         </table>
-        <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary.get("forensic_audit", "")}</div></div>
+        <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary["forensic_audit"]}</div></div>
       </div>
       <div class="legal-disclaimer-footer">
         {"<strong>DISCLAIMER & AI LIABILITY NOTICE:</strong> The information contained herein does not constitute investment advice. Generated using autonomous AI technologies." if is_en else "<strong>YASAL UYARI & YAPAY ZEKÂ SORUMLULUK BİLDİRİMİ:</strong> Burada yer alan yatırım bilgi, yorum ve değerlendirmeler yatırım danışmanlığı kapsamında değildir."}
@@ -1537,7 +1553,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
             <tr><td>{"60-Day Key Resistance" if is_en else "60 Günlük Ana Direnç (Resistance)"}</td><td>{_fmt_try(res_60d, is_en=is_en)}</td><td>{"🎯 Key Resistance Level" if is_en else "🎯 Psikolojik Direnç"}</td></tr>
           </tbody>
         </table>
-        <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary.get("technical_analysis", "")}</div></div>
+        <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary["technical_analysis"]}</div></div>
       </div>
 
       <div class="card">
@@ -1565,7 +1581,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           <div class="card" style="background:rgba(6,182,212,0.1); margin-bottom:0;"><div class="metric-lbl">{"Base Case" if is_en else "Baz Senaryo"}</div><div class="metric-value">{_fmt_try(scenarios.get("base_case_price", 0))}</div></div>
           <div class="card" style="background:rgba(16,185,129,0.1); margin-bottom:0;"><div class="metric-lbl">{"Bull Case" if is_en else "Boğa Senaryosu"}</div><div class="metric-value" style="color:var(--accent-emerald);">{_fmt_try(scenarios.get("bull_case_price", 0))}</div></div>
         </div>
-        <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary.get("scenario_analysis", "")}</div></div>
+        <div class="analyst-block" style="margin-top:1rem;"><div class="analyst-text">{commentary["scenario_analysis"]}</div></div>
       </div>
       <div class="legal-disclaimer-footer">
         {"<strong>DISCLAIMER & AI LIABILITY NOTICE:</strong> The information contained herein does not constitute investment advice. Generated using autonomous AI technologies." if is_en else "<strong>YASAL UYARI & YAPAY ZEKÂ SORUMLULUK BİLDİRİMİ:</strong> Burada yer alan yatırım bilgi, yorum ve değerlendirmeler yatırım danışmanlığı kapsamında değildir."}
@@ -1592,23 +1608,23 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       </div>
       <div class="analyst-block">
         <div class="analyst-block-title">{"📊 1. Fundamental Quality & Cash Generation" if is_en else "📊 1. Temel Bilanço Kalitesi & Nakit Gücü"}</div>
-        <div class="analyst-text">{format_analyst_text(commentary.get("strong_points", ""), is_en=is_en)}</div>
+        <div class="analyst-text">{format_analyst_text(commentary["strong_points"], is_en=is_en)}</div>
       </div>
       <div class="analyst-block">
         <div class="analyst-block-title">{"🔍 2. Forensic Accounting & Governance Safety" if is_en else "🔍 2. Adli Muhasebe & Mevzuat Güvenliği"}</div>
-        <div class="analyst-text">{format_analyst_text(commentary.get("forensic_audit", ""), is_en=is_en)}</div>
+        <div class="analyst-text">{format_analyst_text(commentary["forensic_audit"], is_en=is_en)}</div>
       </div>
       <div class="analyst-block">
         <div class="analyst-block-title">{"🔴 3. Speculative Multiple Overheating & Valuation Risk" if is_en else "🔴 3. Spekülatif Çarpan Isınması & Değerleme Balonu"}</div>
-        <div class="analyst-text">{format_analyst_text(commentary.get("weak_points", ""), is_en=is_en)}</div>
+        <div class="analyst-text">{format_analyst_text(commentary["weak_points"], is_en=is_en)}</div>
       </div>
       <div class="analyst-block">
         <div class="analyst-block-title">{"📉 4. Technical Momentum & Key Price Levels" if is_en else "📉 4. Teknik Momentum & Grafikte Kritik Seviyeler"}</div>
-        <div class="analyst-text">{format_analyst_text(commentary.get("technical_analysis", ""), is_en=is_en)}</div>
+        <div class="analyst-text">{format_analyst_text(commentary["technical_analysis"], is_en=is_en)}</div>
       </div>
       <div class="analyst-block">
         <div class="analyst-block-title">{"🎯 5. AI Risk Model & Execution Discipline" if is_en else "🎯 5. AI Risk Modeli & Teknik Destek Disiplini"}</div>
-        <div class="analyst-text">{format_analyst_text(commentary.get("risk_discipline", ""), is_en=is_en)}</div>
+        <div class="analyst-text">{format_analyst_text(commentary["risk_discipline"], is_en=is_en)}</div>
       </div>
       <div class="legal-disclaimer-footer">
         {"<strong>DISCLAIMER & AI LIABILITY NOTICE:</strong> Generated using autonomous AI technologies. Does not constitute investment advice." if is_en else "<strong>YASAL UYARI & YAPAY ZEKÂ SORUMLULUK BİLDİRİMİ:</strong> Bu rapor otonom yapay zekâ teknolojileri kullanılarak otomatik hazırlanmıştır. Yatırım danışmanlığı kapsamında değildir."}
@@ -1668,7 +1684,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
               <div class="stat-value" style="font-size:1.1rem; color:var(--accent-cyan);">{_fmt_num(z_score, is_en=is_en, decimals=2)} ({"Safe" if is_en else "Tamamen Güvenli"})</div>
             </div>
           </div>
-          <div class="analyst-text">{format_analyst_text(commentary.get("blog_cash_and_health", ""), is_en=is_en)}</div>
+          <div class="analyst-text">{format_analyst_text(commentary["blog_cash_and_health"], is_en=is_en)}</div>
         </section>
 
         <!-- SECTION 3: EARNINGS QUALITY & DUPONT ROE -->
@@ -2064,25 +2080,9 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     function applyReportUiLanguage(lang) {{
       if (lang) currentReportLang = lang;
       const t = (typeof REPORT_I18N !== 'undefined' && REPORT_I18N[currentReportLang]) ? REPORT_I18N[currentReportLang] : {{}};
-      const fallbacks = {{
-        EN: {{
-          btn_admin: "🔒 Admin Panel",
-          menu_title: "Modules",
-          theme_dark: "Dark Theme",
-          theme_light: "Light Theme",
-          btn_print: "Print / Download PDF"
-        }},
-        TR: {{
-          btn_admin: "{"🔒 Admin Panel" if is_en else "🔒 Yönetim Paneli"}",
-          menu_title: "Modüller",
-          theme_dark: "Karanlık Tema",
-          theme_light: "Aydınlık Tema",
-          btn_print: "Yazdır / PDF İndir"
-        }}
-      }};
       document.querySelectorAll('[data-i18n]').forEach(el => {{
         const key = el.getAttribute('data-i18n');
-        const text = t[key] || (fallbacks[currentReportLang] && fallbacks[currentReportLang][key]);
+        const text = t[key];
         if (text) el.innerHTML = text;
       }});
       const currentTheme = document.body.getAttribute('data-theme') || 'dark';

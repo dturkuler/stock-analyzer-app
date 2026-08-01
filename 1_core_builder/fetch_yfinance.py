@@ -414,7 +414,7 @@ def compute_beneish_m_score(history_metrics):
         model_type = "Beneish 8-Var Full"
     else:
         m_score = round(-4.84 + (0.920 * dsri) + (0.528 * gmi) + (0.404 * aqi) + (0.892 * sgi) + (0.115 * depi), 2)
-        model_type = "Beneish 5-Var Fallback"
+        model_type = "Beneish 5-Var Model (Limited SGA/Liab Data)"
     
     if m_score > -1.78:
         zone = "High Manipulation Risk (M > -1.78)"
