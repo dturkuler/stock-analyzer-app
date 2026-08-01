@@ -29,7 +29,7 @@ except Exception:
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(BASE_DIR, "1_core_builder"))
 from logger import log_error
-from db_schema import ensure_reports_index_schema
+from db_schema import ensure_reports_index_schema, get_db_connection
 from i18n import sanitize_report_date
 
 
@@ -1095,7 +1095,20 @@ def get_tickers():
 
 @app.get("/api/dates/{ticker}")
 def get_dates(ticker: str):
-    safe_ticker = os.path.basename(ticker)
+    safe_ticker = os.path.basename(ticker).strip().upper()
+    if os.path.exists(DB_PATH):
+        try:
+            conn = get_db_connection(DB_PATH)
+            cur = conn.cursor()
+            cur.execute("SELECT report_date FROM reports_index WHERE UPPER(ticker) = ? ORDER BY report_date DESC", (safe_ticker,))
+            rows = cur.fetchall()
+            conn.close()
+            if rows:
+                dates = [sanitize_report_date(str(row[0])) for row in rows if row[0]]
+                return sorted(list(set(dates)), reverse=True)
+        except Exception as e:
+            log_error("Error querying dates from reports_index", exc=e, context=safe_ticker)
+
     ticker_dir = os.path.abspath(os.path.join(REPORTS_DIR, safe_ticker))
     reports_dir_abs = os.path.abspath(REPORTS_DIR) + os.sep
     if not (ticker_dir + os.sep).startswith(reports_dir_abs) or not os.path.exists(ticker_dir):

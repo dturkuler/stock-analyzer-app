@@ -1,4 +1,4 @@
-# 🌐 Production VPS Deployment & Cloudflare Tunnel Guide
+# 🌐 Production VPS Deployment & Cloudflare Tunnel Guide (v2.3.0)
 
 This guide provides step-by-step instructions for deploying **stock-analyzer-app** to a new Linux Virtual Private Server (VPS) (e.g. Hetzner, DigitalOcean, AWS EC2, Linode) using **Docker Compose** for container orchestration, host volume mounting for persistent storage, and **Cloudflare Tunnel (`cloudflared`)** for secure HTTPS access without exposing open inbound ports.
 
@@ -26,10 +26,10 @@ This guide provides step-by-step instructions for deploying **stock-analyzer-app
 │        └── scheduler (APScheduler Cron Runner)                                                   │
 │                                                                                                  │
 │   💾 Persistent Host Volume: ./storage/                                                          │
-│        ├── reports/ (Compiled HTML Dashboards & PDFs)                                            │
-│        ├── _workspace/ (JSON Metrics & Commentary Cache)                                         │
-│        ├── app.db (SQLite Index & Watchlist Database)                                            │
-│        └── logs/ (cron.log & analysis.log)                                                       │
+│        ├── reports/ (Compiled HTML Dashboards & PDFs with Pre-rendered GFX SVG Charts)            │
+│        ├── _workspace/ (JSON Metrics & 2-Stage LLM Commentary Cache)                             │
+│        ├── app.db (SQLite Index, Watchlist & Versioned Schema Migrations)                        │
+│        └── logs/ (cron.log, analysis.log, and errors.log)                                        │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -90,22 +90,26 @@ ADMIN_PASSWORD=YourSecureProductionPassword123!
 OUTPUT_LANGUAGE=TR
 
 # LLM Provider Credentials
-LLM_MODEL=gpt-4o
+LLM_MODEL=gpt-4o-mini
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_API_KEY=sk-proj-your-production-llm-api-key
 
 # Cron Scheduler Settings
 CRON_DELAY_SECONDS=15
 LLM_TIMEOUT=120
+PORT=6031
 ```
 
 ---
 
-## 🐳 Step 4: Docker Compose Launch
+## 🐳 Step 4: Docker Compose Launch & Test Runner Verification
 
-Deploy the container stack in production detached mode:
+Run automated test runner and deploy the container stack in production detached mode:
 
 ```bash
+# Verify unit test suite
+python3 tests/run_tests.py
+
 # Build & start services
 docker compose up -d --build
 
@@ -172,8 +176,8 @@ All data is stored directly on the VPS host filesystem in `/opt/stock-analyzer-a
 
 - **HTML Reports & PDFs**: `/opt/stock-analyzer-app/storage/reports/`
 - **Quantitative Metrics & LLM Caches**: `/opt/stock-analyzer-app/storage/_workspace/`
-- **SQLite Database Index**: `/opt/stock-analyzer-app/storage/app.db`
-- **Execution Logs**: `/opt/stock-analyzer-app/storage/logs/`
+- **SQLite Database Index & Migrations**: `/opt/stock-analyzer-app/storage/app.db`
+- **Execution & Error Logs**: `/opt/stock-analyzer-app/storage/logs/` (`cron.log`, `analysis.log`, `errors.log`)
 
 ### Disaster Recovery
 To back up your deployment, take periodic **Cloud Provider Disk Snapshots** (e.g. Hetzner / DigitalOcean / AWS snapshots) of your VPS disk. If you ever migrate to a new VPS, simply copy your `/opt/stock-analyzer-app/storage` folder and `.env` file to the new server and run `docker compose up -d`.
@@ -182,10 +186,11 @@ To back up your deployment, take periodic **Cloud Provider Disk Snapshots** (e.g
 
 ## 🔄 Updating to New Releases
 
-When a new version (e.g. `v1.5.0`+) is released:
+When a new version (e.g. `v2.3.0`+) is released:
 
 ```bash
 cd /opt/stock-analyzer-app
 git pull origin main
+python3 tests/run_tests.py
 docker compose up -d --build
 ```

@@ -17,6 +17,7 @@ except Exception:
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(BASE_DIR, "1_core_builder"))
 from logger import log_error
+from db_schema import get_db_connection
 
 LOGS_DIR = os.path.join(BASE_DIR, "storage", "logs")
 CRON_LOG_FILE = os.path.join(LOGS_DIR, "cron.log")
@@ -37,8 +38,7 @@ def log_cron(msg: str):
 
 def init_cron_config_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=30.0)
-    conn.execute("PRAGMA journal_mode=WAL;")
+    conn = get_db_connection(DB_PATH)
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS cron_config (
@@ -65,7 +65,7 @@ def init_cron_config_db():
 def get_cron_config():
     init_cron_config_db()
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection(DB_PATH)
         cur = conn.cursor()
         cur.execute("""
             SELECT is_enabled, schedule_time, timezone, run_days, misfire_grace_minutes, ticker_delay_seconds, is_running, last_run_at
@@ -99,7 +99,7 @@ def get_cron_config():
 
 def set_cron_running(is_running: bool):
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection(DB_PATH)
         cur = conn.cursor()
         now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if is_running:
@@ -116,7 +116,7 @@ def get_watchlist_items():
     items = []
     if os.path.exists(DB_PATH):
         try:
-            conn = sqlite3.connect(DB_PATH)
+            conn = get_db_connection(DB_PATH)
             cur = conn.cursor()
             cur.execute("SELECT ticker, lang FROM watchlist WHERE is_active = 1 ORDER BY ticker ASC")
             rows = cur.fetchall()

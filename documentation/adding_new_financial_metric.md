@@ -1,4 +1,4 @@
-# 🧮 Developer Guide: Adding a New Financial Metric
+# 🧮 Developer Guide: Adding a New Financial Metric (v2.3.0)
 
 This guide explains how to add new financial formulas, quantitative ratios, or forensic risk metrics to the analysis pipeline.
 
@@ -25,8 +25,8 @@ Update `fetch_stock_metrics(ticker)` in `1_core_builder/fetch_yfinance.py` to re
 metrics["fcf_yield_pct"] = compute_fcf_yield(metrics["recent_fcf"], metrics["market_cap"])
 ```
 
-### 3. Display Metric in HTML Compiler
-In `1_core_builder/html_compiler.py`, locate the relevant table (e.g. Executive Key Metrics or Scorecard):
+### 3. Display Metric in HTML Compiler & GFX Pre-rendered Charts
+In `1_core_builder/html_compiler.py`, locate the relevant table (e.g. Executive Key Metrics or Scorecard) and the GFX pre-rendered chart helper:
 
 ```python
 <tr>
@@ -48,7 +48,7 @@ def test_compute_fcf_yield(self):
     self.assertEqual(compute_fcf_yield(100_000_000, 2_000_000_000), 5.0)
 ```
 
-Run test suite:
+Run test suite runner:
 ```bash
-python tests/run_tests.py
+python3 tests/run_tests.py
 ```

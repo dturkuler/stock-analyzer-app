@@ -1,4 +1,4 @@
-# 🌐 Developer Guide: Adding a New Language (i18n)
+# 🌐 Developer Guide: Adding a New Language (i18n) (v2.3.0)
 
 This guide provides step-by-step instructions for adding internationalization (i18n) support for a new language (e.g., German `DE`, French `FR`, Spanish `ES`).
 
@@ -39,18 +39,25 @@ Create a matching JSON catalog file in `3_web_server/locales/`:
 }
 ```
 
-### 3. Update Format Helpers (Optional)
+### 3. Register LLM Commentary Language Enforcer
+In `1_core_builder/llm_commentary.py`, ensure the target language prompt instruction is defined for the 2-Stage LLM commentary pipeline (Stage 1 Quant Audit & Stage 2 Retail Blog Briefing):
+
+```python
+lang_instruction = "Respond ENTIRELY in German." if lang == "DE" else ("Respond ENTIRELY in Turkish." if lang == "TR" else "Respond ENTIRELY in English.")
+```
+
+### 4. Update Format Helpers (Optional)
 If the new language requires specific currency symbols (e.g. `€`) or decimal formatting:
 - Inspect `_fmt_try`, `_fmt_num`, and `_fmt_pct` in `1_core_builder/html_compiler.py`.
 - Pass `is_en=(lang.upper() in ["EN", "DE", "FR"])` or configure locale-specific currency rules.
 
-### 4. Run & Test
+### 5. Run & Test
 Test report compilation with the new language code:
 
 ```bash
 # Generate report for Apple (AAPL) in German
-python 1_core_builder/generate_report.py AAPL --lang DE
+python3 1_core_builder/generate_report.py AAPL --lang DE
 
-# Execute test suite
-python tests/run_tests.py
+# Execute test suite runner
+python3 tests/run_tests.py
 ```

@@ -1,38 +1,12 @@
 #!/usr/bin/env python3
 import sys
 import os
-import subprocess
 from logger import log_error
 
 try:
     os.umask(0000)
 except Exception:
     pass
-
-def auto_install_dependencies():
-    package_map = {
-        "yfinance": "yfinance",
-        "pandas": "pandas",
-        "numpy": "numpy",
-        "requests": "requests",
-        "curl_cffi": "curl_cffi",
-        "bs4": "beautifulsoup4"
-    }
-    missing_pip = []
-    for mod_name, pip_name in package_map.items():
-        try:
-            __import__(mod_name)
-        except ImportError:
-            missing_pip.append(pip_name)
-    if missing_pip:
-        print(f"[*] Missing dependencies detected: {missing_pip}. Installing automatically...", file=sys.stderr)
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "--break-system-packages"] + missing_pip)
-            print("[*] Dependencies installed successfully!", file=sys.stderr)
-        except Exception as e:
-            print(f"[!] Warning: Failed to auto-install packages: {e}", file=sys.stderr)
-
-auto_install_dependencies()
 
 import json
 import argparse
@@ -509,14 +483,29 @@ def compute_2d_dcf_sensitivity(recent_fcf, net_debt, shares_outstanding, base_wa
     }
 
 def fetch_peer_benchmark_data(ticker_symbol, sector_name="Technology"):
-    """Fetches benchmark comparison data for sector peers."""
+    """Fetches benchmark comparison data for sector peers based on stock suffix and sector."""
     parts = ticker_symbol.upper().split('.')
     suffix = f".{parts[-1]}" if len(parts) > 1 else ""
+    sector_clean = (sector_name or "").lower()
     
     if suffix == ".IS":
-        peers = ["KONTR.IS", "LOGO.IS", "LINK.IS", "MOBTL.IS"]
+        if "bank" in sector_clean or "financial" in sector_clean:
+            peers = ["GARAN.IS", "AKBNK.IS", "ISCTR.IS", "YKBNK.IS"]
+        elif "energy" in sector_clean or "oil" in sector_clean or "power" in sector_clean:
+            peers = ["TUPRS.IS", "ASTOR.IS", "EUPWR.IS", "KONTR.IS"]
+        else:
+            peers = ["THYAO.IS", "KONTR.IS", "LOGO.IS", "MOBTL.IS"]
     else:
-        peers = ["AAPL", "MSFT", "GOOGL", "NVDA"]
+        if "bank" in sector_clean or "financial" in sector_clean:
+            peers = ["JPM", "BAC", "WFC", "C"]
+        elif "health" in sector_clean or "pharma" in sector_clean:
+            peers = ["JNJ", "PFE", "UNH", "LLY"]
+        elif "energy" in sector_clean or "oil" in sector_clean:
+            peers = ["XOM", "CVX", "COP", "SLB"]
+        elif "consumer" in sector_clean or "retail" in sector_clean:
+            peers = ["AMZN", "WMT", "PG", "KO"]
+        else:
+            peers = ["AAPL", "MSFT", "GOOGL", "NVDA"]
         
     peer_data = []
     for p in peers:

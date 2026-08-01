@@ -25,7 +25,7 @@ except Exception:
 # Add current directory to path for local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from logger import log_error
-from db_schema import ensure_reports_index_schema
+from db_schema import ensure_reports_index_schema, get_db_connection
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -181,7 +181,7 @@ def generate_report(ticker, lang="TR", strict_llm=False):
     try:
         import sqlite3
         db_path = os.path.join(BASE_DIR, "storage", "app.db")
-        conn = sqlite3.connect(db_path)
+        conn = get_db_connection(db_path)
         ensure_reports_index_schema(conn)
         cur = conn.cursor()
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
             import sqlite3
             db_path = os.path.join(BASE_DIR, "storage", "app.db")
             if os.path.exists(db_path):
-                conn = sqlite3.connect(db_path)
+                conn = get_db_connection(db_path)
                 cur = conn.cursor()
                 cur.execute("SELECT lang FROM watchlist WHERE ticker = ?", (ticker_arg,))
                 row = cur.fetchone()
@@ -261,6 +261,7 @@ if __name__ == "__main__":
                     lang_arg = row[0].strip().upper()
         except Exception as err:
             log_analysis(f"⚠️ Watchlist language lookup notice: {err}")
+            log_error(f"Watchlist language lookup notice: {err}", exc=err)
 
     if not lang_arg:
         lang_arg = "TR"

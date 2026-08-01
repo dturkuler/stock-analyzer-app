@@ -1,15 +1,13 @@
-## What's Changed in Release v2.3.0
+## What's Changed in Release v2.3.1
 
-### ✨ New Features & M&A Readiness
-- **Acquire.com Preparation**: Added root `LICENSE` (MIT License) establishing clear software IP ownership.
-- **Dependency Management**: Added root `requirements.txt` manifest with pinned version limits and refactored `Dockerfile` to optimize layer caching.
-- **Environment Configuration**: Added `STRICT_LLM=false` setting to `.env.example` with self-documenting usage guidance.
-- **Mermaid Architecture Diagrams**: Embedded visual **System Architecture Flow** and **Database Entity Relationship Diagram (ERD)** into `README.md`.
+### ⚡ Improvements & Concurrency (Issue #33)
+- **Thread-Safe SQLite Database Connections**: Added `get_db_connection(db_path, timeout=30.0)` in `1_core_builder/db_schema.py` enforcing busy timeouts and `PRAGMA journal_mode=WAL;` across `generate_report.py`, `scheduler.py`, and `main.py` to prevent database locking during concurrent web server and background cron runs.
+- **Indexed Report Date Lookups**: Refactored `GET /api/dates/{ticker}` in `3_web_server/main.py` to query indexed SQLite `reports_index` table before falling back to synchronous disk globbing.
+- **Dynamic Sector Peer Benchmarking**: Enhanced `fetch_peer_benchmark_data()` in `1_core_builder/fetch_yfinance.py` to select sector-relevant peer benchmark tickers (Banking, Healthcare, Energy, Consumer, Tech) for both BİST and global equity tickers.
 
-### ⚡ Improvements & Refactoring
-- **Environment Config Cleanup**: Completely eliminated legacy provider-specific `NINEROUTER_URL` and `NINEROUTER_KEY` fallbacks in favor of standard `LLM_BASE_URL` / `BASE_URL` and `LLM_API_KEY` / `API_KEY`.
-- **Analysis Log Formatting**: Enhanced `1_core_builder/generate_report.py` to format ticker analysis runs with delimiter lines (`--------------------------------------------------`) and append explicit completion/failure banners (`✅ Analysis of {ticker} completed successfully.` / `❌ Analysis of {ticker} failed.`).
+### 🐛 Fixes & Code Quality (Issue #33)
+- **Purged Import-Time Pip Execution**: Removed `auto_install_dependencies()` from `1_core_builder/fetch_yfinance.py`, eliminating runtime installer side-effects on module import.
+- **Test Suite Polish**: Cleaned up duplicate test runner block in `tests/test_html_compiler.py`.
 
-### 🐛 Fixes & Test Suite Polish
-- **Unit Test Mocking**: Replaced live yfinance 404 network fetches in `test_generate_report.py` with isolated `unittest.mock.patch`, resulting in an 8x execution speedup (0.09s test runner).
-- **Log Purging**: Completely removed residual `INVALID_NONEXISTENT_TICKER_9999` error traces from `storage/logs/analysis.log` and `storage/logs/errors.log`.
+### 🧪 Automated Testing & Code Health
+- **100% Test Suite Pass Rate**: Verified all 43 automated unit and integration tests cleanly in 0.09s.

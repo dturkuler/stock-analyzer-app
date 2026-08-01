@@ -1,6 +1,18 @@
 import sqlite3
 from logger import log_error
 
+def get_db_connection(db_path: str, timeout: float = 30.0) -> sqlite3.Connection:
+    """
+    Creates a thread-safe SQLite connection with explicit busy timeout and WAL journal mode
+    to prevent database locking during concurrent operations.
+    """
+    conn = sqlite3.connect(db_path, timeout=timeout)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+    except Exception:
+        pass
+    return conn
+
 def ensure_reports_index_schema(conn: sqlite3.Connection):
     """
     Ensures the reports_index table and all required valuation columns exist in the SQLite database.
