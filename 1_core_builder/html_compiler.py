@@ -277,9 +277,19 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     """Compile a 100% master parity 13-tab HTML dashboard with modern web layout."""
 
     if not lang:
-        lang = metrics.get("lang") or commentary.get("lang") or "TR"
+        lang = (metrics.get("lang") if isinstance(metrics, dict) else None) or (commentary.get("lang") if isinstance(commentary, dict) else None) or "TR"
     lang = lang.upper()
     is_en = (lang == "EN")
+
+    if not commentary or not commentary.get("blog_summary"):
+        try:
+            from llm_commentary import generate_commentary
+            auto_comm = generate_commentary(metrics, lang=lang)
+            if commentary and isinstance(commentary, dict):
+                auto_comm.update({k: v for k, v in commentary.items() if v})
+            commentary = auto_comm
+        except Exception:
+            pass
 
     ticker = metrics.get("ticker", "UNKNOWN")
     company_name = metrics.get("name") or commentary.get("company_name") or ticker
