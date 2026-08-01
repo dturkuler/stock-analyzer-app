@@ -23,31 +23,21 @@ APP_ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(APP_ENV_PATH)
 load_dotenv()
 
-SYSTEM_PROMPT_TR = """Sen deneyimli, sıcak ve samimi bir Finans Analistisin. Amacın, 18 yaşındaki yeni yatırımcıdan 70 yaşındaki emekliye kadar herkesin hiç finans eğitimi almadan rahatça okuyup anlayabileceği sohbet havasında bir hisse analiz bülteni yazmaktır.
+# ═════════════════════════════════════════════════════════════════════════
+# STAGE 1: INSTITUTIONAL QUANTITATIVE AUDIT MODEL (KEYS 1-18)
+# ═════════════════════════════════════════════════════════════════════════
+STAGE1_PROMPT_TR = """Sen kıdemli bir Finansal Quant ve Bilanço Denetçisisin.
+Amacın, sana verilen nicel finansal metrikleri (Bilanço, Gelir Tablosu, DuPont, WACC, Piotroski, Altman Z, Beneish M-Score, RSI, SMA50/200, Peer Benchmark) kurumsal düzeyde inceleyerek aşağıdaki 18 teknik anahtar kelimeyi içeren geçerli bir JSON nesnesi döndürmektir.
 
-Sana verilen nicel finansal metrikleri (Bilanço, Gelir Tablosu, DuPont, WACC, Piotroski, Altman Z, Beneish M-Score, RSI, SMA50/200, Peer Benchmark) incele.
-Aşağıdaki 27 anahtar kelimeyi içeren geçerli bir JSON nesnesi döndür.
-
-YAZIM VE ÜSLUP KURALLARI (TAMAMEN SADE & SAMİMİ DİL):
-- TÜM ANALİZ CÜMLELERİ VE YORUMLARI KESİNLİKLE %100 TÜRKÇE YAZILACAKTIR. TEK BİR İNGİLİZCE CÜMLE VEYA SOĞUK TEKNİK İFADE KULLANMA.
-- "Yapay Zekâ Kıdemli Analisti" veya "Quant modelimiz" gibi soğuk, robotik ve mekanik ifadeleri KESİNLİKLE KULLANMA. Bir dost gibi konuş.
-- Ağır terimleri halk diline çevir:
-  * Kasadaki Net Nakit / Borç → "Kasadaki Parası & Borç Durumu"
-  * Altman Z-Score → "İflas Riski Testi (Borç Doktoru)"
-  * Piotroski F-Score → "9 Maddelik Bilanço Güven Puanı"
-  * Fiyat/Satışlar (P/S) Çarpanı → "Hisse Fiyat Etiketi (Satışa Göre Pahalı/Ucuz mu?)"
-  * Ters DCF İmplike Büyüme → "Piyasanın Şirketten Beklediği Büyüme Hızı"
-  * Beneish M-Score → "Muhasebe & Dürüstlük Denetimi"
-- 19-27 ARASI BÜLTEN KEY'LERİNDE (BLOG BRIEFING):
-  * "blog_headline": Sürükleyici ve merak uyandıran halk dili başlığı (Örn: 📰 ODINE Analizi: Şirketin Kasası Para Dolu Ama Fiyatı Biraz Pahalı mı?)
-  * "blog_key_takeaways": 3 adet net ve anlaşılır özet maddesi. Her madde "Finansal Sağlık Mükemmel:", "Fiyat Etiketi Yüksek:", "Teknik Desteğe Dikkat:" gibi kalın başlıkla başlasın.
-  * "blog_faqs": 3 adet soru-cevap nesnesi array'i. İLK SORU KESİNLİKLE: {"q": "❓ [TICKER] hissesine ben olsam şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": "Somut pozisyon büyüklüğü (%2,5-%5,0), 50 günlük ortalama koruma kalkanı ve kademeli alım tavsiyesi."}
+YAZIM KURALLARI:
+- TÜM ANALİZ CÜMLELERİ KESİNLİKLE %100 TÜRKÇE YAZILACAKTIR.
+- Ağır finansal terimleri, rasyoları ve adli denetim sonuçlarını kesin rakamlar ve yüzdelerle destekle.
 - JSON formatına tam uy, markdown tırnakları veya kod blokları koyma.
 
-GEREKLİ JSON ANAHTARLARI:
+GEREKLİ STAGE 1 JSON ANAHTARLARI:
 1. "company_name": Şirket unvanı
-2. "executive_summary": Yönetici özeti ve genel durum
-3. "strong_points": Güçlü yanlar ve bilanço sağlığı
+2. "executive_summary": Yönetici özeti ve genel bilanço durumu
+3. "strong_points": Güçlü yanlar ve bilanço nakit gücü
 4. "weak_points": Zayıf yanlar ve değerleme prim/balon riski
 5. "risk_discipline": Risk modeli ve portföy disiplini
 6. "scorecard_commentary": 360° Şirket Karnesi yorumu
@@ -63,37 +53,13 @@ GEREKLİ JSON ANAHTARLARI:
 16. "forensic_audit": Beneish M-Score adli muhasebe, balon uyarısı ve tahta sığlığı yorumu
 17. "scenario_analysis": Sert düşüş, Ayı, Baz ve Boğa senaryoları yorumu
 18. "investment_verdict": DENGELİ MODEL GÖRÜŞÜ ile başlayan nihai yatırım kararı sentezi
-19. "blog_headline": Şirket ve günün tarihine özel, her seviyeden bireysel yatırımcının rahatça anlayabileceği çekici bülten başlığı (örn. 📰 [TICKER] Analizi: Şirketin Kasası Para Dolu Ama Fiyatı Biraz Pahalı mı?)
-20. "blog_summary": Bireysel yatırımcılara yönelik, 1-2 paragraflık sade ve anlaşılır günlük analiz özeti. Ağır finansal terimler kullanma; her terimi halk dilinde açıkla.
-21. "blog_cash_and_health": Şirketin finansal sağlığını ve kasadaki nakit birikimini esnaf/iş yeri benzetmeleriyle anlatan sade makale bölümü.
-22. "blog_earnings_quality": Şirketin kâr kalitesini ve 9 maddelik bilanço güven puanını (Piotroski) sade dille anlatan bölüm.
-23. "blog_valuation_dcf": Hisse fiyatının pahalı mı ucuz mu olduğunu (P/S, P/E) ve piyasanın büyüme beklentilerini halk diliyle açıklayan bölüm.
-24. "blog_catalysts_and_risks": Şirket için önümüzdeki 12 ayın büyüme fırsatlarını ve risklerini "Büyüme Fırsatları:\n1)... 2)...\n\nKritik Riskler:\n1)... 2)..." formatında sade dille anlatan bölüm.
-25. "blog_bull_vs_bear": Boğa ve Ayı senaryolarını "Boğa Senaryosu: ...\n\nAyı Senaryosu: ...\n\nKüçük Yatırımcı İçin Tavsiye: ..." formatında kıyaslayan bölüm.
-26. "blog_key_takeaways": Google öne çıkan snippet kutusu için bireysel yatırımcı diliyle yazılmış 3 kısa özet cümlesi dizisi (örn. ["Finansal Sağlık Mükemmel: ...", "Fiyat Etiketi Yüksek: ...", "Teknik Desteğe Dikkat: ..."]).
-27. "blog_faqs": Bireysel yatırımcıların merak ettiği 3 sade soru-cevap nesnesi dizisi. İLK SORU KESİNLİKLE ŞU OLACAKTIR: [{"q": "❓ [TICKER] hissesine ben olsam şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": "[TICKER] şirketinin batma riski verileri (Altman Z), değerleme çarpanları (P/S, F/K) ve 50 günlük ortalama teknik desteğine dayalı somut, anlaşılır yatırımcı tavsiyesi."}, {"q": "❓ [TICKER] hissesi yeni başlayan biri için uygun mu?", "a": "..."}, {"q": "❓ [TICKER] hissesi şu an pahalı mı?", "a": "..."}]
 """
 
-SYSTEM_PROMPT_EN = """You are an experienced, friendly Financial Analyst explaining stocks over coffee. Your goal is to write a warm, engaging equity research blog post that anyone from an 18-year-old beginner to a 70-year-old retiree can understand without a finance degree.
-
+STAGE1_PROMPT_EN = """You are a Senior Financial Quant and Forensic Balance Sheet Auditor.
 Analyze the provided quantitative financial metrics (Balance Sheet, Income Statement, DuPont, WACC, Piotroski, Altman Z, Beneish M-Score, RSI, SMA50/200, Peer Benchmark).
-Return a valid JSON object containing the exact 27 keys specified below.
+Return a valid JSON object containing the exact 18 technical keys specified below.
 
-WRITING AND STYLE RULES (RETAIL INVESTOR FRIENDLY):
-- Avoid cold, mechanical AI phrasing like "AI Senior Analyst" or "Our quantitative model". Write like a helpful knowledgeable friend.
-- Translate technical jargon into everyday business analogies:
-  * Cash reserves $\rightarrow$ "Emergency Savings Buffer"
-  * Altman Z-Score $\rightarrow$ "Insolvency Risk Test / Debt Health Checkup"
-  * Piotroski F-Score $\rightarrow$ "9-Point Balance Sheet Trust Score"
-  * P/S Multiple $\rightarrow$ "Price Tag per Dollar of Sales"
-  * Reverse DCF $\rightarrow$ "Market Growth Speedometer"
-- For Keys 19-27 (BLOG BRIEFING):
-  * "blog_headline": Catchy, plain-language title (e.g. 📰 [TICKER] Analysis: Solid Cash Cushion vs. High Price Tag)
-  * "blog_key_takeaways": Array of 3 plain-language summary bullet strings starting with bold labels ("Financial Health Excellent:", "Valuation High:", "Key Support Level:").
-  * "blog_faqs": Array of 3 Q&A objects. THE FIRST QUESTION MUST BE EXACTLY: {"q": "❓ How would I personally approach [TICKER] stock right now? (Investor Perspective)", "a": "Concrete advice on position sizing (2.5%-5.0%), key 50-day moving average support, and dollar-cost averaging."}
-- Fully adhere to JSON format; do NOT wrap in markdown quotes or code blocks.
-
-REQUIRED JSON KEYS:
+GEREKLİ STAGE 1 JSON KEYS:
 1. "company_name": Full legal company name
 2. "executive_summary": Executive summary and overall health status
 3. "strong_points": Key strengths and balance sheet health
@@ -112,15 +78,56 @@ REQUIRED JSON KEYS:
 16. "forensic_audit": Beneish M-Score forensic accounting, bubble warning, and liquidity commentary
 17. "scenario_analysis": Severe downside, Bear, Base, and Bull target scenarios commentary
 18. "investment_verdict": Final investment verdict synthesis starting with 'BALANCED MODEL OUTLOOK'
-19. "blog_headline": Engaging, retail-friendly title (e.g. 📰 [TICKER] Analysis: Solid Cash Cushion vs. High Price Tag)
-20. "blog_summary": Plain-language executive summary thesis for everyday investors. Avoid dense jargon; explain every ratio simply.
-21. "blog_cash_and_health": Accessible breakdown of balance sheet cash reserves, debt levels, and Altman Z insolvency safety.
-22. "blog_earnings_quality": Plain-language breakdown of gross margin trends, earnings quality, and Piotroski balance sheet audit.
-23. "blog_valuation_dcf": Clear explanation of P/S and P/E multiples vs industry peers and Reverse DCF market growth expectations.
-24. "blog_catalysts_and_risks": Clear, plain-language radar of top growth opportunities and main risk factors to watch out for.
-25. "blog_bull_vs_bear": Simple Bull vs. Bear comparison ending with a 1-sentence "What this means for retail investors" takeaway.
-26. "blog_key_takeaways": A JSON array of 3 plain-language summary bullet strings.
-27. "blog_faqs": A JSON array of 3 plain retail Q&A objects. THE FIRST QUESTION MUST BE EXACTLY: [{"q": "❓ How would I personally approach this stock right now? (Investor Perspective)", "a": "Practical guidance covering position sizing (2.5%-5.0% Kelly limits), key 50-day moving average support, and valuation risk management in plain language."}, {"q": "❓ Is this stock suitable for beginner investors?", "a": "..."}, {"q": "❓ Is the share price currently expensive?", "a": "..."}]
+"""
+
+# ═════════════════════════════════════════════════════════════════════════
+# STAGE 2: RETAIL INVESTOR BLOG BRIEFING & ARTICLE WRITER (KEYS 19-27)
+# ═════════════════════════════════════════════════════════════════════════
+STAGE2_PROMPT_TR = """Sen deneyimli, samimi ve sürükleyici bir Finans Analisti ve Ekonomi Yazarısın.
+Amacın, sana verilen şirket metriklerini ve Kurumsal Quant Denetim Bulgularını (Stage 1) kullanarak, bireysel yatırımcılar için son derece zengin, detaylı, çok paragraflı ve akıcı bir hisse analiz makalesi (Blog Bülteni) hazırlamaktır.
+
+YAZIM VE UZUNLUK KURALLARI (DERİN VE ZENGİN ANLATIM):
+- TÜM YAZILAR KESİNLİKLE %100 TÜRKÇE OLACAKTIR.
+- "Yapay Zekâ Kıdemli Analisti" veya "Quant modelimiz" gibi soğuk, robotik ifadeleri KESİNLİKLE KULLANMA. Kahve eşliğinde konuşan dost bir analist gibi samimi ve sürükleyici yaz.
+- ZENGİN PARAGRAF ZORUNLULUĞU (ÇOK ÖNEMLİ):
+  * "blog_summary": KESİNLİKLE EN AZ 2-3 DETAYLI PARAGRAF (150-250 kelime). Şirketin ne iş yaptığını, bilançonun genel durumunu ve hisse fiyatının ucuz/pahalı olma hikayesini detaylıca anlat.
+  * "blog_cash_and_health": KESİNLİKLE EN AZ 2-3 DETAYLI PARAGRAF. Kasadaki nakit ve borç durumunu esnaf/iş yeri benzetmeleriyle açıkla. Borç doktoru (Altman Z) test sonucunu halk diliyle detaylandır.
+  * "blog_earnings_quality": KESİNLİKLE EN AZ 2-3 DETAYLI PARAGRAF. Kâr marjlarını ve 9 maddelik bilanço güven puanını (Piotroski) sade dille analiz et.
+  * "blog_valuation_dcf": KESİNLİKLE EN AZ 2-3 DETAYLI PARAGRAF. Hisse fiyat etiketini (P/S, F/K) ve piyasanın beklediği büyüme hızını örneklerle açıkla.
+  * "blog_catalysts_and_risks": Şirket için önümüzdeki 12 ayın büyüme fırsatlarını ve risklerini "Büyüme Fırsatları:\n1)... 2)...\n\nKritik Riskler:\n1)... 2)..." formatında zengin bir dille yaz.
+  * "blog_bull_vs_bear": Boğa ve Ayı senaryolarını "Boğa Senaryosu: ...\n\nAyı Senaryosu: ...\n\nKüçük Yatırımcı İçin Tavsiye: ..." formatında kıyasla.
+  * "blog_key_takeaways": Google öne çıkan snippet kutusu için 3 adet net özet cümlesi dizisi (örn. ["Finansal Sağlık Mükemmel: ...", "Fiyat Etiketi Yüksek: ...", "Teknik Desteğe Dikkat: ..."]).
+  * "blog_faqs": 3 adet soru-cevap nesnesi array'i. İLK SORU KESİNLİKLE: {"q": "❓ [TICKER] hissesine ben olsam şu an nasıl yaklaşırdım? (Yatırımcı Perspektifi)", "a": "Somut pozisyon büyüklüğü (%2,5-%5,0), 50 günlük ortalama koruma kalkanı ve kademeli alım tavsiyesi."}
+
+GEREKLİ STAGE 2 JSON ANAHTARLARI:
+19. "blog_headline": Şirket ve günün tarihine özel çekici bülten başlığı (örn. 📰 [TICKER] Analizi: Şirketin Kasası Para Dolu Ama Fiyatı Biraz Pahalı mı?)
+20. "blog_summary": 2-3 detaylı paragraflık zengin günlük analiz özeti.
+21. "blog_cash_and_health": Kasadaki nakit ve borç durumunu esnaf benzetmeleriyle anlatan 2-3 detaylı paragraflık makale bölümü.
+22. "blog_earnings_quality": Şirketin kâr kalitesini ve Piotroski puanını anlatan 2-3 detaylı paragraflık bölüm.
+23. "blog_valuation_dcf": Fiyat etiketini (P/S, F/K) ve piyasa beklentisini anlatan 2-3 detaylı paragraflık bölüm.
+24. "blog_catalysts_and_risks": Büyüme fırsatları ve kritik riskler radarı.
+25. "blog_bull_vs_bear": Boğa vs Ayı senaryoları ve küçük yatırımcı tavsiyesi.
+26. "blog_key_takeaways": 3 adet özet cümle dizisi.
+27. "blog_faqs": 3 adet soru-cevap nesnesi dizisi.
+"""
+
+STAGE2_PROMPT_EN = """You are an experienced, engaging Financial Columnist and Investment Writer.
+Using the quantitative metrics and Stage 1 Quantitative Audit Findings provided, write a rich, multi-paragraph, engaging stock analysis blog article for retail investors.
+
+STYLE AND LENGTH RULES:
+- Minimum 2-3 detailed paragraphs (150-250 words) for "blog_summary", "blog_cash_and_health", "blog_earnings_quality", and "blog_valuation_dcf".
+- Explain all ratios with accessible real-world business analogies.
+
+REQUIRED STAGE 2 JSON KEYS:
+19. "blog_headline": Catchy title (e.g. 📰 [TICKER] Analysis: Solid Cash Cushion vs. High Price Tag)
+20. "blog_summary": Multi-paragraph plain-language executive summary thesis.
+21. "blog_cash_and_health": Accessible breakdown of balance sheet cash reserves and Altman Z safety.
+22. "blog_earnings_quality": Plain-language breakdown of gross margins and Piotroski score.
+23. "blog_valuation_dcf": Clear explanation of P/S and P/E multiples vs Reverse DCF growth expectations.
+24. "blog_catalysts_and_risks": Clear radar of top opportunities and risk factors.
+25. "blog_bull_vs_bear": Simple Bull vs Bear comparison ending with a retail takeaway.
+26. "blog_key_takeaways": JSON array of 3 plain summary bullet strings.
+27. "blog_faqs": JSON array of 3 Q&A objects. FIRST QUESTION MUST BE EXACTLY: {"q": "❓ How would I personally approach this stock right now? (Investor Perspective)", "a": "..."}
 """
 
 
@@ -273,8 +280,53 @@ def _sanitize_prompt_field(value: str) -> str:
     return re.sub(r'[^\w\s.\-&()/,;:\'\"#%+₺€$£¥]', '', value, flags=re.UNICODE).strip()
 
 
+def _execute_llm_request(system_prompt: str, user_content: str, llm_base_url: str, llm_model: str, llm_api_key: str, timeout_val: int = 120) -> str:
+    """Helper to execute streaming LLM API completion request."""
+    url = f"{llm_base_url.rstrip('/')}/chat/completions"
+    payload = {
+        "model": llm_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content}
+        ],
+        "temperature": 0.3,
+        "max_tokens": 8000,
+        "stream": True
+    }
+    headers = {"Content-Type": "application/json"}
+    if llm_api_key:
+        headers["Authorization"] = f"Bearer {llm_api_key}"
+
+    resp = requests.post(url, headers=headers, json=payload, stream=True, timeout=(10, timeout_val))
+    resp.raise_for_status()
+
+    chunks = []
+    for line in resp.iter_lines():
+        if not line:
+            continue
+        line_str = line.decode("utf-8", errors="replace").strip()
+        if line_str.startswith("data:"):
+            line_str = line_str[5:].strip()
+        if line_str == "[DONE]":
+            break
+        if not line_str.startswith("{"):
+            continue
+        try:
+            data = json.loads(line_str)
+            choices = data.get("choices", [])
+            if choices and len(choices) > 0:
+                delta = choices[0].get("delta", {})
+                txt = delta.get("content") or delta.get("reasoning") or delta.get("reasoning_content") or delta.get("text") or ""
+                if txt:
+                    chunks.append(txt)
+        except Exception:
+            pass
+
+    return "".join(chunks)
+
+
 def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm: bool = False) -> dict:
-    """Generate qualitative commentary JSON using LLM API or professional fallback."""
+    """Generate qualitative commentary JSON using a 2-stage LLM API pipeline (Stage 1 Quant Audit, Stage 2 Retail Blog)."""
     def _log(msg):
         if callable(log_fn):
             log_fn(msg)
@@ -289,12 +341,9 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
     llm_model = os.getenv("LLM_MODEL", "code_combo")
 
     allow_fallback = os.getenv("ALLOW_FALLBACK", "false").lower() in ("true", "1", "yes")
-    is_strict = strict_llm or not allow_fallback
 
     ticker = _sanitize_prompt_field(metrics.get("ticker", "UNKNOWN"))
-    url = f"{llm_base_url.rstrip('/')}/chat/completions"
 
-    # Sanitize user-controlled fields in metrics before embedding in prompt (VULN-007)
     sanitized_metrics = dict(metrics)
     if "name" in sanitized_metrics:
         sanitized_metrics["name"] = _sanitize_prompt_field(sanitized_metrics["name"])
@@ -302,7 +351,6 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
         sanitized_metrics["ticker"] = _sanitize_prompt_field(sanitized_metrics["ticker"])
 
     lang_upper = (lang or "TR").upper()
-    system_prompt = SYSTEM_PROMPT_EN if lang_upper == "EN" else SYSTEM_PROMPT_TR
     user_label = "Company Ticker" if lang_upper == "EN" else "Şirket Ticker"
     metrics_label = "Financial Metrics" if lang_upper == "EN" else "Finansal Metrikler"
 
@@ -310,57 +358,38 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
     if lang_upper == "TR":
         lang_note = "\nCRITICAL: KESİNLİKLE TÜM JSON DEĞERLERİ VE ANALİZ YORUMLARI %100 TÜRKÇE OLMALIDIR. TEK BİR İNGİLİZCE KELİME VEYA CÜMLE KULLANMA.\n"
 
-    prompt_content = f"{user_label}: {ticker}\n{metrics_label}:\n{json.dumps(sanitized_metrics, indent=2, ensure_ascii=False)}{lang_note}"
-
-    payload = {
-        "model": llm_model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt_content}
-        ],
-        "temperature": 0.3,
-        "max_tokens": 8000,
-        "stream": True
-    }
-
-    headers = {"Content-Type": "application/json"}
-    if llm_api_key:
-        headers["Authorization"] = f"Bearer {llm_api_key}"
+    timeout_val = int(os.getenv("LLM_TIMEOUT", "120"))
 
     try:
-        timeout_val = int(os.getenv("LLM_TIMEOUT", "120"))
-        _log(f"2. Requesting LLM commentary from {llm_base_url} ({llm_model}) [Streaming Mode]...")
-        resp = requests.post(url, headers=headers, json=payload, stream=True, timeout=(10, timeout_val))
-        resp.raise_for_status()
+        # ── STAGE 1: Institutional Quantitative Audit (Keys 1-18) ──
+        stage1_prompt = STAGE1_PROMPT_EN if lang_upper == "EN" else STAGE1_PROMPT_TR
+        stage1_content = f"{user_label}: {ticker}\n{metrics_label}:\n{json.dumps(sanitized_metrics, indent=2, ensure_ascii=False)}{lang_note}"
+        
+        _log(f"2a. [Stage 1/2] Requesting Institutional Quant Audit from {llm_base_url} ({llm_model})...")
+        raw_stage1 = _execute_llm_request(stage1_prompt, stage1_content, llm_base_url, llm_model, llm_api_key, timeout_val)
+        res_stage1 = _robust_parse_json(raw_stage1, ticker, metrics, lang, log_fn=log_fn, llm_model=llm_model)
 
-        chunks = []
-        for line in resp.iter_lines():
-            if not line:
-                continue
-            line_str = line.decode("utf-8", errors="replace").strip()
-            if line_str.startswith("data:"):
-                line_str = line_str[5:].strip()
-            if line_str == "[DONE]":
-                break
-            if not line_str.startswith("{"):
-                continue
-            try:
-                data = json.loads(line_str)
-                choices = data.get("choices", [])
-                if choices and len(choices) > 0:
-                    delta = choices[0].get("delta", {})
-                    txt = delta.get("content") or delta.get("reasoning") or delta.get("reasoning_content") or delta.get("text") or ""
-                    if txt:
-                        chunks.append(txt)
-            except Exception:
-                pass
+        # ── STAGE 2: Retail Investor Blog Article (Keys 19-27) ──
+        stage2_prompt = STAGE2_PROMPT_EN if lang_upper == "EN" else STAGE2_PROMPT_TR
+        stage2_content = f"{user_label}: {ticker}\n{metrics_label}:\n{json.dumps(sanitized_metrics, indent=2, ensure_ascii=False)}\n\nQUANT AUDIT FINDINGS (STAGE 1):\n{json.dumps(res_stage1 or {}, indent=2, ensure_ascii=False)}{lang_note}"
 
-        raw_content = "".join(chunks)
-        res = _robust_parse_json(raw_content, ticker, metrics, lang, log_fn=log_fn, llm_model=llm_model)
-        if res is None:
-            _log(f"   ❌ LLM Commentary parse failed for {ticker}. No fallback allowed.")
-            log_error(f"LLM Commentary parse failed for {ticker}", context=ticker)
-        return res
+        _log(f"2b. [Stage 2/2] Requesting Retail Investor Blog Article from {llm_base_url} ({llm_model})...")
+        raw_stage2 = _execute_llm_request(stage2_prompt, stage2_content, llm_base_url, llm_model, llm_api_key, timeout_val)
+        res_stage2 = _robust_parse_json(raw_stage2, ticker, metrics, lang, log_fn=log_fn, llm_model=llm_model)
+
+        final_res = dict(res_stage1 or {})
+        if res_stage2:
+            final_res.update(res_stage2)
+        
+        if not final_res or len(final_res) < 5:
+            _log(f"   ❌ LLM Commentary 2-stage parse failed for {ticker}.")
+            if allow_fallback:
+                return _fallback_commentary(ticker, metrics, lang)
+            return None
+
+        final_res["_is_llm_generated"] = True
+        final_res["_llm_model"] = llm_model
+        return final_res
 
     except requests.exceptions.ConnectionError as ce:
         err_msg = f"LLM endpoint unreachable at {llm_base_url} ({ce})"
