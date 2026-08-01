@@ -2938,10 +2938,11 @@ def index():
                 }
 
                 const dates = history.map(h => h.report_date);
-                const altmanZ = history.map(h => h.altman_z ?? 0);
+                const altmanZ = history.map(h => h.altman_z != null ? Number(h.altman_z.toFixed(2)) : 0);
                 const piotroski = history.map(h => h.piotroski_score ?? 0);
-                const dcf = history.map(h => h.dcf_fair_value ?? 0);
-                const wacc = history.map(h => h.wacc_pct ?? 0);
+                const dcf = history.map(h => h.dcf_fair_value != null ? Number(h.dcf_fair_value.toFixed(2)) : 0);
+                const graham = history.map(h => h.graham_number != null ? Number(h.graham_number.toFixed(2)) : 0);
+                const wacc = history.map(h => h.wacc_pct != null ? Number(h.wacc_pct.toFixed(2)) : 0);
 
                 const renderLineChart = (title, pts, datesList, color = '#06b6d4', suffix = '') => {
                     if (pts.length === 0) return '';
@@ -2991,6 +2992,7 @@ def index():
                         ${renderLineChart('🛡️ Altman Z-Score Trend (İflas Riski)', altmanZ, dates, '#10b981')}
                         ${renderLineChart('🔥 Piotroski F-Score Trend (0-9)', piotroski, dates, '#3b82f6')}
                         ${renderLineChart('🎯 DCF Intrinsic Fair Value', dcf, dates, '#8b5cf6', '₺')}
+                        ${renderLineChart('🏛️ Graham Değeri (Graham Number)', graham, dates, '#ec4899', '₺')}
                         ${renderLineChart('⚡ WACC % Trend', wacc, dates, '#f59e0b', '%')}
                     </div>
                     <div class="admin-card" style="padding:1rem; margin-top:0.5rem;">
@@ -3014,12 +3016,12 @@ def index():
                                         <tr>
                                             <td><strong>${h.report_date}</strong></td>
                                             <td>${h.piotroski_score ?? '-'}</td>
-                                            <td>${h.altman_z ?? '-'}</td>
-                                            <td>${h.beneish_m ?? '-'}</td>
-                                            <td>${h.wacc_pct ? h.wacc_pct + '%' : '-'}</td>
-                                            <td>${h.dcf_fair_value ? '₺' + h.dcf_fair_value : '-'}</td>
-                                            <td>${h.graham_number ? '₺' + h.graham_number : '-'}</td>
-                                            <td>${h.lynch_fair_value ? '₺' + h.lynch_fair_value : '-'}</td>
+                                            <td>${h.altman_z != null ? h.altman_z.toFixed(2) : '-'}</td>
+                                            <td>${h.beneish_m != null ? h.beneish_m.toFixed(2) : '-'}</td>
+                                            <td>${h.wacc_pct != null ? h.wacc_pct.toFixed(2) + '%' : '-'}</td>
+                                            <td>${h.dcf_fair_value != null ? '₺' + h.dcf_fair_value.toFixed(2) : '-'}</td>
+                                            <td>${h.graham_number != null ? '₺' + h.graham_number.toFixed(2) : '-'}</td>
+                                            <td>${h.lynch_fair_value != null ? '₺' + h.lynch_fair_value.toFixed(2) : '-'}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
