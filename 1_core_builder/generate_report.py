@@ -141,10 +141,15 @@ def generate_report(ticker, lang="TR", strict_llm=False):
     # ══════════════════════════════════════════════════════════
     # STEP 3: HTML Dashboard & Printable File Compilation
     # ══════════════════════════════════════════════════════════
-    log_analysis(f"3. Compiling HTML dashboard and printable PDF report for {ticker} (Lang: {lang})...")
-    from html_compiler import compile_report, compile_printable_report
-    html_content = compile_report(metrics, commentary, lang=lang)
-    printable_content = compile_printable_report(metrics, commentary, lang=lang)
+    try:
+        from html_compiler import compile_report, compile_printable_report
+        html_content = compile_report(metrics, commentary, lang=lang)
+        printable_content = compile_printable_report(metrics, commentary, lang=lang)
+    except Exception as exc:
+        err_msg = f"HTML compilation failed for {ticker}: {exc}"
+        log_analysis(f"❌ {err_msg}")
+        log_error(err_msg, exc=exc, context=ticker)
+        sys.exit(1)
 
     with open(report_file_lang, "w", encoding="utf-8") as f:
         f.write(html_content)

@@ -18,6 +18,7 @@ Usage:
 import json
 import math
 import datetime
+from logger import log_error
 
 try:
     from i18n import t
@@ -453,13 +454,13 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
     date_str = datetime.datetime.now().strftime("%d %B %Y")
 
-    # Sanitize investment verdict string
-    default_verdict = "BALANCED QUANTITATIVE MODEL OUTLOOK" if is_en else "DENGELİ NICEL MODEL GÖRÜŞÜ"
-    verdict_raw = commentary.get("investment_verdict", default_verdict)
-    if "kullanılamıyor" in verdict_raw or "LLM" in verdict_raw or len(verdict_raw) < 10:
-        verdict = default_verdict
-    else:
-        verdict = verdict_raw
+    # Validate investment verdict string
+    verdict = commentary.get("investment_verdict")
+    if not verdict or not isinstance(verdict, str) or len(verdict.strip()) < 5:
+        err_msg = f"Missing or invalid 'investment_verdict' key in commentary for {ticker}."
+        log_error(err_msg, context=ticker)
+        raise ValueError(err_msg)
+    verdict = verdict.strip()
 
     exp_m = metrics.get("expanded_metrics", {})
     ev_ebitda = exp_m.get("ev_to_ebitda", 0)
@@ -646,28 +647,34 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         pf_pill_class = "pill-rose"
 
     # SEO Variables & JSON-LD Schemas Setup
-    blog_headline = commentary.get("blog_headline", f"📰 {company_name} ({ticker}): Daily Investor Briefing")
-    blog_summary = commentary.get("blog_summary", commentary.get("executive_summary", ""))
+    blog_headline = commentary.get("blog_headline")
+    if not blog_headline or not isinstance(blog_headline, str):
+        err_msg = f"Missing or invalid 'blog_headline' key in commentary for {ticker}."
+        log_error(err_msg, context=ticker)
+        raise ValueError(err_msg)
+
+    blog_summary = commentary.get("blog_summary")
+    if not blog_summary or not isinstance(blog_summary, str):
+        err_msg = f"Missing or invalid 'blog_summary' key in commentary for {ticker}."
+        log_error(err_msg, context=ticker)
+        raise ValueError(err_msg)
+
     blog_summary_clean = blog_summary.replace('"', '&quot;').replace('\n', ' ')[:160]
 
     seo_title = f"{ticker} Hisse Analizi & Günlük Bülten — {company_name} | Stock Analyzer" if not is_en else f"{ticker} Stock Analysis & Daily Briefing — {company_name} | Stock Analyzer"
     seo_keywords = f"{ticker}, {ticker} hisse, {company_name}, {ticker} borsa analizi, {ticker} hedef fiyat, {ticker} bilanço" if not is_en else f"{ticker}, {ticker} stock, {company_name}, {ticker} stock analysis, {ticker} target price"
 
-    blog_takeaways = commentary.get("blog_key_takeaways", [])
+    blog_takeaways = commentary.get("blog_key_takeaways")
     if not isinstance(blog_takeaways, list) or not blog_takeaways:
-        blog_takeaways = [
-            f"{company_name} ({ticker}) bilanço ve finansal bünye analizi",
-            f"12 nicel model sentezli risk ve değerleme değerlendirmesi",
-            f"50 günlük hareketli ortalama ve teknik momentum takibi"
-        ]
+        err_msg = f"Missing or invalid 'blog_key_takeaways' key in commentary for {ticker}."
+        log_error(err_msg, context=ticker)
+        raise ValueError(err_msg)
 
-    blog_faqs = commentary.get("blog_faqs", [])
+    blog_faqs = commentary.get("blog_faqs")
     if not isinstance(blog_faqs, list) or not blog_faqs:
-        blog_faqs = [
-            {"q": f"{ticker} hissesi yatırım için uygun mu?" if not is_en else f"Is {ticker} stock a good investment?", "a": commentary.get("risk_discipline", "")},
-            {"q": f"{company_name} adil değer tahmini nedir?" if not is_en else f"What is {ticker}'s fair value target?", "a": commentary.get("dcf_valuation", "")},
-            {"q": f"{ticker} hissesinde temel riskler nelerdir?" if not is_en else f"What are the main financial risks for {ticker}?", "a": commentary.get("weak_points", "")}
-        ]
+        err_msg = f"Missing or invalid 'blog_faqs' key in commentary for {ticker}."
+        log_error(err_msg, context=ticker)
+        raise ValueError(err_msg)
 
     faq_entities = []
     for faq in blog_faqs:
