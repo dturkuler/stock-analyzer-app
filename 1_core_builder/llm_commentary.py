@@ -162,50 +162,70 @@ def _robust_parse_json(raw_content: str, ticker: str, metrics: dict, lang: str, 
 
     cleaned = raw_content.strip()
 
-    # Try extracting JSON from ```json ... ``` codeblock first (handles reasoning model outputs)
-    codeblock_match = re.search(r'```(?:json)?\s*(\{[\s\S]*\})\s*```', cleaned, re.IGNORECASE)
+    # 1. Extract JSON block: try ```json ... ``` (with optional closing ```), or first '{' to last '}'
+    json_str = ""
+    codeblock_match = re.search(r'```(?:json)?\s*(\{[\s\S]*\})(?:\s*```)?', cleaned, re.IGNORECASE)
     if codeblock_match:
-        json_str = codeblock_match.group(1).strip()
-    else:
+        candidate = codeblock_match.group(1).strip()
+        # Ensure we cut at the last closing brace of the JSON object
+        last_brace = candidate.rfind("}")
+        if last_brace != -1:
+            json_str = candidate[:last_brace + 1]
+        else:
+            json_str = candidate
+
+    if not json_str:
         start_idx = cleaned.find("{")
         end_idx = cleaned.rfind("}")
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
             json_str = cleaned[start_idx:end_idx + 1]
+        elif start_idx != -1:
+            json_str = cleaned[start_idx:]
         else:
             json_str = cleaned
 
     parsed_data = None
 
-    # 1. Standard json.loads
+    # Parse Attempt 1: Standard json.loads
     try:
         parsed_data = json.loads(json_str)
     except Exception:
         pass
 
-    # 2. Relaxed json.loads with strict=False (allows unescaped control chars)
+    # Parse Attempt 2: Relaxed json.loads with strict=False (allows unescaped control chars)
     if parsed_data is None:
         try:
             parsed_data = json.loads(json_str, strict=False)
         except Exception:
             pass
 
-    # 3. Replace raw unescaped newlines in string literals
+    # Parse Attempt 3: Strip trailing commas before closing braces/brackets
     if parsed_data is None:
         try:
-            fixed_str = re.sub(r'(?<!\\)[\r\n]+', r'\\n', json_str)
-            parsed_data = json.loads(fixed_str, strict=False)
+            fixed_commas = re.sub(r',\s*([\}\]])', r'\1', json_str)
+            parsed_data = json.loads(fixed_commas, strict=False)
         except Exception:
             pass
 
-    # 4. Truncated JSON recovery
+    # Parse Attempt 4: Truncated / Unclosed JSON repair
     if parsed_data is None:
         try:
-            auto_close = json_str.rstrip()
-            if not auto_close.endswith('"'):
-                auto_close += '"'
-            if not auto_close.endswith('}'):
-                auto_close += '}'
-            parsed_data = json.loads(auto_close, strict=False)
+            working = json_str.rstrip()
+            # Remove trailing dangling comma or key colon if truncated
+            working = re.sub(r',\s*$', '', working)
+            working = re.sub(r':\s*$', ': ""', working)
+            # Auto-close unclosed string quote if count of unescaped quotes is odd
+            quote_count = len(re.findall(r'(?<!\\)"', working))
+            if quote_count % 2 != 0:
+                working += '"'
+
+            # Count unclosed braces and brackets
+            open_braces = working.count("{") - working.count("}")
+            open_brackets = working.count("[") - working.count("]")
+            working += "]" * max(0, open_brackets)
+            working += "}" * max(0, open_braces)
+
+            parsed_data = json.loads(working, strict=False)
         except Exception:
             pass
 
