@@ -30,7 +30,7 @@ load_dotenv()
 # STAGE 1: INSTITUTIONAL QUANTITATIVE AUDIT MODEL (KEYS 1-18)
 # ═════════════════════════════════════════════════════════════════════════
 STAGE1_PROMPT_TR = """Sen kıdemli bir Finansal Quant ve Bilanço Denetçisisin.
-Amacın, sana verilen nicel finansal metrikleri (Bilanço, Gelir Tablosu, DuPont, WACC, Piotroski, Altman Z, Beneish M-Score, RSI, SMA50/200, Peer Benchmark) kurumsal düzeyde inceleyerek aşağıdaki 18 teknik anahtar kelimeyi içeren geçerli bir JSON nesnesi döndürmektir.
+Amacın, sana verilen nicel finansal metrikleri (Bilanço, Gelir Tablosu, DuPont, WACC, Piotroski, Altman Z, Beneish M-Score, RSI, SMA50/200, Peer Benchmark) kurumsal düzeyde inceleyerek aşağıdaki 19 teknik anahtar kelimeyi içeren geçerli bir JSON nesnesi döndürmektir.
 
 YAZIM VE DERİNLİK KURALLARI (BOŞ LAF/FLUFF YOK, KESİN VERİ ODAKLI):
 - TÜM ANALİZ CÜMLELERİ KESİNLİKLE %100 TÜRKÇE YAZILACAKTIR.
@@ -330,7 +330,7 @@ def _execute_llm_request(system_prompt: str, user_content: str, llm_base_url: st
             choices = data.get("choices", [])
             if choices and len(choices) > 0:
                 delta = choices[0].get("delta", {})
-                txt = delta.get("content") or delta.get("reasoning") or delta.get("reasoning_content") or delta.get("text") or ""
+                txt = delta.get("content") or delta.get("text") or ""
                 if txt:
                     chunks.append(txt)
         except Exception:
@@ -375,7 +375,7 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
     timeout_val = int(os.getenv("LLM_TIMEOUT", "120"))
 
     try:
-        # ── STAGE 1: Institutional Quantitative Audit (Keys 1-18) ──
+        # ── STAGE 1: Institutional Quantitative Audit (Keys 1-19) ──
         stage1_prompt = STAGE1_PROMPT_EN if lang_upper == "EN" else STAGE1_PROMPT_TR
         stage1_content = f"{user_label}: {ticker}\n{metrics_label}:\n{json.dumps(sanitized_metrics, indent=2, ensure_ascii=False)}{lang_note}"
         
@@ -383,8 +383,22 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
         raw_stage1 = _execute_llm_request(stage1_prompt, stage1_content, llm_base_url, llm_model, llm_api_key, timeout_val)
         res_stage1 = _robust_parse_json(raw_stage1, ticker, metrics, lang, log_fn=log_fn, llm_model=llm_model)
 
-        if not res_stage1 or not isinstance(res_stage1, dict):
-            err_msg = f"LLM Commentary Stage 1 parsing failed for {ticker} at {llm_base_url}."
+        stage1_keys = [
+            "company_name", "executive_summary", "strong_points", "weak_points", "risk_discipline",
+            "scorecard_commentary", "piotroski_commentary", "altman_z_commentary", "moat_and_catalysts",
+            "ownership_commentary", "peer_comparison", "dupont_analysis", "forward_commentary",
+            "dcf_valuation", "technical_analysis", "forensic_audit", "scenario_analysis", "verdict_rating", "investment_verdict"
+        ]
+        missing_stage1 = [k for k in stage1_keys if not res_stage1 or not res_stage1.get(k)]
+        if missing_stage1:
+            _log(f"   ⚠️ Stage 1 incomplete for {ticker} (Missing keys: {missing_stage1}). Attempting 1 retry with strict JSON format directive...")
+            retry_prompt1 = stage1_prompt + "\nCRITICAL FIX: RETURN ONLY VALID ESCAPED JSON WITH ALL 19 MANDATORY KEYS. DO NOT CUT OFF OR TRUNCATE THE JSON.\n"
+            raw_stage1_retry = _execute_llm_request(retry_prompt1, stage1_content, llm_base_url, llm_model, llm_api_key, timeout_val)
+            res_stage1 = _robust_parse_json(raw_stage1_retry, ticker, metrics, lang, log_fn=log_fn, llm_model=llm_model)
+            missing_stage1 = [k for k in stage1_keys if not res_stage1 or not res_stage1.get(k)]
+
+        if missing_stage1:
+            err_msg = f"LLM Commentary Stage 1 incomplete after retry for {ticker}. Missing keys: {missing_stage1}"
             _log(f"   ❌ {err_msg}")
             log_error(err_msg, context=ticker)
             return None

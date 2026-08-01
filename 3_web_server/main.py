@@ -269,7 +269,10 @@ def init_db():
                 if os.path.isdir(t_dir) and not ticker.startswith(".") and ticker.upper() not in {"BATCH", "TMP", "TEMP"}:
                     for f in glob.glob(os.path.join(t_dir, "*.html")):
                         if not f.endswith("_printable.html"):
-                            report_date = os.path.basename(f).replace(".html", "")
+                            base_name = os.path.basename(f).replace(".html", "")
+                            if base_name.endswith("_TR") or base_name.endswith("_EN"):
+                                base_name = base_name[:-3]
+                            report_date = base_name
                             price_val = None
                             piotroski = None
                             altman_z = None
