@@ -191,9 +191,19 @@ def generate_report(ticker, lang="TR", strict_llm=False):
         raw_wacc = metrics.get("valuation_parameters", {}).get("wacc")
         wacc = round(raw_wacc * 100, 2) if isinstance(raw_wacc, (int, float)) else None
 
-        dcf_val = metrics.get("dcf_valuation", {}).get("fair_value", metrics.get("dcf_valuation", {}).get("intrinsic_value", None))
-        graham_val = metrics.get("graham_number", {}).get("value", metrics.get("graham_number", {}).get("graham_number", None))
-        lynch_val = metrics.get("peter_lynch", {}).get("fair_value", metrics.get("peter_lynch", {}).get("value", None))
+        dcf_val = (
+            metrics.get("standard_dcf_model", {}).get("implied_share_price")
+            or metrics.get("dcf_2stage", {}).get("intrinsic_value")
+            or metrics.get("dcf_valuation", {}).get("fair_value")
+        )
+        graham_val = (
+            metrics.get("expanded_metrics", {}).get("graham_number")
+            or metrics.get("graham_number", {}).get("value")
+        )
+        lynch_val = (
+            metrics.get("bank_valuation", {}).get("pb_roe_fair")
+            or metrics.get("peter_lynch", {}).get("fair_value")
+        )
 
         cur.execute("""
             INSERT INTO reports_index (ticker, report_date, file_path, piotroski_score, altman_z, beneish_m, wacc_pct, dcf_fair_value, graham_number, lynch_fair_value, status)
