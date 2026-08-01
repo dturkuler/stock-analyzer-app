@@ -871,8 +871,16 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     }}
     .exec-header-grid {{
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 1rem;
+    }}
+    .exec-meta-item.full-width {{
+      grid-column: 1 / -1;
+      background: rgba(6, 182, 212, 0.06);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      border-radius: 8px;
+      padding: 0.6rem 0.8rem;
+      margin-top: 0.25rem;
     }}
     .exec-meta-item {{
       display: flex;
@@ -999,10 +1007,6 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         </div>
         <div class="exec-header-grid">
           <div class="exec-meta-item">
-            <span class="exec-meta-label">{"MODEL ASSESSMENT" if is_en else "MODEL DEĞERLENDİRMESİ"}</span>
-            <span class="exec-meta-val val-cyan">{verdict}</span>
-          </div>
-          <div class="exec-meta-item">
             <span class="exec-meta-label">{"THEORETICAL KELLY RISK BOUNDARY" if is_en else "TEORİK KELLY RİSK SIFIRI"}</span>
             <span class="exec-meta-val val-emerald">{"2.5% - 5.0%" if is_en else "%2,5 - %5,0"} <small style="color:var(--text-muted); font-weight:500;">({"Statistical Limit" if is_en else "(İstatistiki Sınır)"})</small></span>
           </div>
@@ -1013,6 +1017,10 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           <div class="exec-meta-item">
             <span class="exec-meta-label">{"RISK / REWARD PROFILE" if is_en else "RİSK / ÖDÜL PROFİLİ"}</span>
             <span class="exec-meta-val val-amber">{"HIGH POTENTIAL - VALUATION RISK" if is_en else "YÜKSEK POTANSİYEL - PAHALILIK RİSKİ"}</span>
+          </div>
+          <div class="exec-meta-item full-width">
+            <span class="exec-meta-label">{"MODEL ASSESSMENT" if is_en else "MODEL DEĞERLENDİRMESİ"}</span>
+            <span class="exec-meta-val val-cyan">{verdict}</span>
           </div>
         </div>
       </div>
