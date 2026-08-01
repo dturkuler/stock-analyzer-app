@@ -34,7 +34,9 @@ try:
         get_report,
         get_dates,
         get_reprocess_status,
-        get_active_reprocess_status
+        get_active_reprocess_status,
+        get_access_logs,
+        get_connection_analytics
     )
     HAS_FASTAPI = True
 except ImportError:
@@ -167,6 +169,16 @@ class TestWebServerHandlers(unittest.TestCase):
         status = get_active_reprocess_status(x_admin_password=self.admin_password)
         self.assertIn("active", status)
         self.assertIn("status", status)
+
+    def test_get_access_logs(self):
+        logs = get_access_logs(x_admin_password=self.admin_password)
+        self.assertIn("log", logs)
+
+    def test_get_connection_analytics(self):
+        analytics = get_connection_analytics(x_admin_password=self.admin_password)
+        self.assertIn("total_unique_ips", analytics)
+        self.assertIn("total_requests", analytics)
+        self.assertIn("ip_stats", analytics)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ import secrets
 import subprocess
 import asyncio
 from typing import Optional
-from fastapi import FastAPI, BackgroundTasks, HTTPException, Header
+from fastapi import FastAPI, Request, BackgroundTasks, HTTPException, Header
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -51,6 +51,59 @@ WATCHLIST_PATH = os.path.join(BASE_DIR, "2_cron_scheduler", "watchlist.json")
 BUILDER_SCRIPT = os.path.join(BASE_DIR, "1_core_builder", "generate_report.py")
 SCHEDULER_SCRIPT = os.path.join(BASE_DIR, "2_cron_scheduler", "scheduler.py")
 VERSION_PATH = os.path.join(BASE_DIR, "VERSION")
+
+ACCESS_LOG_FILE = os.path.join(LOGS_DIR, "access.log")
+IP_CONNECTION_STATS = {}
+RECENT_ACCESS_LOGS = []
+
+@app.middleware("http")
+async def log_ip_access_middleware(request: Request, call_next):
+    x_forwarded = request.headers.get("X-Forwarded-For")
+    if x_forwarded:
+        ip = x_forwarded.split(",")[0].strip()
+    else:
+        ip = request.client.host if (request.client and request.client.host) else "127.0.0.1"
+
+    endpoint = request.url.path
+    method = request.method
+    user_agent = request.headers.get("User-Agent", "Unknown")
+    import datetime
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if ip not in IP_CONNECTION_STATS:
+        IP_CONNECTION_STATS[ip] = {
+            "total_connections": 0,
+            "first_access": now_str,
+            "last_access": now_str,
+            "endpoints": {}
+        }
+    
+    stats = IP_CONNECTION_STATS[ip]
+    stats["total_connections"] += 1
+    stats["last_access"] = now_str
+    stats["endpoints"][endpoint] = stats["endpoints"].get(endpoint, 0) + 1
+
+    entry = {
+        "ip": ip,
+        "endpoint": endpoint,
+        "method": method,
+        "timestamp": now_str,
+        "user_agent": user_agent[:100]
+    }
+    RECENT_ACCESS_LOGS.append(entry)
+    if len(RECENT_ACCESS_LOGS) > 100:
+        RECENT_ACCESS_LOGS.pop(0)
+
+    try:
+        os.makedirs(LOGS_DIR, exist_ok=True)
+        log_line = f"[{now_str}] IP: {ip} | {method} {endpoint} | UA: {user_agent[:80]}"
+        with open(ACCESS_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(log_line + "\n")
+    except Exception:
+        pass
+
+    response = await call_next(request)
+    return response
 
 def get_app_version():
     if os.path.exists(VERSION_PATH):
@@ -476,6 +529,25 @@ def get_error_logs(x_admin_password: Optional[str] = Header(None)):
     return {"log": read_last_log_lines(log_path)}
 
 
+@app.get("/api/logs/access")
+def get_access_logs(x_admin_password: Optional[str] = Header(None)):
+    verify_password_header(x_admin_password)
+    log_path = os.path.join(LOGS_DIR, "access.log")
+    return {"log": read_last_log_lines(log_path)}
+
+
+@app.get("/api/admin/analytics/connections")
+def get_connection_analytics(x_admin_password: Optional[str] = Header(None)):
+    verify_password_header(x_admin_password)
+    total_requests = sum(s.get("total_connections", 0) for s in IP_CONNECTION_STATS.values())
+    return {
+        "total_unique_ips": len(IP_CONNECTION_STATS),
+        "total_requests": total_requests,
+        "ip_stats": IP_CONNECTION_STATS,
+        "recent_logs": RECENT_ACCESS_LOGS
+    }
+
+
 @app.get("/api/logs/{log_type}")
 def get_logs_by_type(log_type: str, x_admin_password: Optional[str] = Header(None)):
     verify_password_header(x_admin_password)
@@ -486,6 +558,8 @@ def get_logs_by_type(log_type: str, x_admin_password: Optional[str] = Header(Non
         log_path = os.path.join(LOGS_DIR, "analysis.log")
     elif target == "errors":
         log_path = os.path.join(LOGS_DIR, "errors.log")
+    elif target == "access":
+        log_path = os.path.join(LOGS_DIR, "access.log")
     else:
         raise HTTPException(status_code=400, detail=f"Geçersiz log türü / Invalid log type: {log_type}")
     return {"log": read_last_log_lines(log_path)}
@@ -495,7 +569,7 @@ def get_logs_by_type(log_type: str, x_admin_password: Optional[str] = Header(Non
 def clear_logs(log_type: str, x_admin_password: Optional[str] = Header(None)):
     verify_password_header(x_admin_password)
     target_type = log_type.lower()
-    if target_type in ["cron", "analysis", "errors", "live", "all"]:
+    if target_type in ["cron", "analysis", "errors", "access", "live", "all"]:
         if target_type in ["cron", "all"]:
             log_path = os.path.join(LOGS_DIR, "cron.log")
             try:
@@ -520,6 +594,14 @@ def clear_logs(log_type: str, x_admin_password: Optional[str] = Header(None)):
                     f.write("")
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Errors log temizleme hatası: {e}")
+
+        if target_type in ["access", "all"]:
+            log_path = os.path.join(LOGS_DIR, "access.log")
+            try:
+                with open(log_path, "w", encoding="utf-8") as f:
+                    f.write("")
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Access log temizleme hatası: {e}")
 
         if target_type == "live":
             PROCESS_STATUS.clear()
@@ -1561,6 +1643,7 @@ def index():
                                     <div id="tabCronLog" class="log-tab active" onclick="switchLogTab('cron')" data-i18n="tab_cron">⏰ Cron Scheduler Logları (cron.log)</div>
                                     <div id="tabAnalysisLog" class="log-tab" onclick="switchLogTab('analysis')" data-i18n="tab_analysis">📊 Analiz Rapor Logları (analysis.log)</div>
                                     <div id="tabErrorLog" class="log-tab" onclick="switchLogTab('errors')" data-i18n="tab_errors">🚨 Hata Logları (errors.log)</div>
+                                    <div id="tabAccessLog" class="log-tab" onclick="switchLogTab('access')" data-i18n="tab_access">🌐 IP Access Logları (access.log)</div>
                                     <div id="tabLiveLog" class="log-tab" onclick="switchLogTab('live')" data-i18n="tab_live">⚡ Canlı İşlem Çıktısı (Live)</div>
                                 </div>
                                 <div id="fileConsoleBox" class="console-box">Loglar yükleniyor...</div>
@@ -1659,6 +1742,7 @@ def index():
                     tab_cron: "⏰ Cron Scheduler Logları (cron.log)",
                     tab_analysis: "📊 Analiz Rapor Logları (analysis.log)",
                     tab_errors: "🚨 Hata Logları (errors.log)",
+                    tab_access: "🌐 IP Access Logları (access.log)",
                     tab_live: "⚡ Canlı İşlem Çıktısı (Live)",
                     log_loading: "Loglar yükleniyor...",
                     sec3_heading: "➕ Yeni Hisse Ekle (Create Stock)",
@@ -1766,6 +1850,7 @@ def index():
                     tab_cron: "⏰ Cron Scheduler Logs (cron.log)",
                     tab_analysis: "📊 Analysis Report Logs (analysis.log)",
                     tab_errors: "🚨 Error Logs (errors.log)",
+                    tab_access: "🌐 IP Access Logs (access.log)",
                     tab_live: "⚡ Live Execution Output (Live)",
                     log_loading: "Loading logs...",
                     sec3_heading: "➕ Add New Stock (Create Stock)",
@@ -2698,11 +2783,13 @@ def index():
                 const tabCron = document.getElementById('tabCronLog');
                 const tabAnalysis = document.getElementById('tabAnalysisLog');
                 const tabError = document.getElementById('tabErrorLog');
+                const tabAccess = document.getElementById('tabAccessLog');
                 const tabLive = document.getElementById('tabLiveLog');
 
                 if (tabCron) tabCron.classList.toggle('active', type === 'cron');
                 if (tabAnalysis) tabAnalysis.classList.toggle('active', type === 'analysis');
                 if (tabError) tabError.classList.toggle('active', type === 'errors');
+                if (tabAccess) tabAccess.classList.toggle('active', type === 'access');
                 if (tabLive) tabLive.classList.toggle('active', type === 'live');
 
                 if (type === 'live') {
@@ -2737,7 +2824,7 @@ def index():
             async function fetchFileLogs() {
                 if (activeLogType === 'live') return;
                 const t = UI_I18N[currentUiLang] || UI_I18N.TR;
-                const validTypes = ['cron', 'analysis', 'errors'];
+                const validTypes = ['cron', 'analysis', 'errors', 'access'];
                 const targetType = validTypes.includes(activeLogType) ? activeLogType : 'analysis';
                 const endpoint = `/api/logs/${targetType}`;
                 try {
