@@ -67,6 +67,7 @@ class TestGenerateReportPipeline(unittest.TestCase):
             "blog_valuation_dcf", "blog_catalysts_and_risks", "blog_bull_vs_bear"
         ]}
         mock_commentary["company_name"] = "Test Company A.S."
+        mock_commentary["verdict_rating"] = "🟢 GÜÇLÜ MODEL ALIM"
         mock_commentary["blog_key_takeaways"] = ["Key Takeaway 1", "Key Takeaway 2"]
         mock_commentary["blog_faqs"] = [{"q": "FAQ 1?", "a": "Answer 1"}]
         

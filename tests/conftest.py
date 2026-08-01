@@ -217,6 +217,7 @@ def get_mock_commentary():
         "technical_analysis": "RSI 58.5 indicates neutral-bullish momentum above 50-day SMA.",
         "forensic_audit": "Beneish M-Score of -2.85 confirms no earnings manipulation.",
         "scenario_analysis": "Base target ₺58.00, Bull target ₺75.00, Bear floor ₺35.00.",
+        "verdict_rating": "🟢 GÜÇLÜ MODEL ALIM",
         "investment_verdict": "DENGELİ MODEL GÖRÜŞÜ (GÜÇLÜ NAKİT / MAKUL DEĞERLEME DENGESİ)",
         "blog_headline": "📰 Test Company AS (TEST.IS): Daily Investor Briefing",
         "blog_summary": "Test Company AS exhibits robust balance sheet fundamentals with high FCF yield.",

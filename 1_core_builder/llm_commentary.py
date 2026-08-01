@@ -61,12 +61,13 @@ GEREKLİ STAGE 1 JSON ANAHTARLARI:
 15. "technical_analysis": 2 detaylı paragraflık teknik momentum ve kritik seviyeler analizi
 16. "forensic_audit": 2 detaylı paragraflık Beneish M-Score adli muhasebe ve mevzuat güvenliği analizi
 17. "scenario_analysis": Sert düşüş, Ayı, Baz ve Boğa senaryoları yorumu
-18. "investment_verdict": Şirketin metriklerine (Piotroski, Altman Z, Net Borç/Kasa, P/S) tam uyumlu özgün bir derecelendirme başlığı (örneğin 🟢 GÜÇLÜ MODEL ALIM, 🔴 YÜKSEK İFLAS VE PAHALILIK RİSKİ veya 🟡 TEMKİNLİ NÖTR GÖRÜŞ) ile başlayan 2-3 cümlelik şirket adı ve rakam içeren dinamik nihai karar sentezi.
+18. "verdict_rating": Şirket rasyolarına tam uyumlu 2-4 kelimelik kısa ve özgün model derecelendirme başlığı (örn. 🟢 GÜÇLÜ MODEL ALIM, 🔴 YÜKSEK İFLAS VE PAHALILIK RİSKİ veya 🟡 TEMKİNLİ NÖTR GÖRÜŞ).
+19. "investment_verdict": 2 detaylı paragraflık (120-200 kelime), şablon laflardan ve kalıplaşmış başlık eklerinden tamamen arındırılmış, şirketin bilanço kalitesini, değerleme potansiyelini ve ana risklerini akıcı bir dille sentezleyen özgün yapay zekâ model değerlendirmesi.
 """
 
 STAGE1_PROMPT_EN = """You are a Senior Financial Quant and Forensic Balance Sheet Auditor.
 Analyze the provided quantitative financial metrics (Balance Sheet, Income Statement, DuPont, WACC, Piotroski, Altman Z, Beneish M-Score, RSI, SMA50/200, Peer Benchmark).
-Return a valid JSON object containing the exact 18 technical keys specified below.
+Return a valid JSON object containing the exact technical keys specified below.
 
 WRITING AND DEPTH RULES (STRICTLY DATA-DRIVEN, NO FLUFF):
 - MANDATORY MULTI-PARAGRAPH DEPTH (MINIMUM 2 PARAGRAPHS / 120-200 WORDS PER SECTION):
@@ -75,6 +76,7 @@ WRITING AND DEPTH RULES (STRICTLY DATA-DRIVEN, NO FLUFF):
   * "weak_points": Minimum 2 detailed paragraphs unpacking P/S, P/E, and valuation risk multiples.
   * "technical_analysis": Minimum 2 detailed paragraphs analyzing RSI, MACD, SMA 50, and SMA 200 price levels.
   * "risk_discipline": Minimum 2 detailed paragraphs outlining Kelly allocation limits (2.5%-5.0%) and risk rules.
+  * "investment_verdict": Minimum 2 detailed paragraphs of organic financial research synthesis without template phrases.
 - NO FLUFF MANDATE: Avoid generic filler text. Every paragraph MUST contain specific numbers, percentages, and financial metrics.
 
 REQUIRED STAGE 1 JSON KEYS:
@@ -95,7 +97,8 @@ REQUIRED STAGE 1 JSON KEYS:
 15. "technical_analysis": 2-paragraph detailed technical momentum and key price levels analysis
 16. "forensic_audit": 2-paragraph detailed Beneish M-Score forensic accounting audit analysis
 17. "scenario_analysis": Severe downside, Bear, Base, and Bull target scenarios commentary
-18. "investment_verdict": Dynamic stock-specific synthesis starting with a quantitative rating title (e.g. 🟢 BULLISH QUANT RATING, 🔴 HIGH DISTRESS RISK, or 🟡 NEUTRAL OUTLOOK) followed by 2-3 company-specific sentences with exact numbers.
+18. "verdict_rating": Short 2-4 word rating title (e.g. 🟢 BULLISH QUANT RATING, 🔴 HIGH DISTRESS RISK, or 🟡 NEUTRAL OUTLOOK)
+19. "investment_verdict": 2-paragraph organic financial research synthesis without rigid template phrases.
 """
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -415,7 +418,7 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
             "company_name", "executive_summary", "strong_points", "weak_points", "risk_discipline",
             "scorecard_commentary", "piotroski_commentary", "altman_z_commentary", "moat_and_catalysts",
             "ownership_commentary", "peer_comparison", "dupont_analysis", "forward_commentary",
-            "dcf_valuation", "technical_analysis", "forensic_audit", "scenario_analysis", "investment_verdict",
+            "dcf_valuation", "technical_analysis", "forensic_audit", "scenario_analysis", "verdict_rating", "investment_verdict",
             "blog_headline", "blog_summary", "blog_cash_and_health", "blog_earnings_quality",
             "blog_valuation_dcf", "blog_catalysts_and_risks", "blog_bull_vs_bear", "blog_key_takeaways", "blog_faqs"
         ]

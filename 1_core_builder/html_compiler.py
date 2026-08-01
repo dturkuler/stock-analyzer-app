@@ -459,7 +459,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         "company_name", "executive_summary", "strong_points", "weak_points", "risk_discipline",
         "scorecard_commentary", "piotroski_commentary", "altman_z_commentary", "moat_and_catalysts",
         "ownership_commentary", "peer_comparison", "dupont_analysis", "forward_commentary",
-        "dcf_valuation", "technical_analysis", "forensic_audit", "scenario_analysis", "investment_verdict",
+        "dcf_valuation", "technical_analysis", "forensic_audit", "scenario_analysis", "verdict_rating", "investment_verdict",
         "blog_headline", "blog_summary", "blog_cash_and_health", "blog_earnings_quality",
         "blog_valuation_dcf", "blog_catalysts_and_risks", "blog_bull_vs_bear", "blog_key_takeaways", "blog_faqs"
     ]
@@ -476,6 +476,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         log_error(err_msg, context=ticker)
         raise ValueError(err_msg)
 
+    verdict_rating = commentary.get("verdict_rating", "").strip()
     verdict = commentary["investment_verdict"].strip()
 
     exp_m = metrics.get("expanded_metrics", {})
@@ -565,7 +566,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
     year_labels = [h.get("year", "")[:4] for h in reversed(hist)] if hist else ["2023", "2024", "2025"]
     col_y0 = year_labels[0] if len(year_labels) > 0 else "2023"
     col_y1 = year_labels[1] if len(year_labels) > 1 else "2024"
-    col_y2 = year_labels[2] + " (Actual)" if len(year_labels) > 2 else "2025 (Actual)"
+    col_y2 = year_labels[2] + (" (Actual)" if is_en else " (Gerçekleşen)") if len(year_labels) > 2 else ("2025 (Actual)" if is_en else "2025 (Gerçekleşen)")
 
     # Build historical data for charts
     chart_labels = []
@@ -1088,7 +1089,10 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
           </div>
           <div class="exec-meta-item full-width">
             <span class="exec-meta-label">{"MODEL ASSESSMENT" if is_en else "MODEL DEĞERLENDİRMESİ"}</span>
-            <span class="exec-meta-val val-cyan">{verdict}</span>
+            <div style="margin-top:0.35rem;">
+              <span class="exec-verdict-badge" style="margin-bottom:0.6rem;">{verdict_rating if verdict_rating else verdict[:30]}</span>
+              <div class="analyst-text" style="line-height:1.75; font-size:0.92rem; color:var(--text-main); margin-top:0.4rem;">{format_analyst_text(verdict, is_en=is_en)}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1101,7 +1105,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       </div>
 
       <div class="exec-hero">
-        <div class="exec-verdict-badge">{verdict}</div>
+        <div class="exec-verdict-badge">{verdict_rating if verdict_rating else verdict[:30]}</div>
         <h2 style="font-family:'Outfit', sans-serif; font-size:1.6rem; font-weight:800; color:#fff; margin-bottom:0.75rem;">
           {"🏛️ Executive Summary & Algorithmic Data Briefing" if is_en else "🏛️ Yönetici Özeti & Algoritmik Veri Brifingi (Executive Summary)"}
         </h2>
@@ -1613,7 +1617,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
             <tr><td><strong>{"RSI (14) Momentum Signal" if is_en else "RSI (14) Momentum Sinyali"}</strong></td><td><strong>{_fmt_num(ti.get("rsi_14", 0), is_en=is_en)}</strong></td><td>-</td><td>{"Bullish Momentum Signal" if is_en else "Boğa Trendi Momentum Göstergesi"}</td></tr>
             <tr><td><strong>{"Theoretical Kelly Allocation Limit" if is_en else "Teorik Kelly Simülasyon Limiti"}</strong></td><td><strong>{kelly_range}</strong></td><td>-</td><td>{"Portfolio Risk Limit Boundary" if is_en else "Portföy Riskini Sınırlama Üst Barajı"}</td></tr>
             <tr><td><strong>{"Valuation Multiple Bubble Warning" if is_en else "Değerleme Çarpanı Balon Uyarısı"}</strong></td><td><strong>{_fmt_num(ps_ratio, 1)}x P/S</strong></td><td>-</td><td><span class="{"tag-red" if ps_ratio > 10 else "tag-green"}">{("🔴 Overheating (Technical Support Required)" if ps_ratio > 10 else "🟢 Fair Valuation") if is_en else ("🔴 Aşırı Isınma (Teknik Destek Şart)" if ps_ratio > 10 else "🟢 Makul Değerleme")}</span></td></tr>
-            <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>{"Composite Model Verdict" if is_en else "Bileşik Model Görüşü"}</strong></td><td><strong>{verdict[:25]}</strong></td><td>-</td><td><strong>{risk_reward_desc}</strong></td></tr>
+            <tr style="background:rgba(6,182,212,0.15); font-weight:700;"><td><strong>{"Composite Model Verdict" if is_en else "Bileşik Model Görüşü"}</strong></td><td><strong>{verdict_rating if verdict_rating else verdict[:25]}</strong></td><td>-</td><td><strong>{risk_reward_desc}</strong></td></tr>
           </tbody>
         </table>
       </div>
@@ -1648,7 +1652,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <h2 class="analyst-heading">{"🤖 AI Equity Intelligence & Strategy Synthesis" if is_en else "🤖 AI Finansal Analiz & Yapay Zekâ Strateji Sentezi"}</h2>
         <div class="analyst-sub">{"AI Quantitative Intelligence Synthesis — " if is_en else "Yapay Zekâ Kantitatif Analiz Sentezi — "}{company_name} ({ticker})</div>
         <p style="color:var(--text-muted); font-size:0.95rem; line-height:1.6; margin-top:0.5rem;">
-          "{verdict}..."
+          "{verdict_rating if verdict_rating else ''} — {verdict[:120]}..."
         </p>
       </div>
       <div class="analyst-block">
