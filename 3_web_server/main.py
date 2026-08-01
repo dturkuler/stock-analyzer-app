@@ -238,7 +238,18 @@ def init_db():
         VALUES (1, 1, '18:30', 'Europe/Istanbul', 'mon-fri', 120, 15, 0)
         ON CONFLICT(id) DO NOTHING;
     """)
-    conn.commit()
+    
+    def _parse_metric_num(val_str):
+        if not val_str: return None
+        s = val_str.strip().replace(" ", "")
+        if "." in s and "," in s:
+            s = s.replace(".", "").replace(",", ".")
+        elif "," in s:
+            s = s.replace(",", ".")
+        try:
+            return float(s)
+        except Exception:
+            return None
 
     # Auto-sync existing report files on disk into reports_index table with metric backfilling
     if os.path.exists(REPORTS_DIR):
@@ -256,14 +267,14 @@ def init_db():
                             try:
                                 with open(f, "r", encoding="utf-8") as rf:
                                     html_txt = rf.read()
-                                pio_m = re.search(r"Piotroski\s*(?:F-Score)?\s*(\d+)/9", html_txt, re.I)
+                                pio_m = re.search(r"Piotroski\s*(?:F-Score)?\s*(?:skoru|score)?\s*(\d+)\s*/\s*9", html_txt, re.I)
                                 if pio_m: piotroski = int(pio_m.group(1))
-                                alt_m = re.search(r"Altman Z-Score\s*(?:Z\s*=\s*)?([\d\.-]+)", html_txt, re.I)
-                                if alt_m: altman_z = float(alt_m.group(1))
-                                ben_m = re.search(r"Beneish M-Score\s*(?:M\s*=\s*)?([\d\.-]+)", html_txt, re.I)
-                                if ben_m: beneish_m = float(ben_m.group(1))
-                                wacc_m = re.search(r"WACC\s*(?:%|=)?\s*([\d\.-]+)%?", html_txt, re.I)
-                                if wacc_m: wacc = float(wacc_m.group(1))
+                                alt_m = re.search(r"Altman\s*Z-Score[^\d\.-]*(?:Z\s*=\s*)?([\d\.,]+)", html_txt, re.I)
+                                if alt_m: altman_z = _parse_metric_num(alt_m.group(1))
+                                ben_m = re.search(r"Beneish\s*M-Score[^\d\.-]*(?:M\s*=\s*)?(-?[\d\.,]+)", html_txt, re.I)
+                                if ben_m: beneish_m = _parse_metric_num(ben_m.group(1))
+                                wacc_m = re.search(r"WACC[^\d\.-]*(?:%|=)?\s*%?\s*([\d\.,]+)\s*%", html_txt, re.I) or re.search(r"WACC[^\d\.-]*([\d\.,]+)", html_txt, re.I)
+                                if wacc_m: wacc = _parse_metric_num(wacc_m.group(1))
                             except Exception:
                                 pass
 
