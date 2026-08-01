@@ -28,6 +28,7 @@ try:
         delete_watchlist_item,
         get_cron_logs,
         get_analysis_logs,
+        get_error_logs,
         clear_logs,
         get_report,
         get_dates,
@@ -135,8 +136,16 @@ class TestWebServerHandlers(unittest.TestCase):
         logs = get_analysis_logs(x_admin_password=self.admin_password)
         self.assertIn("log", logs)
 
+    def test_get_error_logs(self):
+        logs = get_error_logs(x_admin_password=self.admin_password)
+        self.assertIn("log", logs)
+
     def test_clear_logs_live(self):
         res = clear_logs("live", x_admin_password=self.admin_password)
+        self.assertEqual(res.get("status"), "ok")
+
+    def test_clear_logs_errors(self):
+        res = clear_logs("errors", x_admin_password=self.admin_password)
         self.assertEqual(res.get("status"), "ok")
 
     def test_get_reprocess_status_idle(self):

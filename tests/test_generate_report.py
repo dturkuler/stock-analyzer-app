@@ -7,6 +7,7 @@ import os
 import unittest
 import tempfile
 from generate_report import log_analysis, ANALYSIS_LOG_FILE
+from logger import log_error, ERRORS_LOG_FILE
 
 
 class TestGenerateReportPipeline(unittest.TestCase):
@@ -18,6 +19,15 @@ class TestGenerateReportPipeline(unittest.TestCase):
         with open(ANALYSIS_LOG_FILE, "r", encoding="utf-8") as f:
             content = f.read()
             self.assertIn(test_msg, content)
+
+    def test_log_error_writes_errors_file(self):
+        test_err_msg = "TEST_ERROR_LOG_MESSAGE"
+        log_error(test_err_msg, context="TEST_TICKER")
+        self.assertTrue(os.path.exists(ERRORS_LOG_FILE))
+        with open(ERRORS_LOG_FILE, "r", encoding="utf-8") as f:
+            content = f.read()
+            self.assertIn(test_err_msg, content)
+            self.assertIn("[TEST_TICKER]", content)
 
 
 if __name__ == "__main__":

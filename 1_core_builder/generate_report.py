@@ -24,6 +24,7 @@ except Exception:
 
 # Add current directory to path for local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from logger import log_error
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGS_DIR = os.path.join(BASE_DIR, "storage", "logs")
@@ -39,6 +40,7 @@ def log_analysis(msg: str):
             f.write(formatted + "\n")
     except Exception as e:
         print(f"⚠️ Analysis log write error: {e}")
+        log_error(f"Analysis log write error: {e}", exc=e)
 
 
 def generate_report(ticker, lang="TR", strict_llm=False):
@@ -77,14 +79,17 @@ def generate_report(ticker, lang="TR", strict_llm=False):
         proc = subprocess.run([python_exec, sourcing_script, ticker, "--output", metrics_path, "--language", lang], capture_output=True, text=True)
         if proc.returncode != 0:
             log_analysis(f"❌ Error sourcing data for {ticker}:\n{proc.stderr}")
+            log_error(f"Error sourcing data for {ticker}: {proc.stderr}", context=ticker)
             return
     else:
         log_analysis(f"⚠️ Warning: Sourcing script not found at {sourcing_script}")
+        log_error(f"Sourcing script not found at {sourcing_script}", context=ticker)
         return
 
     # Load metrics
     if not os.path.exists(metrics_path):
         log_analysis(f"❌ Metrics file not found at: {metrics_path}")
+        log_error(f"Metrics file not found at: {metrics_path}", context=ticker)
         return
 
     with open(metrics_path, "r", encoding="utf-8") as f:
@@ -102,6 +107,7 @@ def generate_report(ticker, lang="TR", strict_llm=False):
     fetched_ticker = metrics.get("ticker", "").upper()
     if fetched_ticker != ticker.upper():
         log_analysis(f"❌ Critical error: fetched metrics ticker '{fetched_ticker}' does not match target ticker '{ticker}'!")
+        log_error(f"Fetched metrics ticker '{fetched_ticker}' does not match target ticker '{ticker}'", context=ticker)
         return
 
     # Log metrics summary
@@ -121,6 +127,7 @@ def generate_report(ticker, lang="TR", strict_llm=False):
 
     if commentary is None or not isinstance(commentary, dict) or not commentary.get("_is_llm_generated"):
         log_analysis(f"❌ LLM Commentary Error for {ticker}. Aborting report generation (No Fallbacks Allowed).")
+        log_error(f"LLM Commentary Error for {ticker}. Aborting report generation (No Fallbacks Allowed).", context=ticker)
         sys.exit(1)
 
     # Save commentary

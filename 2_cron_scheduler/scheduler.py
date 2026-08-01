@@ -15,6 +15,9 @@ except Exception:
     pass
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(BASE_DIR, "1_core_builder"))
+from logger import log_error
+
 LOGS_DIR = os.path.join(BASE_DIR, "storage", "logs")
 CRON_LOG_FILE = os.path.join(LOGS_DIR, "cron.log")
 APP_ENV_PATH = os.path.join(BASE_DIR, ".env")
@@ -185,8 +188,10 @@ def run_daily_job():
                 else:
                     problem = stdout_output.strip() if stdout_output else f"Exit code {proc.returncode}"
                     log_cron(f"❌ Error ({ticker}): {problem} - Moving to next ticker.")
+                    log_error(f"Cron batch failed for {ticker}: {problem}", context=f"cron:{ticker}")
             except Exception as e:
                 log_cron(f"❌ Error ({ticker}): {e} - Moving to next ticker.")
+                log_error(f"Cron batch exception for {ticker}: {e}", exc=e, context=f"cron:{ticker}")
 
             log_cron(f"{ticker} ended")
 

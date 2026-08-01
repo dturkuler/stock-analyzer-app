@@ -25,6 +25,9 @@ except Exception:
     pass
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(BASE_DIR, "1_core_builder"))
+from logger import log_error
+
 APP_ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(APP_ENV_PATH)
 load_dotenv()
@@ -466,11 +469,18 @@ def get_analysis_logs(x_admin_password: Optional[str] = Header(None)):
     return {"log": read_last_log_lines(log_path)}
 
 
+@app.get("/api/logs/errors")
+def get_error_logs(x_admin_password: Optional[str] = Header(None)):
+    verify_password_header(x_admin_password)
+    log_path = os.path.join(LOGS_DIR, "errors.log")
+    return {"log": read_last_log_lines(log_path)}
+
+
 @app.post("/api/logs/clear/{log_type}")
 def clear_logs(log_type: str, x_admin_password: Optional[str] = Header(None)):
     verify_password_header(x_admin_password)
     target_type = log_type.lower()
-    if target_type in ["cron", "analysis", "live", "all"]:
+    if target_type in ["cron", "analysis", "errors", "live", "all"]:
         if target_type in ["cron", "all"]:
             log_path = os.path.join(LOGS_DIR, "cron.log")
             try:
@@ -487,6 +497,14 @@ def clear_logs(log_type: str, x_admin_password: Optional[str] = Header(None)):
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Analysis log temizleme hatası: {e}")
             PROCESS_STATUS.clear()
+
+        if target_type in ["errors", "all"]:
+            log_path = os.path.join(LOGS_DIR, "errors.log")
+            try:
+                with open(log_path, "w", encoding="utf-8") as f:
+                    f.write("")
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Errors log temizleme hatası: {e}")
 
         if target_type == "live":
             PROCESS_STATUS.clear()

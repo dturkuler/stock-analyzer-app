@@ -15,6 +15,9 @@ import json
 import requests
 from dotenv import load_dotenv
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from logger import log_error
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(APP_ENV_PATH)
@@ -356,23 +359,27 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
         res = _robust_parse_json(raw_content, ticker, metrics, lang, log_fn=log_fn, llm_model=llm_model)
         if res is None:
             _log(f"   ❌ LLM Commentary parse failed for {ticker}. No fallback allowed.")
+            log_error(f"LLM Commentary parse failed for {ticker}", context=ticker)
         return res
 
     except requests.exceptions.ConnectionError as ce:
         err_msg = f"LLM endpoint unreachable at {llm_base_url} ({ce})"
         _log(f"   ❌ {err_msg}")
+        log_error(err_msg, exc=ce, context=ticker)
         if allow_fallback:
             return _fallback_commentary(ticker, metrics, lang)
         return None
     except requests.exceptions.Timeout as te:
         err_msg = f"LLM request timeout at {llm_base_url} after {timeout_val}s ({te})"
         _log(f"   ❌ {err_msg}")
+        log_error(err_msg, exc=te, context=ticker)
         if allow_fallback:
             return _fallback_commentary(ticker, metrics, lang)
         return None
     except Exception as e:
         err_msg = f"LLM commentary error for {ticker}: {e}"
         _log(f"   ❌ {err_msg}")
+        log_error(err_msg, exc=e, context=ticker)
         if allow_fallback:
             return _fallback_commentary(ticker, metrics, lang)
         return None
