@@ -161,20 +161,18 @@ def _robust_parse_json(raw_content: str, ticker: str, metrics: dict, lang: str, 
         return fallback
 
     cleaned = raw_content.strip()
-    if cleaned.startswith("```"):
-        first_newline = cleaned.find("\n")
-        if first_newline != -1:
-            cleaned = cleaned[first_newline + 1:]
-    if cleaned.endswith("```"):
-        cleaned = cleaned[:-3]
-    cleaned = cleaned.strip()
 
-    start_idx = cleaned.find("{")
-    end_idx = cleaned.rfind("}")
-    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-        json_str = cleaned[start_idx:end_idx + 1]
+    # Try extracting JSON from ```json ... ``` codeblock first (handles reasoning model outputs)
+    codeblock_match = re.search(r'```(?:json)?\s*(\{[\s\S]*\})\s*```', cleaned, re.IGNORECASE)
+    if codeblock_match:
+        json_str = codeblock_match.group(1).strip()
     else:
-        json_str = cleaned
+        start_idx = cleaned.find("{")
+        end_idx = cleaned.rfind("}")
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            json_str = cleaned[start_idx:end_idx + 1]
+        else:
+            json_str = cleaned
 
     parsed_data = None
 
@@ -311,11 +309,16 @@ def generate_commentary(metrics: dict, lang: str = "TR", log_fn=None, strict_llm
                 line_str = line_str[5:].strip()
             if line_str == "[DONE]":
                 break
+            if not line_str.startswith("{"):
+                continue
             try:
                 data = json.loads(line_str)
-                delta = data["choices"][0]["delta"]
-                txt = delta.get("content") or delta.get("reasoning_content") or ""
-                chunks.append(txt)
+                choices = data.get("choices", [])
+                if choices and len(choices) > 0:
+                    delta = choices[0].get("delta", {})
+                    txt = delta.get("content") or delta.get("reasoning") or delta.get("reasoning_content") or delta.get("text") or ""
+                    if txt:
+                        chunks.append(txt)
             except Exception:
                 pass
 
