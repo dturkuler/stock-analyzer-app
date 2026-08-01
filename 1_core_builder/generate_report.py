@@ -170,30 +170,46 @@ def generate_report(ticker, lang="TR", strict_llm=False):
                 altman_z REAL,
                 beneish_m REAL,
                 wacc_pct REAL,
+                dcf_fair_value REAL,
+                graham_number REAL,
+                lynch_fair_value REAL,
                 status TEXT NOT NULL,
                 error_message TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(ticker, report_date)
             );
         """)
+        for col in [("dcf_fair_value", "REAL"), ("graham_number", "REAL"), ("lynch_fair_value", "REAL")]:
+            try:
+                cur.execute(f"ALTER TABLE reports_index ADD COLUMN {col[0]} {col[1]};")
+            except Exception:
+                pass
+
         piotroski = metrics.get("piotroski_f_score", {}).get("score", None)
         altman_z = metrics.get("altman_z_score", {}).get("z_score", None)
         beneish_m = metrics.get("beneish_m_score", {}).get("m_score", metrics.get("beneish_m_score", {}).get("score", None))
         raw_wacc = metrics.get("valuation_parameters", {}).get("wacc")
         wacc = round(raw_wacc * 100, 2) if isinstance(raw_wacc, (int, float)) else None
 
+        dcf_val = metrics.get("dcf_valuation", {}).get("fair_value", metrics.get("dcf_valuation", {}).get("intrinsic_value", None))
+        graham_val = metrics.get("graham_number", {}).get("value", metrics.get("graham_number", {}).get("graham_number", None))
+        lynch_val = metrics.get("peter_lynch", {}).get("fair_value", metrics.get("peter_lynch", {}).get("value", None))
+
         cur.execute("""
-            INSERT INTO reports_index (ticker, report_date, file_path, piotroski_score, altman_z, beneish_m, wacc_pct, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'SUCCESS')
+            INSERT INTO reports_index (ticker, report_date, file_path, piotroski_score, altman_z, beneish_m, wacc_pct, dcf_fair_value, graham_number, lynch_fair_value, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SUCCESS')
             ON CONFLICT(ticker, report_date) DO UPDATE SET
                 file_path=excluded.file_path,
                 piotroski_score=excluded.piotroski_score,
                 altman_z=excluded.altman_z,
                 beneish_m=excluded.beneish_m,
                 wacc_pct=excluded.wacc_pct,
+                dcf_fair_value=excluded.dcf_fair_value,
+                graham_number=excluded.graham_number,
+                lynch_fair_value=excluded.lynch_fair_value,
                 status='SUCCESS',
                 created_at=CURRENT_TIMESTAMP;
-        """, (ticker, date_str, report_file, piotroski, altman_z, beneish_m, wacc))
+        """, (ticker, date_str, report_file, piotroski, altman_z, beneish_m, wacc, dcf_val, graham_val, lynch_val))
         conn.commit()
         conn.close()
         log_analysis(f"🗄️ Indexed report metadata in SQLite database ({db_path})")

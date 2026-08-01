@@ -205,12 +205,20 @@ def init_db():
             altman_z REAL,
             beneish_m REAL,
             wacc_pct REAL,
+            dcf_fair_value REAL,
+            graham_number REAL,
+            lynch_fair_value REAL,
             status TEXT NOT NULL,
             error_message TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(ticker, report_date)
         );
     """)
+    for col in [("dcf_fair_value", "REAL"), ("graham_number", "REAL"), ("lynch_fair_value", "REAL")]:
+        try:
+            cur.execute(f"ALTER TABLE reports_index ADD COLUMN {col[0]} {col[1]};")
+        except Exception:
+            pass
     cur.execute("""
         CREATE TABLE IF NOT EXISTS cron_config (
             id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -983,6 +991,23 @@ def get_stock_matrix(lang: str = "TR"):
         })
 
     return matrix_items
+
+
+@app.get("/api/valuation/history/{ticker}")
+def get_valuation_history(ticker: str):
+    ticker = ticker.strip().upper()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT report_date, piotroski_score, altman_z, beneish_m, wacc_pct, dcf_fair_value, graham_number, lynch_fair_value, created_at
+        FROM reports_index
+        WHERE ticker = ? AND status = 'SUCCESS'
+        ORDER BY report_date ASC
+    """, (ticker,))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return {"ticker": ticker, "history": rows}
 
 
 @app.get("/api/reprocess/stream/{ticker}")

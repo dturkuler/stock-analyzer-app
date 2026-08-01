@@ -36,7 +36,8 @@ try:
         get_reprocess_status,
         get_active_reprocess_status,
         get_access_logs,
-        get_connection_analytics
+        get_connection_analytics,
+        get_valuation_history
     )
     HAS_FASTAPI = True
 except ImportError:
@@ -179,6 +180,11 @@ class TestWebServerHandlers(unittest.TestCase):
         self.assertIn("total_unique_ips", analytics)
         self.assertIn("total_requests", analytics)
         self.assertIn("ip_stats", analytics)
+
+    def test_get_valuation_history(self):
+        history_res = get_valuation_history("ODINE.IS")
+        self.assertIn("ticker", history_res)
+        self.assertIn("history", history_res)
 
 
 if __name__ == "__main__":
