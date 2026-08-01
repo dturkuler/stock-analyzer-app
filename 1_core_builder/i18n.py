@@ -57,3 +57,19 @@ class I18nManager:
         return str(value)
 
 t = I18nManager.t
+
+def sanitize_report_date(date_str: str) -> str:
+    """
+    Sanitizes a report date string by stripping language suffixes (_TR, _EN),
+    file extensions (.html), and _printable markers.
+    
+    Example: '2026-08-01_TR' -> '2026-08-01'
+    """
+    if not date_str or not isinstance(date_str, str):
+        return ""
+    
+    clean = date_str.replace(".html", "").replace("_printable", "")
+    if clean.upper().endswith("_TR") or clean.upper().endswith("_EN"):
+        clean = clean[:-3]
+    return clean.strip()
+

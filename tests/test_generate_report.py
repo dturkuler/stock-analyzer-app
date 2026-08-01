@@ -86,6 +86,26 @@ class TestGenerateReportPipeline(unittest.TestCase):
         err_file_after = len(open(ERRORS_LOG_FILE, "r", encoding="utf-8").read()) if os.path.exists(ERRORS_LOG_FILE) else 0
         self.assertEqual(err_file_before, err_file_after, "Stock analysis must not log errors to errors.log on valid data")
 
+    def test_ensure_reports_index_schema(self):
+        """Verify that ensure_reports_index_schema creates tables and columns safely."""
+        import sqlite3
+        from db_schema import ensure_reports_index_schema
+        conn = sqlite3.connect(":memory:")
+        ensure_reports_index_schema(conn)
+        
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info(reports_index);")
+        cols = {row[1] for row in cur.fetchall()}
+        self.assertIn("dcf_fair_value", cols)
+        self.assertIn("graham_number", cols)
+        self.assertIn("lynch_fair_value", cols)
+        self.assertIn("stock_price", cols)
+
+        # Idempotency check: running second time shouldn't raise exception
+        ensure_reports_index_schema(conn)
+        conn.close()
+
 
 if __name__ == "__main__":
     unittest.main()
+

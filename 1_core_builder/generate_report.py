@@ -25,6 +25,8 @@ except Exception:
 # Add current directory to path for local imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from logger import log_error
+from db_schema import ensure_reports_index_schema
+
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGS_DIR = os.path.join(BASE_DIR, "storage", "logs")
@@ -173,31 +175,9 @@ def generate_report(ticker, lang="TR", strict_llm=False):
         import sqlite3
         db_path = os.path.join(BASE_DIR, "storage", "app.db")
         conn = sqlite3.connect(db_path)
+        ensure_reports_index_schema(conn)
         cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS reports_index (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ticker TEXT NOT NULL,
-                report_date TEXT NOT NULL,
-                file_path TEXT NOT NULL,
-                piotroski_score INTEGER,
-                altman_z REAL,
-                beneish_m REAL,
-                wacc_pct REAL,
-                dcf_fair_value REAL,
-                graham_number REAL,
-                lynch_fair_value REAL,
-                status TEXT NOT NULL,
-                error_message TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(ticker, report_date)
-            );
-        """)
-        for col in [("dcf_fair_value", "REAL"), ("graham_number", "REAL"), ("lynch_fair_value", "REAL")]:
-            try:
-                cur.execute(f"ALTER TABLE reports_index ADD COLUMN {col[0]} {col[1]};")
-            except Exception:
-                pass
+
 
         piotroski = metrics.get("piotroski_f_score", {}).get("score", None)
         altman_z = metrics.get("altman_z_score", {}).get("z_score", None)

@@ -5,8 +5,10 @@ Usage: py -m uvicorn .agents.skills.stock-analyzer-app.3_web_server.main:app --p
 
 import os
 import sys
+import re
 import glob
 import json
+
 import time
 import sqlite3
 import secrets
@@ -27,6 +29,9 @@ except Exception:
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(BASE_DIR, "1_core_builder"))
 from logger import log_error
+from db_schema import ensure_reports_index_schema
+from i18n import sanitize_report_date
+
 
 APP_ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(APP_ENV_PATH)
@@ -205,30 +210,7 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS reports_index (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ticker TEXT NOT NULL,
-            report_date TEXT NOT NULL,
-            file_path TEXT NOT NULL,
-            piotroski_score INTEGER,
-            altman_z REAL,
-            beneish_m REAL,
-            wacc_pct REAL,
-            dcf_fair_value REAL,
-            graham_number REAL,
-            lynch_fair_value REAL,
-            status TEXT NOT NULL,
-            error_message TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(ticker, report_date)
-        );
-    """)
-    for col in [("dcf_fair_value", "REAL"), ("graham_number", "REAL"), ("lynch_fair_value", "REAL")]:
-        try:
-            cur.execute(f"ALTER TABLE reports_index ADD COLUMN {col[0]} {col[1]};")
-        except Exception:
-            pass
+    ensure_reports_index_schema(conn)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS cron_config (
             id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -269,10 +251,7 @@ def init_db():
                 if os.path.isdir(t_dir) and not ticker.startswith(".") and ticker.upper() not in {"BATCH", "TMP", "TEMP"}:
                     for f in glob.glob(os.path.join(t_dir, "*.html")):
                         if not f.endswith("_printable.html"):
-                            base_name = os.path.basename(f).replace(".html", "")
-                            if base_name.endswith("_TR") or base_name.endswith("_EN"):
-                                base_name = base_name[:-3]
-                            report_date = base_name
+                            report_date = sanitize_report_date(os.path.basename(f))
                             price_val = None
                             piotroski = None
                             altman_z = None
@@ -296,8 +275,8 @@ def init_db():
                                 if ben_m: beneish_m = _parse_metric_num(ben_m.group(1))
                                 wacc_m = re.search(r"WACC[^\d\.-]*(?:%|=)?\s*%?\s*([\d\.,]+)\s*%", html_txt, re.I) or re.search(r"WACC[^\d\.-]*([\d\.,]+)", html_txt, re.I)
                                 if wacc_m: wacc = _parse_metric_num(wacc_m.group(1))
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                log_error("Error reading or parsing HTML report file during DB indexing", exc=e, context=f)
 
                             cur.execute("""
                                 INSERT INTO reports_index (ticker, report_date, file_path, stock_price, piotroski_score, altman_z, beneish_m, wacc_pct, status)
@@ -313,7 +292,7 @@ def init_db():
                             """, (ticker, report_date, f, price_val, piotroski, altman_z, beneish_m, wacc))
             conn.commit()
         except Exception as e:
-            print(f"⚠️ Error syncing reports_index on init: {e}")
+            log_error("Error syncing reports_index on init", exc=e)
 
     cur.execute("SELECT COUNT(*) FROM watchlist")
     if cur.fetchone()[0] == 0 and os.path.exists(WATCHLIST_PATH):
@@ -324,7 +303,7 @@ def init_db():
                 cur.execute("INSERT OR IGNORE INTO watchlist (ticker, company_name, is_active) VALUES (?, ?, 1)", (t, t))
             conn.commit()
         except Exception as e:
-            print(f"⚠️ Error seeding DB from watchlist.json: {e}")
+            log_error("Error seeding DB from watchlist.json", exc=e)
     conn.close()
 
 init_db()
@@ -1126,10 +1105,7 @@ def get_dates(ticker: str):
     files = glob.glob(os.path.join(ticker_dir, "*.html"))
     dates = []
     for f in files:
-        base = os.path.basename(f).replace(".html", "").replace("_printable", "")
-        if base.endswith("_TR") or base.endswith("_EN"):
-            base = base[:-3]
-        dates.append(base)
+        dates.append(sanitize_report_date(os.path.basename(f)))
     unique_dates = sorted(list(set(dates)), reverse=True)
     return unique_dates
 

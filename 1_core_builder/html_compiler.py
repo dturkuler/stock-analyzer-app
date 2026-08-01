@@ -21,11 +21,14 @@ import datetime
 from logger import log_error
 
 try:
-    from i18n import t
+    from i18n import t, sanitize_report_date
 except ImportError:
     import importlib
-    t = importlib.import_module("1_core_builder.i18n").t
+    _i18n_mod = importlib.import_module("1_core_builder.i18n")
+    t = _i18n_mod.t
+    sanitize_report_date = _i18n_mod.sanitize_report_date
 import re
+
 
 
 def _fmt_curr(val, is_en=False, decimals=2):
@@ -196,9 +199,7 @@ def _render_svg_line_chart_python(title, history, key, color, prefix="", suffix=
         if key == "market_cap" and v is not None:
             v = v / 1e9  # Billions
         if v is not None and not (isinstance(v, float) and math.isnan(v)):
-            raw_date = str(h.get("report_date", ""))
-            if raw_date.endswith("_TR") or raw_date.endswith("_EN"):
-                raw_date = raw_date[:-3]
+            raw_date = sanitize_report_date(str(h.get("report_date", "")))
             short_date = (raw_date[4:6] + "-" + raw_date[6:8]) if len(raw_date) == 8 else (raw_date[5:] if len(raw_date)>=10 else raw_date)
             valid_points.append({"val": float(v), "date": raw_date, "shortDate": short_date})
             
@@ -323,9 +324,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
     gfx_table_rows = []
     for gh in gfx_history:
-        d = str(gh.get("report_date", ""))
-        if d.endswith("_TR") or d.endswith("_EN"):
-            d = d[:-3]
+        d = sanitize_report_date(str(gh.get("report_date", "")))
         p_str = f"{curr_sym}{gh['stock_price']:.2f}" if gh.get("stock_price") is not None else "-"
         mc = gh.get("market_cap")
         mc_str = f"{curr_sym}{mc/1e9:.2f}B" if (mc and abs(mc) >= 1e9) else (f"{curr_sym}{mc/1e6:.2f}M" if mc else "-")

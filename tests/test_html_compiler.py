@@ -10,8 +10,10 @@ from html_compiler import (
     _fmt_pct,
     _fmt_num,
     compile_report,
-    compile_printable_report
+    compile_printable_report,
+    sanitize_report_date
 )
+
 
 
 class TestHTMLCompiler(unittest.TestCase):
@@ -50,6 +52,19 @@ class TestHTMLCompiler(unittest.TestCase):
         self.assertIsInstance(printable_html, str)
         self.assertIn("TEST.IS", printable_html)
         self.assertIn("@media print", printable_html)
+
+    def test_sanitize_report_date(self):
+        self.assertEqual(sanitize_report_date("2026-08-01_TR"), "2026-08-01")
+        self.assertEqual(sanitize_report_date("2026-08-01_EN"), "2026-08-01")
+        self.assertEqual(sanitize_report_date("2026-08-01_TR.html"), "2026-08-01")
+        self.assertEqual(sanitize_report_date("2026-08-01_printable.html"), "2026-08-01")
+        self.assertEqual(sanitize_report_date("2026-08-01"), "2026-08-01")
+        self.assertEqual(sanitize_report_date(""), "")
+
+
+if __name__ == "__main__":
+    unittest.main()
+
 
 
 if __name__ == "__main__":
