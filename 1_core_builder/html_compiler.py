@@ -777,7 +777,6 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <div class="ticker-sub">Executive Equity Research & AI Quantitative Intelligence Dashboard</div>
       </div>
       <div class="meta-pills">
-        {f'<div class="pill pill-emerald" style="border-color: #10b981; font-weight: 700;">🤖 Live AI Analysis ({commentary.get("_llm_model", "opencode_combo")})</div>' if commentary.get("_is_llm_generated", False) else '<div class="pill" style="color: #f59e0b; border-color: #f59e0b; font-weight: 700;">⚠️ Quantitative Fallback</div>'}
         <div class="pill" style="color: #9ca3af; border-color: rgba(255, 255, 255, 0.15);">📅 {date_str}</div>
         <div class="pill pill-cyan">Fiyat: {_fmt_try(price)}</div>
         <div class="pill pill-emerald">WACC: {_fmt_pct(wacc)}</div>
