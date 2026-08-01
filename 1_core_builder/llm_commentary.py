@@ -61,7 +61,7 @@ GEREKLİ STAGE 1 JSON ANAHTARLARI:
 15. "technical_analysis": 2 detaylı paragraflık teknik momentum ve kritik seviyeler analizi
 16. "forensic_audit": 2 detaylı paragraflık Beneish M-Score adli muhasebe ve mevzuat güvenliği analizi
 17. "scenario_analysis": Sert düşüş, Ayı, Baz ve Boğa senaryoları yorumu
-18. "investment_verdict": Şirketin finansal verilerine ve risk profilimize göre dinamik bir başlık (örneğin POZİTİF MODEL GÖRÜŞÜ, YÜKSEK RİSK GÖRÜŞÜ veya DENGELİ MODEL GÖRÜŞÜ) ile başlayan 2-3 cümlelik nihai yatırım kararı sentezi
+18. "investment_verdict": Şirketin metriklerine (Piotroski, Altman Z, Net Borç/Kasa, P/S) tam uyumlu özgün bir derecelendirme başlığı (örneğin 🟢 GÜÇLÜ MODEL ALIM, 🔴 YÜKSEK İFLAS VE PAHALILIK RİSKİ veya 🟡 TEMKİNLİ NÖTR GÖRÜŞ) ile başlayan 2-3 cümlelik şirket adı ve rakam içeren dinamik nihai karar sentezi.
 """
 
 STAGE1_PROMPT_EN = """You are a Senior Financial Quant and Forensic Balance Sheet Auditor.
@@ -95,7 +95,7 @@ REQUIRED STAGE 1 JSON KEYS:
 15. "technical_analysis": 2-paragraph detailed technical momentum and key price levels analysis
 16. "forensic_audit": 2-paragraph detailed Beneish M-Score forensic accounting audit analysis
 17. "scenario_analysis": Severe downside, Bear, Base, and Bull target scenarios commentary
-18. "investment_verdict": Final investment verdict synthesis starting with a dynamic data-driven model title (e.g. POSITIVE MODEL OUTLOOK, HIGH RISK MODEL OUTLOOK, or BALANCED MODEL OUTLOOK)
+18. "investment_verdict": Dynamic stock-specific synthesis starting with a quantitative rating title (e.g. 🟢 BULLISH QUANT RATING, 🔴 HIGH DISTRESS RISK, or 🟡 NEUTRAL OUTLOOK) followed by 2-3 company-specific sentences with exact numbers.
 """
 
 # ═════════════════════════════════════════════════════════════════════════
