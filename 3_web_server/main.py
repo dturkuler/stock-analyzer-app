@@ -708,6 +708,19 @@ def reprocess_single_stock(ticker: str, background_tasks: BackgroundTasks, x_adm
     return {"message": f"Report generation queued for {ticker} (Lang: {lang}).", "status": "QUEUED"}
 
 
+@app.get("/api/reprocess/active")
+def get_active_reprocess_status(x_admin_password: Optional[str] = Header(None)):
+    verify_password_header(x_admin_password)
+    for key, val in PROCESS_STATUS.items():
+        if val.get("status") == "RUNNING":
+            return {"active": True, "ticker": key, "status": "RUNNING", "log": val.get("log", [])}
+    if PROCESS_STATUS:
+        latest_key = list(PROCESS_STATUS.keys())[-1]
+        val = PROCESS_STATUS[latest_key]
+        return {"active": False, "ticker": latest_key, "status": val.get("status", "IDLE"), "log": val.get("log", [])}
+    return {"active": False, "ticker": None, "status": "IDLE", "log": []}
+
+
 @app.get("/api/reprocess/status/{ticker}")
 def get_reprocess_status(ticker: str):
     ticker = ticker.strip().upper()
@@ -2691,8 +2704,32 @@ def index():
                 if (tabError) tabError.classList.toggle('active', type === 'errors');
                 if (tabLive) tabLive.classList.toggle('active', type === 'live');
 
-                if (type !== 'live') {
+                if (type === 'live') {
+                    fetchLiveLogs();
+                } else {
                     fetchFileLogs();
+                }
+            }
+
+            async function fetchLiveLogs() {
+                const box = document.getElementById('fileConsoleBox');
+                if (!box) return;
+                try {
+                    const res = await fetch('/api/reprocess/active', { headers: getAdminHeaders() });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.active && data.ticker) {
+                            startSseStream(data.ticker);
+                        } else if (data.log && data.log.length > 0) {
+                            const header = `⚡ [${data.ticker || 'LIVE'}] Son Canlı İşlem Çıktısı / Latest Execution Log (${data.status}):\n--------------------------------------------------\n`;
+                            box.innerText = header + data.log.join('\n');
+                            box.scrollTop = box.scrollHeight;
+                        } else {
+                            box.innerText = "⚡ Canlı İşlem Çıktısı (Live)\n--------------------------------------------------\nŞu anda aktif çalışan bir analiz işlemi bulunmuyor.\nNo active stock analysis process currently running.";
+                        }
+                    }
+                } catch(e) {
+                    if (box) box.innerText = `🔴 Live log yükleme hatası: ${e.message}`;
                 }
             }
 

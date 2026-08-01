@@ -33,7 +33,8 @@ try:
         clear_logs,
         get_report,
         get_dates,
-        get_reprocess_status
+        get_reprocess_status,
+        get_active_reprocess_status
     )
     HAS_FASTAPI = True
 except ImportError:
@@ -161,6 +162,11 @@ class TestWebServerHandlers(unittest.TestCase):
     def test_get_reprocess_status_idle(self):
         status = get_reprocess_status("NON_EXISTENT_TICKER")
         self.assertEqual(status.get("status"), "IDLE")
+
+    def test_get_active_reprocess_status(self):
+        status = get_active_reprocess_status(x_admin_password=self.admin_password)
+        self.assertIn("active", status)
+        self.assertIn("status", status)
 
 
 if __name__ == "__main__":
