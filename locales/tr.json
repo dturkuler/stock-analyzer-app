@@ -13,6 +13,7 @@
     "historical_liquidity": "Tarihsel Finansallar & Likidite",
     "reverse_dcf": "Ters DCF Hesaplayıcı",
     "risk_summary": "Algoritmik Risk Modeli Özeti",
+    "gfx_analytics": "GFX Zaman Serisi Analizi",
     "ai_commentary": "AI Finansal Analiz Yorumu"
   },
   "dcf": {

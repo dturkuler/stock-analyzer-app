@@ -13,6 +13,7 @@
     "historical_liquidity": "Historical Financials & Liquidity",
     "reverse_dcf": "Reverse DCF Calculator",
     "risk_summary": "Algorithmic Risk Model Summary",
+    "gfx_analytics": "GFX Time Series Analytics",
     "ai_commentary": "AI Financial Analysis Commentary"
   },
   "dcf": {

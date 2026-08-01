@@ -765,6 +765,7 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
         <li class="nav-item" onclick="switchTab('ratios')" data-i18n="tab_ratios">📈 {t("nav.historical_liquidity", lang=lang)}</li>
         <li class="nav-item" onclick="switchTab('calc')" data-i18n="tab_calc">⚡ {t("nav.reverse_dcf", lang=lang)}</li>
         <li class="nav-item" onclick="switchTab('verdict')" data-i18n="tab_verdict">🎯 {t("nav.risk_summary", lang=lang)}</li>
+        <li class="nav-item" onclick="switchTab('gfx')" data-i18n="tab_gfx">📊 {t("nav.gfx_analytics", lang=lang)}</li>
         <li class="nav-item" onclick="switchTab('analyst')" data-i18n="tab_analyst">🤖 {t("nav.ai_commentary", lang=lang)}</li>
       </ul>
     </div>
@@ -1351,7 +1352,28 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       </div>
     </div>
 
-    <!-- TAB 12: AI FINANCIAL COMMENTARY -->
+    <!-- TAB 12: GFX FINANCIAL TIME SERIES ANALYTICS -->
+    <div id="gfx" class="tab-pane">
+      <div class="investor-guide-box">
+        <div class="guide-title">{"💡 WHAT IS GFX TIME SERIES ANALYTICS?" if is_en else "💡 GFX ZAMAN SERİSİ ANALİTİĞİ NEDİR?"}</div>
+        <div class="guide-text">
+          {"This section tracks the historical time-series trends for " + company_name + " across all 9 key metrics: Stock Price, Market Cap, Piotroski F-Score, Altman Z-Score, Beneish M-Score, WACC %, DCF Fair Value, Graham Number, and Lynch Value." if is_en else f"Bu bölüm, {company_name} şirketinin tüm 9 temel finansal metriğinin (Hisse Fiyatı, Piyasa Değeri, Piotroski F-Score, Altman Z-Score, Beneish M-Score, WACC %, DCF Hedef, Graham No ve Lynch Value) tarihsel zaman serisi değişim grafiklerini sunar."}
+        </div>
+      </div>
+
+      <div class="analyst-header" style="margin-bottom: 1.5rem;">
+        <h2 class="analyst-heading">{"📊 GFX Financial Time Series Analytics" if is_en else "📊 GFX Finansal Zaman Serisi & Tarihsel Trend Analizi"}</h2>
+        <div class="analyst-sub">{"Historical Metric Trajectory & Valuation Trends — " if is_en else "Tarihsel Değerleme & Adli Muhasebe Metrik Değişim Trendleri — "}{company_name} ({ticker})</div>
+      </div>
+
+      <div id="gfxTabChartsContainer" class="card" style="padding:1.25rem;">
+        <div style="text-align:center; padding:2rem; color:var(--text-muted);">
+          ⏳ {"Loading GFX time series charts and historical database records..." if is_en else "GFX zaman serisi grafikleri ve tarihsel veri kayıtları yükleniyor..."}
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 13: AI FINANCIAL COMMENTARY -->
     <div id="analyst" class="tab-pane">
       <div class="investor-guide-box">
         <div class="guide-title">{"💡 WHAT IS AI QUANT SYNTHESIS?" if is_en else "💡 YAPAY ZEKÂ SENTEZİ NEDİR?"}</div>
@@ -1695,9 +1717,125 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
       }}
     }};
 
-    function toggleMobileMenu() {{
-      const nav = document.getElementById('sidebarMenuNav');
-      if (nav) nav.classList.toggle('active');
+    async function loadGfxTabContent() {{
+      const container = document.getElementById('gfxTabChartsContainer');
+      if (!container || container.getAttribute('data-loaded') === 'true') return;
+      
+      try {{
+        const res = await fetch('/api/valuation/history/' + encodeURIComponent('{ticker}'));
+        if (!res.ok) throw new Error('API fetch failed');
+        const data = await res.json();
+        const history = data.history || [];
+        if (history.length === 0) {{
+          container.innerHTML = '<div style="padding:2rem; text-align:center; color:var(--text-muted);">No historical GFX snapshot records found in storage for {ticker}.</div>';
+          return;
+        }}
+        
+        const dates = history.map(h => h.report_date);
+        const prices = history.map(h => h.stock_price);
+        const mcaps = history.map(h => h.market_cap != null ? h.market_cap / 1e9 : null);
+        const piotroski = history.map(h => h.piotroski_score);
+        const altman = history.map(h => h.altman_z);
+        const beneish = history.map(h => h.beneish_m);
+        const wacc = history.map(h => h.wacc_pct);
+        const dcf = history.map(h => h.dcf_fair_value);
+        const graham = history.map(h => h.graham_number);
+        const lynch = history.map(h => h.lynch_fair_value);
+
+        function renderSvgLine(title, dataPoints, labels, strokeColor, prefix='', suffix='', decimals=2) {{
+          const valid = dataPoints.filter(v => v != null);
+          if (valid.length === 0) return `<div class="admin-card" style="padding:1rem;"><strong>${{title}}</strong><br><span style="color:var(--text-muted); font-size:0.85rem;">No data points</span></div>`;
+          const min = Math.min(...valid);
+          const max = Math.max(...valid);
+          const range = (max - min) === 0 ? 1 : (max - min);
+          
+          const width = 360, height = 130, pad = 24;
+          const points = dataPoints.map((val, idx) => {{
+            const x = pad + (idx / Math.max(1, dataPoints.length - 1)) * (width - 2 * pad);
+            const y = height - pad - ((val - min) / range) * (height - 2 * pad);
+            return {{x, y, val, label: labels[idx]}};
+          }});
+
+          const polyline = points.map(p => `${{p.x.toFixed(1)}},${{p.y.toFixed(1)}}`).join(' ');
+          const circles = points.map(p => `<circle cx="${{p.x.toFixed(1)}}" cy="${{p.y.toFixed(1)}}" r="4" fill="${{strokeColor}}"><title>${{p.label}}: ${{prefix}}${{p.val != null ? p.val.toFixed(decimals) : '-'}}${{suffix}}</title></circle>`).join('');
+
+          return `
+            <div class="admin-card" style="padding:1rem; background:rgba(15, 23, 42, 0.6); border:1px solid rgba(255,255,255,0.08); border-radius:10px;">
+              <div style="font-weight:700; color:#e2e8f0; font-size:0.9rem; margin-bottom:0.4rem; display:flex; justify-content:space-between;">
+                <span>${{title}}</span>
+                <span style="color:${{strokeColor}}; font-size:0.85rem;">Son: ${{prefix}}${{valid[valid.length-1].toFixed(decimals)}}${{suffix}}</span>
+              </div>
+              <svg viewBox="0 0 ${{width}} ${{height}}" style="width:100%; height:130px; overflow:visible;">
+                <polyline fill="none" stroke="${{strokeColor}}" stroke-width="2.5" points="${{polyline}}" />
+                ${{circles}}
+              </svg>
+            </div>
+          `;
+        }}
+
+        let html = `
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
+            ${{renderSvgLine('📈 Hisse Fiyatı (Stock Price)', prices, dates, '#06b6d4', '₺')}}
+            ${{renderSvgLine('🏢 Piyasa Değeri (Market Cap)', mcaps, dates, '#a855f7', '₺', 'B')}}
+            ${{renderSvgLine('🔥 Piotroski F-Score (0-9)', piotroski, dates, '#10b981', '', '/9', 0)}}
+            ${{renderSvgLine('🛡️ Altman Z-Score', altman, dates, '#3b82f6')}}
+            ${{renderSvgLine('🕵️ Beneish M-Score', beneish, dates, '#f59e0b')}}
+            ${{renderSvgLine('⚡ WACC % Trend', wacc, dates, '#f43f5e', '', '%')}}
+            ${{renderSvgLine('🎯 DCF Hedef (Fair Value)', dcf, dates, '#10b981', '₺')}}
+            ${{renderSvgLine('🏛️ Graham No (Graham Number)', graham, dates, '#6366f1', '₺')}}
+            ${{renderSvgLine('⚡ Lynch Value (Peter Lynch)', lynch, dates, '#14b8a6', '₺')}}
+          </div>
+
+          <div style="margin-top:1.5rem;">
+            <div style="font-weight:700; color:var(--accent-cyan); font-size:1rem; margin-bottom:0.75rem;">📋 Tüm Metrik & Değer Tarihçe Tablosu (All Historical Metrics & Values)</div>
+            <div style="overflow-x:auto;">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Tarih</th>
+                    <th>Hisse Fiyatı</th>
+                    <th>Piyasa Değeri</th>
+                    <th>Piotroski F</th>
+                    <th>Altman Z</th>
+                    <th>Beneish M</th>
+                    <th>WACC %</th>
+                    <th>DCF Hedef</th>
+                    <th>Graham No</th>
+                    <th>Lynch Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${{history.map(h => {{
+                    let mcapStr = '-';
+                    if (h.market_cap != null) {{
+                      mcapStr = Math.abs(h.market_cap) >= 1e9 ? ('₺' + (h.market_cap/1e9).toFixed(2) + 'B') : ('₺' + (h.market_cap/1e6).toFixed(2) + 'M');
+                    }}
+                    return `
+                    <tr>
+                      <td><strong>${{h.report_date}}</strong></td>
+                      <td>${{h.stock_price != null ? '₺' + h.stock_price.toFixed(2) : '-'}}</td>
+                      <td>${{mcapStr}}</td>
+                      <td>${{h.piotroski_score ?? '-'}}</td>
+                      <td>${{h.altman_z != null ? h.altman_z.toFixed(2) : '-'}}</td>
+                      <td>${{h.beneish_m != null ? h.beneish_m.toFixed(2) : '-'}}</td>
+                      <td>${{h.wacc_pct != null ? h.wacc_pct.toFixed(2) + '%' : '-'}}</td>
+                      <td>${{h.dcf_fair_value != null ? '₺' + h.dcf_fair_value.toFixed(2) : '-'}}</td>
+                      <td>${{h.graham_number != null ? '₺' + h.graham_number.toFixed(2) : '-'}}</td>
+                      <td>${{h.lynch_fair_value != null ? '₺' + h.lynch_fair_value.toFixed(2) : '-'}}</td>
+                    </tr>
+                    `;
+                  }}).join('')}}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+
+        container.innerHTML = html;
+        container.setAttribute('data-loaded', 'true');
+      }} catch (err) {{
+        container.innerHTML = '<div style="padding:1.5rem; color:#f87171;">⚠️ Error loading GFX analytics time series: ' + err.message + '</div>';
+      }}
     }}
 
     function switchTab(tabId) {{
@@ -1712,6 +1850,10 @@ def compile_report(metrics: dict, commentary: dict, lang: str = None) -> str:
 
       const nav = document.getElementById('sidebarMenuNav');
       if (nav) nav.classList.remove('active');
+
+      if (tabId === 'gfx' && typeof loadGfxTabContent === 'function') {{
+        loadGfxTabContent();
+      }}
 
       window.scrollTo({{ top: 0, behavior: 'smooth' }});
     }}
